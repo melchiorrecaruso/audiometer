@@ -31,7 +31,7 @@ uses
 
 begin
   requirederivedformresource:=true;
-  application.title:='AudioMeter';
+  Application.Title:='AudioMeter';
   application.scaled:=true;
   application.initialize;
   application.createform(taudiofrm, audiofrm);

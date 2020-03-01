@@ -1,0 +1,15 @@
+[Desktop Entry]
+Name=AudioMeter
+GenericName= Dynamic Range Meter
+Comment=A Simple dynamic range meter
+Keywords=audio;
+
+Icon=/opt/audiometer/icons/audiometer.ico
+
+Type=Application
+Categories=Audio;
+
+Exec=/usr/bin/audiometer
+StartupNotify=false
+Terminal=false
+MimeType=audio/x-wav;

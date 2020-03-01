@@ -3,7 +3,7 @@ object audiofrm: Taudiofrm
   Height = 440
   Top = 101
   Width = 700
-  Caption = 'Audio Meter'
+  Caption = 'Audio Meter 0.1'
   ClientHeight = 440
   ClientWidth = 700
   Color = clGray
