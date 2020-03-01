@@ -1,0 +1,596 @@
+object audiofrm: Taudiofrm
+  Left = 318
+  Height = 440
+  Top = 101
+  Width = 700
+  Caption = 'Audio Meter'
+  ClientHeight = 440
+  ClientWidth = 700
+  Color = clGray
+  Constraints.MinHeight = 440
+  Constraints.MinWidth = 700
+  Font.Style = [fsBold]
+  OnCloseQuery = FormCloseQuery
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  LCLVersion = '2.1.0.0'
+  object bit8: TLabel
+    AnchorSideLeft.Control = Bevel1
+    AnchorSideTop.Control = Bevel1
+    Left = 26
+    Height = 16
+    Top = 35
+    Width = 24
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 5
+    Caption = '8-bit'
+    Color = clBlack
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+    Transparent = False
+  end
+  object bit16: TLabel
+    AnchorSideLeft.Control = bit8
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = bit8
+    AnchorSideBottom.Control = bit8
+    AnchorSideBottom.Side = asrBottom
+    Left = 61
+    Height = 16
+    Top = 35
+    Width = 30
+    Anchors = [akTop, akLeft, akBottom]
+    BorderSpacing.Left = 11
+    Caption = '16-bit'
+    Color = clBlack
+    ParentColor = False
+    Transparent = False
+  end
+  object bit24: TLabel
+    AnchorSideLeft.Control = bit16
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = bit16
+    AnchorSideRight.Control = Bevel1
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = bit16
+    AnchorSideBottom.Side = asrBottom
+    Left = 104
+    Height = 16
+    Top = 35
+    Width = 30
+    Anchors = [akTop, akRight, akBottom]
+    BorderSpacing.Left = 8
+    BorderSpacing.Right = 6
+    Caption = '24-bit'
+    Color = clBlack
+    ParentColor = False
+    Transparent = False
+  end
+  object Bevel1: TBevel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = Owner
+    Left = 20
+    Height = 1
+    Top = 30
+    Width = 120
+    BorderSpacing.Left = 20
+    BorderSpacing.Top = 30
+  end
+  object Bevel2: TBevel
+    AnchorSideLeft.Control = Bevel1
+    AnchorSideTop.Control = Bevel1
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Bevel1
+    AnchorSideRight.Side = asrBottom
+    Left = 20
+    Height = 1
+    Top = 55
+    Width = 120
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 24
+  end
+  object khz44: TLabel
+    AnchorSideLeft.Control = Bevel1
+    AnchorSideTop.Control = Bevel2
+    AnchorSideTop.Side = asrBottom
+    Left = 26
+    Height = 16
+    Top = 61
+    Width = 43
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 5
+    Caption = '44.1 khz'
+    Color = clBlack
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+    Transparent = False
+  end
+  object khz48: TLabel
+    AnchorSideLeft.Control = khz44
+    AnchorSideTop.Control = khz44
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = khz44
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Side = asrBottom
+    Left = 35
+    Height = 16
+    Top = 79
+    Width = 34
+    Anchors = [akTop, akRight]
+    BorderSpacing.Left = 6
+    BorderSpacing.Top = 2
+    Caption = '48 khz'
+    Color = clBlack
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+    Transparent = False
+  end
+  object khz88: TLabel
+    AnchorSideLeft.Control = khz48
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = khz48
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = khz48
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Side = asrBottom
+    Left = 26
+    Height = 16
+    Top = 97
+    Width = 43
+    Anchors = [akTop, akRight]
+    BorderSpacing.Left = 8
+    BorderSpacing.Top = 2
+    Caption = '88.2 khz'
+    Color = clBlack
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+    Transparent = False
+  end
+  object khz96: TLabel
+    AnchorSideTop.Control = khz44
+    AnchorSideRight.Control = bit24
+    AnchorSideRight.Side = asrBottom
+    Left = 100
+    Height = 16
+    Top = 63
+    Width = 34
+    Anchors = [akTop, akRight]
+    BorderSpacing.Top = 2
+    Caption = '96 khz'
+    Color = clBlack
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+    Transparent = False
+  end
+  object Bevel3: TBevel
+    AnchorSideLeft.Control = Bevel1
+    AnchorSideTop.Control = khz88
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Bevel1
+    AnchorSideRight.Side = asrBottom
+    Left = 20
+    Height = 1
+    Top = 117
+    Width = 120
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 4
+  end
+  object mono: TLabel
+    AnchorSideTop.Control = Bevel3
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = khz88
+    AnchorSideRight.Side = asrBottom
+    Left = 38
+    Height = 16
+    Top = 123
+    Width = 31
+    Anchors = [akTop, akRight]
+    BorderSpacing.Top = 5
+    Caption = 'mono'
+    Color = clBlack
+    ParentColor = False
+    Transparent = False
+  end
+  object stereo: TLabel
+    AnchorSideLeft.Control = khz96
+    AnchorSideTop.Control = Bevel3
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = khz96
+    AnchorSideRight.Side = asrBottom
+    Left = 100
+    Height = 16
+    Top = 123
+    Width = 34
+    Anchors = [akTop, akRight]
+    BorderSpacing.Top = 5
+    Caption = 'stereo'
+    Color = clBlack
+    ParentColor = False
+    Transparent = False
+  end
+  object khz192: TLabel
+    AnchorSideTop.Control = khz176
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = khz96
+    AnchorSideRight.Side = asrBottom
+    Left = 97
+    Height = 16
+    Top = 99
+    Width = 37
+    Anchors = [akTop, akRight]
+    BorderSpacing.Top = 2
+    Caption = '192khz'
+    Color = clBlack
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+    Transparent = False
+  end
+  object khz176: TLabel
+    AnchorSideTop.Control = khz96
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = khz96
+    AnchorSideRight.Side = asrBottom
+    Left = 85
+    Height = 16
+    Top = 81
+    Width = 49
+    Anchors = [akTop, akRight]
+    BorderSpacing.Top = 2
+    Caption = '176.4 khz'
+    Color = clBlack
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+    Transparent = False
+  end
+  object drlb: TStaticText
+    AnchorSideLeft.Control = Bevel1
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 160
+    Height = 112
+    Top = 20
+    Width = 142
+    AutoSize = True
+    BorderSpacing.Left = 20
+    BorderSpacing.Top = 20
+    Caption = 'DR'
+    Color = clBlack
+    Font.Color = clWhite
+    Font.Height = -96
+    Font.Name = 'Sans'
+    Font.Style = [fsBold]
+    ParentFont = False
+    ParentColor = False
+    TabOrder = 0
+  end
+  object audio: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 26
+    Height = 16
+    Top = 10
+    Width = 31
+    BorderSpacing.Left = 26
+    BorderSpacing.Top = 10
+    BorderSpacing.Bottom = 5
+    Caption = 'Audio'
+    Color = clBlack
+    Font.Color = clWhite
+    Font.Style = [fsBold]
+    ParentColor = False
+    ParentFont = False
+    Transparent = False
+  end
+  object drvalue: TStaticText
+    AnchorSideLeft.Control = drlb
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = drlb
+    AnchorSideBottom.Side = asrBottom
+    Left = 307
+    Height = 112
+    Top = 20
+    Width = 68
+    AutoSize = True
+    BorderSpacing.Left = 5
+    Caption = '--'
+    Color = clBlack
+    Font.Color = clWhite
+    Font.Height = -96
+    Font.Name = 'Sans'
+    Font.Style = [fsBold]
+    ParentFont = False
+    ParentColor = False
+    TabOrder = 1
+  end
+  object dbchart: TChart
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = mono
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 3
+    Height = 282
+    Top = 153
+    Width = 694
+    AllowPanning = False
+    AllowZoom = False
+    AxisList = <    
+      item
+        Grid.Visible = False
+        Marks.LabelFont.Color = clWhite
+        Marks.LabelFont.Height = -13
+        Marks.LabelFont.Name = 'Sans'
+        Marks.LabelBrush.Style = bsClear
+        Minors = <>
+        Range.Max = 100
+        Range.UseMax = True
+        Range.UseMin = True
+        Title.LabelFont.Color = clWhite
+        Title.LabelFont.Height = -13
+        Title.LabelFont.Name = 'Sans'
+        Title.LabelFont.Orientation = 900
+        Title.LabelFont.Style = [fsBold]
+        Title.Visible = True
+        Title.Caption = 'dB'
+        Title.LabelBrush.Style = bsClear
+      end    
+      item
+        Grid.Visible = False
+        Alignment = calBottom
+        Arrow.Visible = True
+        Marks.LabelFont.Color = clWhite
+        Marks.LabelBrush.Style = bsClear
+        Minors = <>
+        Range.Max = 70
+        Range.UseMax = True
+        Range.UseMin = True
+        Title.LabelFont.Color = clWhite
+        Title.LabelFont.Height = -13
+        Title.LabelFont.Name = 'Sans'
+        Title.LabelFont.Style = [fsBold]
+        Title.Visible = True
+        Title.Caption = 'BlockNum'
+        Title.LabelBrush.Style = bsClear
+      end>
+    BackColor = clBlack
+    Foot.Brush.Color = clBtnFace
+    Foot.Font.Color = clBlue
+    Title.Brush.Color = clBtnFace
+    Title.Font.Color = clBlue
+    Title.Text.Strings = (
+      ''
+    )
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderSpacing.Left = 3
+    BorderSpacing.Top = 30
+    BorderSpacing.Right = 3
+    BorderSpacing.Bottom = 5
+    Color = clBlack
+    object rmseries: TBarSeries
+      BarBrush.Color = clYellow
+      Source = rms
+    end
+    object peakseries: TBarSeries
+      BarBrush.Color = clRed
+      Source = peak
+    end
+  end
+  object progresspanel: TPanel
+    AnchorSideLeft.Control = drlb
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = drlb
+    AnchorSideBottom.Control = drlb
+    AnchorSideBottom.Side = asrBottom
+    Left = 309
+    Height = 92
+    Top = 30
+    Width = 100
+    Anchors = [akTop, akLeft, akBottom]
+    BorderSpacing.Left = 7
+    BorderSpacing.Top = 10
+    BorderSpacing.Bottom = 10
+    BevelColor = clNone
+    BevelOuter = bvNone
+    ClientHeight = 92
+    ClientWidth = 100
+    Color = clBlack
+    ParentColor = False
+    TabOrder = 3
+    object progressbar: TBCRadialProgressBar
+      Left = 0
+      Height = 92
+      Top = 0
+      Width = 100
+      Align = alClient
+      Anchors = []
+      Color = clBlack
+      LineColor = clLime
+      LineBkgColor = clBlack
+      LineWidth = 6
+      FontShadowOffsetX = 0
+      FontShadowOffsetY = 0
+      FontShadowRadius = 1
+      Font.Color = clBlack
+      Font.Height = 20
+    end
+  end
+  object btnfile: TImage
+    AnchorSideTop.Control = btnfolder
+    AnchorSideRight.Control = btnfolder
+    AnchorSideRight.Side = asrBottom
+    Left = 611
+    Height = 32
+    Top = 13
+    Width = 32
+    Anchors = [akTop, akRight]
+    BorderSpacing.Right = 45
+    OnClick = btnfileClick
+    OnMouseDown = btnfileMouseDown
+    OnMouseLeave = btnfileMouseLeave
+    OnMouseMove = btnfileMouseMove
+    OnMouseUp = btnfileMouseUp
+    Picture.Data = {
+      1754506F727461626C654E6574776F726B47726170686963C102000089504E47
+      0D0A1A0A0000000D49484452000000200000001E08060000004D0A1C29000000
+      0473424954080808087C0864880000000970485973000000CC000000CC01EB00
+      50290000001974455874536F667477617265007777772E696E6B73636170652E
+      6F72679BEE3C1A0000023E494441544889BD97CF8B8D5118C73FDFEB1292529A
+      66C38ADC054B59B0B1F017B0B0D124E3478AC56432246A929FA55C1B45B3B0B0
+      B3108A524A299BC142D2306363E84A97A28C49F76BF1BEF7BABDF3BEF3BE676E
+      AFCFE6DEF39C739EE77B4EE779EE732181ED75B6271D46CB76DDB692FEF2A8A6
+      D87602B3C08E003F75E008F01338D9AB80254043D2E3A24E6C37804FC090EDAF
+      92AE14DD5B29BAB0004F81DDC045DBFB8A6E4ABB818560E020F0199801AEDB7E
+      2569FC7F09380D6C8DBF0B3805D480DE04D8DE08F41714310E7C903469FB70C1
+      3DD9026C578067C0CAA2CE80D7C0A680F59100DB6B803E60BA3D21A9657B33B0
+      36C0DF44487080AAED73C089783CD23D296962214E43A8004781296000B85B66
+      B034AAC072E08EA45B00B6893F2BC07D604380BF279206430500B49213F11B78
+      43545E8BF2BE7B607B10F828E9619E8054241D0B089EC67AE02CF3A47285A870
+      948588B22B930A51194DC5F636DBBB6CAF0A0C7C1B785764615E21BA4794A27D
+      B6F7028B0B0AF8066C07B6C4BE8E67AC7B9E29207E84356011F0929CABCCE142
+      86BD99F7081BB6AFF6187C3E1ECDFB086DF703FB4B0AFE0718CD6B4846806525
+      09B829E96D5B40F2167EC7A73F5052F05F44F5A1D3922553710C18A6BCD3D725
+      4DC3BF34ECBE810744ADD55849C1BF0397DA83393720E9053044F42355069725
+      3593023AD85E0D1C2A29F817E05AB7212D0B86811525091895F4234DC052E89C
+      BE704319C814702369AC12D5ED3D8E3A911AE59DFE8CA4D93956DB03B69B817F
+      464398B17D3E4BD55F88A34A4F8DAEB37A0000000049454E44AE426082
+    }
+    Proportional = True
+    StretchOutEnabled = False
+    StretchInEnabled = False
+    Transparent = True
+  end
+  object btnfolder: TImage
+    AnchorSideTop.Control = Owner
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 656
+    Height = 32
+    Top = 13
+    Width = 32
+    Anchors = [akTop, akRight]
+    BorderSpacing.Top = 13
+    BorderSpacing.Right = 12
+    OnClick = btnfolderclick
+    OnMouseDown = btnfolderMouseDown
+    OnMouseLeave = btnfoldermouseleave
+    OnMouseMove = btnfoldermousemove
+    OnMouseUp = btnfoldermouseup
+    Picture.Data = {
+      1754506F727461626C654E6574776F726B47726170686963E701000089504E47
+      0D0A1A0A0000000D494844520000002000000015080600000027CDECEA000000
+      0473424954080808087C0864880000000970485973000000EC000000EC017928
+      71BD0000001974455874536F667477617265007777772E696E6B73636170652E
+      6F72679BEE3C1A00000164494441544889B596BD2F835114C67F47BAB05824B4
+      FE095F8B7FC06C6116C160110B156291342689C162B1B0583B181B2B11220CDD
+      480C929AD452A48FA16FA51FEF6DB57A9EE41DEE3927E779CE73EFCD7D9174A7
+      787C4B5AC01926E913B8012E1B72F3C0BB998DB92A90F4252913135F8F9C98F0
+      E44F00E540EE14D8074E24E5BBECFF0664CCECA59500C525CCAC20E980CA564C
+      762920157DB3C10A49A5B82DE805246525DDB7AAE9F320EE0489BF14491A05A6
+      01EBB07F0A18943417C8E713ED9A4A1A01AE816487E4B5380FC45FFBDA090076
+      FE49DE0A472DCF80A424B0E8445E000EDB39B005F43B09D833B362D08168FA25
+      27F227E0182AD730E4401ABFE977CDAC5415D084E8E42F3B913F0067D545C881
+      4DFCA6DF36B3DFF7A7C90149C3C08A13F91590AD0DC439B0010C3809489B59DD
+      E357E780A421FCA6BF30B35C63D0247D008F400E1807661CC8CBC09499DD3665
+      24AD492A06FE0B7B816749AB21653FB3CEF419C538D23E0000000049454E44AE
+      426082
+    }
+    Proportional = True
+    StretchOutEnabled = False
+    StretchInEnabled = False
+    Transparent = True
+  end
+  object filedialog: TOpenDialog
+    left = 496
+    top = 32
+  end
+  object rms: TListChartSource
+    SortDir = sdDescending
+    left = 560
+    top = 32
+  end
+  object peak: TListChartSource
+    left = 560
+    top = 88
+  end
+  object dirdialog: TSelectDirectoryDialog
+    left = 496
+    top = 88
+  end
+  object buttons: TImageList
+    Height = 32
+    Width = 32
+    left = 432
+    top = 32
+    Bitmap = {
+      4C7A0400000020000000200000006D0600000000000078DAED9B5B48155D14C7
+      354133CB286F5959919262A979CD308D3EB5BC80082A5A5ACAA79F9F17D4322B
+      EFBE758F4AC45E7CEEC127412882507B0A41A112F4A944C12CA142BCA6D9FAFA
+      6F98381E67C63333AD937D9C0D7FC8E69CF9CD9ABDF7DA6BEDB58F9D9D1DD96D
+      20F9F9F9D1DBB76F494BFBFEFD3BB5B6B692BDBDBD61FEB56BD7686464841212
+      122CD6F0F0B0788EEBD7AF1BE6373535515F5F9FA6EFF4F6F6D2F3E7CF697171
+      91AAABAB7F0BBFB9B999D2D3D3697979990A0B0BADCAEFE9E9A18989091A1818
+      A0999919F10CE1E1E156E39F3871428C1BA8B6B696666767293737D730FFC891
+      239AC6A1AFAFAFF8DEF8F8B861FEA64D9B687A7A5AD33C1C1A1AD2C5F7F1F111
+      FDB56BD7AE55F61F3A744893FDFBF6EDD3CCC79C951AFA4F4FFF9B4B0B1F6305
+      FEEEC2850B14101060753E7CE7EDDBB765FBFFC99327E2D92C554747872EFECD
+      9B3765C7FFDDBB77A9B3B3D36261EE99F28B8A8A2829294937DFE8FBBF75EB16
+      7DF8F041F5B3685C7CF42BECD36B3FFC5A666626EDD8B143131FF78B8A8A32C4
+      C7F8FBF2E50B95949490BFBFBF58D7241F6BA95EBC7821EEAF74FDE4C993AAF6
+      7B7979D1EEDDBBE9E3C78FC4D13E7DFAB4EEF87BF8F02171B5C78F1FAB8E3FF8
+      E3F9F9791636D668F83B35FE83070FD86C7FF4E8D1CFF987796ACA7FF6EC19AB
+      EDB8EF9E3D7B14E77F767636DDBB778FCD76539EB9FD616161E4EDED4D737373
+      2C6CCCE99D3B772AFA3FE8CE9D3B6CB6D7D7D7ABFA5F77777711437234F8916D
+      DBB6A9F2D1175CADBCBC5C76FDC13CE3B61DF181A3A3E31AFEE7CF9F851FBC7F
+      FF3E3D7DFA94CDF6BCBC3CD9F5273F3F5F3C0357434E76E3C68D0D95636F64C1
+      37545656524B4B8BC542EE999C9CFC4BF8313131629E1C3C78D062E1F3788EF8
+      F878C3FCB8B8382A2828D0F41D8C61E40F8D8D8D74FCF8F1DFC2472C25E52FA1
+      A1A156E7233E2C2E2EA6BABA3AF10C58C3ACC547DE8971032166C61A13141464
+      98EFE9E9A9691C4A71FAA54B970CF3B197867C4ACB3C2C2D2DD5C577757515FD
+      B575EBD655F6BBB9B969B27FFBF6ED9AF998B3D2F3A3FFF4F4BFB9B4F03156E0
+      EF424242C4FA6B6D3E7C676262A26CFF2387C4B359AAB4B4345D7CECDDC88DFF
+      D3A74F53565696C5C2DC33E52396C57EB25EBED1F78FFBD6D4D4A87E16E38E8B
+      8F7E857D7AED875F0B0C0CA4CD9B376BE2E37EC86F8CF031FE90A3474444083F
+      80754DF2B1960AF7C1FD95AEEFDFBF5FD57E17171711AFA30FB5F8414B75F5EA
+      D575C71FF6AF38D850464686EAF8833F6E68686061638D86BF53E373DA9E9A9A
+      AA38FF902B70DA8EFB4A79A01CFFF0E1C3C2F771D96ECA33FF5B5A87B12E71B0
+      31A79D9D9D15F910FC0697EDB1B1B1AAFE77CB962D2286E460C38F98E7C0E67C
+      FC9BCBF6C8C848D9F547DA23E7B41DF1818383836CBD157EF0CC993322DEE0B2
+      3D38385876FD41DC8567E0E22227FB1579A14D36FD1FF5EAD52BD97DB36FDFBE
+      198E832DD1D2D212BD7CF952ECC19AEADDBB77E2D9B8F9A883C89D1B410C8F86
+      1C8693FFF5EB5759BE878787B8F6FAF56B4D355853B5B7B7D3DEBD7B55F9D81F
+      553A37837D532DF567732D2C2C505757972EFB7F85BABBBBE9CD9B377F3C1FB9
+      1CEAC05A727168707090C6C6C614AF634DC6FC53E3A30EF7FEFD7B96BDF9C9C9
+      49C5F927A9ADAD8DAD3680D8408D8F589CAB06393535257210F859253ECED471
+      B58A8A0AC150E273DA3E3A3A4A4E4E4E82B3B2B222CBE7ACBB9F3F7FFE27478E
+      CF597BC6192D9CAD303D7F61CE472D8EAB497B844A7C9CB9E0AA3DF7F7F7AF39
+      236A7E6E93B3EE7EEAD429D9FAABC4E7ACBFE22C97D2F933BC17C43C38F7C0D1
+      30C6956A425555556C36A361FD292B2BB3C5DA36D964934D1B4C25FF96504B73
+      CB1A353735D3D190A3ECFCA6C6262AFCBB9012E21356A9AAB24A3C9B35F8F17F
+      ADDD1F8C8E8E16EF41EF39064BD5D8D028CBC75E30AEE11D646566E9526A4AAA
+      A8EDEBE14BB5F9CA8A4ADD6AA86FA09CEC1CDD7CA33A9B73964A4B4AFF783EF2
+      44D481B5AAF89F62BA587551F13A627DA5F12F09B5A8CBD597657D8451E1BEEB
+      F153925358D8505C6C9C2A5FD4207F8C610EF6959A2BA216053FABC44F4E4A66
+      B31DBF0F10F57F053EA7EDF0ED522D4A892F6ACF4CB69BD6A2E4F89CB6C31F98
+      E6C0387F60CE472D8ECB76FC96C3FCFC87291F672EEAEBEA59D84585456BEB9F
+      3FFEDF942FEAEE4CB61F387040952FEAAFB5752CECDC73F2BFC7C2BBC67B41CC
+      93979BC7C2C618C79E961CFFD8B1636C3643587F2223226DB1B64D36C9E83F10
+      6FB457
+    }
+  end
+  object report: TImageList
+    Height = 146
+    Width = 446
+    left = 428
+    top = 91
+  end
+end
