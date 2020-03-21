@@ -28,7 +28,7 @@ interface
 uses
   classes, sysutils, forms, controls, graphics, dialogs, buttons, stdctrls,
   extctrls, comctrls, tagraph, taseries, tasources, bufstream, soundwav,
-  bcradialprogressbar, bclistbox;
+  bcradialprogressbar, bclistbox, process;
 
 type
   { taudiofrm }
@@ -37,7 +37,6 @@ type
     btnfile: timage;
     btnfolder: timage;
     buttons: timagelist;
-    report: TImageList;
     peakseries: tbarseries;
     rmseries: tbarseries;
     progresspanel: tpanel;
@@ -72,7 +71,7 @@ type
       y: integer);
     procedure btnfoldermouseup(sender: tobject; button: tmousebutton;
       shift: tshiftstate; x, y: integer);
-    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+    procedure formclosequery(sender: tobject; var canclose: boolean);
     procedure formcreate(sender: tobject);
     procedure btnfileclick(sender: tobject);
     procedure btnfilemousedown(sender: tobject; button: tmousebutton;
@@ -90,13 +89,15 @@ type
     procedure btnloadicon(btn: timage; index: longint; x, y: longint);
     procedure execute;
   private
-    filereport: string;
-    filenames:  tstringlist;
-    buffer: treadbufstream;
-    stream: tfilestream;
-    wave:   twavereader;
+    buffer:     treadbufstream;
+    stream:     tfilestream;
+    trackindex: longint;
+    trackkill:  boolean;
+    tracklist:  ttracklist;
+    trackfile:  string;
+    tempfile:   string;
+    wave:       ttrackanalyzer;
   public
-
   end;
 
 var
@@ -110,7 +111,9 @@ implementation
 
 procedure taudiofrm.formcreate(sender: tobject);
 begin
-  filenames := tstringlist.create;
+  trackindex := 0;
+  trackkill  := false;
+  tracklist  := ttracklist.create;
   // load openfile button icon
   btnloadicon(btnfile, 1, 0, 0);
   btnfile.onmousemove := @btnfilemousemove;
@@ -130,23 +133,23 @@ end;
 
 procedure taudiofrm.formdestroy(sender: tobject);
 begin
-  filenames.destroy;
+  rms.clear;
+  peak.clear;
+  tracklist.destroy;
 end;
 
 procedure taudiofrm.formclosequery(sender: tobject; var canclose: boolean);
 begin
-  canclose := assigned(wave) = false;
-  while filenames.count > 1 do
-  begin
-    filenames.delete(1);
-  end;
+  trackkill := true;
+  canclose  := assigned(wave) = false;
 end;
 
 procedure taudiofrm.onstart;
 begin
   clear;
-  audio.caption    := extractfilename(filenames[0]);
   audio.font.color := clwhite;
+  audio.caption    := extractfilename(
+    tracklist.tracks[trackindex].name);
 
   btnfile      .enabled := false;
   btnfolder    .enabled := false;
@@ -157,93 +160,93 @@ end;
 
 procedure taudiofrm.onstop;
 var
-  i: longint;
-  mycapture: tbitmap;
+      i: longint;
+      j: longint;
+   rmsi: double;
+  peaki: double;
+  track: ttrack;
 begin
-  dbchart.bottomaxis.range.max := rms.count div wave.channels;
-  dbchart.invalidate;
-
-  bit8 .font.color := clgray;
-  bit16.font.color := clgray;
-  bit24.font.color := clgray;
-  if wave.bitspersample = 8  then bit8  .font.color := clwhite;
-  if wave.bitspersample = 16 then bit16 .font.color := clwhite;
-  if wave.bitspersample = 24 then bit24 .font.color := clwhite;
-
-  khz44 .font.color := clgray;
-  khz48 .font.color := clgray;
-  khz88 .font.color := clgray;
-  khz96 .font.color := clgray;
-  khz176.font.color := clgray;
-  khz192.font.color := clgray;
-  if wave.samplerate = 44100  then khz44  .font.color := clwhite;
-  if wave.samplerate = 48000  then khz48  .font.color := clwhite;
-  if wave.samplerate = 88000  then khz88  .font.color := clwhite;
-  if wave.samplerate = 96000  then khz96  .font.color := clwhite;
-  if wave.samplerate = 176400 then khz176 .font.color := clwhite;
-  if wave.samplerate = 192000 then khz192 .font.color := clwhite;
-
-  mono  .font.color := clgray;
-  stereo.font.color := clgray;
-  if wave.channels = 1 then mono  .font.color := clwhite;
-  if wave.channels = 2 then stereo.font.color := clwhite;
-
-  drvalue.font.color := clwhite;
-  drvalue.caption    := '--';
-  if wave.dravg > 0 then
+  freeandnil(buffer);
+  freeandnil(stream);
+  if fileexists(tempfile) then
   begin
-    drvalue.caption := inttostr(wave.dravg);
-    if wave.dravg >= 14 then drvalue.font.color := rgbtocolor(  0, 255, 0);
-    if wave.dravg =  13 then drvalue.font.color := rgbtocolor( 72, 255, 0);
-    if wave.dravg =  12 then drvalue.font.color := rgbtocolor(144, 255, 0);
-    if wave.dravg =  11 then drvalue.font.color := rgbtocolor(217, 255, 0);
-    if wave.dravg =  10 then drvalue.font.color := rgbtocolor(255, 217, 0);
-    if wave.dravg =   9 then drvalue.font.color := rgbtocolor(255, 145, 0);
-    if wave.dravg =   8 then drvalue.font.color := rgbtocolor(255,  72, 0);
-    if wave.dravg <=  7 then drvalue.font.color := rgbtocolor(255,   0, 0);
+    deletefile(tempfile);
   end;
-  buffer.destroy;
-  stream.destroy;
-
-  btnfile      .enabled := true;
-  btnfolder    .enabled := true;
-  drvalue      .visible := true;
-  progresspanel.visible := false;
-  progressbar  .value   := 0;
-  application.processmessages;
 
   if wave.status <> 0 then
   begin
-    audio.caption    := 'File format error!';
     audio.font.color := clred;
-  end;
-
-  mycapture := tbitmap.create;
-  mycapture.setsize(446, 146);
-  mycapture.canvas.fillrect(0, 0, 446, 146);
-  paintto(mycapture.canvas, 0, 0);
-  report.add(mycapture, nil);
-  mycapture.free;
-
-  wave := nil;
-  filenames.delete(0);
-  if filenames.count > 0 then
-  begin
-    sleep(1600);
-    execute;
+    audio.caption    := 'File format error!';
+    trackindex       := tracklist.count;
   end else
   begin
-    mycapture := tbitmap.create;
-    mycapture.setsize(446, report.count*146);
-    mycapture.canvas.fillrect(0, 0, 446, report.count*146);
-    for i := 0 to report.count -1 do
+    rms.clear;
+    peak.clear;
+
+    // load rms and peak
+    track := tracklist.tracks[trackindex];
+    if track.channelcount > 0 then
+      for i := 0 to track.channels[0].count -1 do
+      begin
+        rmsi := 0;
+        for j := 0 to track.channelcount -1 do
+          rmsi := rmsi + track.channels[j].rms[i];
+        rmsi := rmsi/track.channelcount;
+        rms.add(i, rmsi);
+
+        peaki := 0;
+        for j := 0 to track.channelcount -1 do
+          peaki := peaki + track.channels[j].peak[i];
+        peaki := peaki/track.channelcount;
+        peak.add(i, peaki);
+      end;
+    dbchart.bottomaxis.range.max := rms.count;
+    dbchart.invalidate;
+
+    bit8  .font.color := clgray; if track.bitspersample = 8      then bit8  .font.color := clwhite;
+    bit16 .font.color := clgray; if track.bitspersample = 16     then bit16 .font.color := clwhite;
+    bit24 .font.color := clgray; if track.bitspersample = 24     then bit24 .font.color := clwhite;
+
+    khz44 .font.color := clgray; if track.samplerate    = 44100  then khz44 .font.color := clwhite;
+    khz48 .font.color := clgray; if track.samplerate    = 48000  then khz48 .font.color := clwhite;
+    khz88 .font.color := clgray; if track.samplerate    = 88000  then khz88 .font.color := clwhite;
+    khz96 .font.color := clgray; if track.samplerate    = 96000  then khz96 .font.color := clwhite;
+    khz176.font.color := clgray; if track.samplerate    = 176400 then khz176.font.color := clwhite;
+    khz192.font.color := clgray; if track.samplerate    = 192000 then khz192.font.color := clwhite;
+
+    mono  .font.color := clgray; if track.channelcount  = 1      then mono  .font.color := clwhite;
+    stereo.font.color := clgray; if track.channelcount  = 2      then stereo.font.color := clwhite;
+
+    drvalue.caption    := '--';
+    drvalue.font.color := clwhite;
+    if track.dr > 0 then
     begin
-      report.draw(mycapture.canvas, 0, i*146, i);
+      drvalue.caption := inttostr(round(track.dr));
+      if round(track.dr) >= 14 then drvalue.font.color := rgbtocolor(  0, 255, 0);
+      if round(track.dr) =  13 then drvalue.font.color := rgbtocolor( 72, 255, 0);
+      if round(track.dr) =  12 then drvalue.font.color := rgbtocolor(144, 255, 0);
+      if round(track.dr) =  11 then drvalue.font.color := rgbtocolor(217, 255, 0);
+      if round(track.dr) =  10 then drvalue.font.color := rgbtocolor(255, 217, 0);
+      if round(track.dr) =   9 then drvalue.font.color := rgbtocolor(255, 145, 0);
+      if round(track.dr) =   8 then drvalue.font.color := rgbtocolor(255,  72, 0);
+      if round(track.dr) <=  7 then drvalue.font.color := rgbtocolor(255,   0, 0);
     end;
-    mycapture.savetofile(filereport);
-    mycapture.destroy;
-    report.clear;
+
+    btnfile      .enabled := true;
+    btnfolder    .enabled := true;
+    drvalue      .visible := true;
+    progresspanel.visible := false;
+    progressbar  .value   := 0;
+    application.processmessages;
   end;
+  wave := nil;
+
+  inc(trackindex);
+  if trackindex = tracklist.count then
+  begin
+    tracklist.savetofile(trackfile);
+  end;
+  execute;
 end;
 
 procedure taudiofrm.onprogress;
@@ -268,7 +271,7 @@ begin
 
   rms .clear;
   peak.clear;
-  audio.caption      := ' Audio';
+  audio.caption      := 'Audio';
   audio.font.color   := clwhite;
   drvalue.caption    := '--';
   drvalue.font.color := clwhite;
@@ -276,43 +279,76 @@ begin
 end;
 
 procedure taudiofrm.execute;
+var
+  process: tprocess;
+  track:   ttrack;
 begin
-  if filenames.count > 0 then
-  begin;
-    drvalue.visible       := false;
-    progresspanel.visible := false;
-    stream := nil;
-    try
-      stream := tfilestream.create(filenames[0], fmopenread or fmshareexclusive);
-    except
-      stream := nil;
-    end;
+  if trackkill then exit;
+  if trackindex >= tracklist.count then exit;
 
-    if stream <> nil then
+  drvalue.visible       := false;
+  progresspanel.visible := false;
+
+  track := tracklist.tracks[trackindex];
+  try
+    if extractfileext(track.name) <> '.wav' then
     begin
-      buffer  := treadbufstream.create(stream);
-      wave := twavereader.create(buffer);
-      wave.rmssources  := rms;
-      wave.peaksources := peak;
-      wave.onstart     := @onstart;
-      wave.onstop      := @onstop;
-      wave.onprogress  := @onprogress;
-      wave.start;
+      tempfile := includetrailingbackslash(
+        gettempdir(false)) + 'audiometer-tmp.wav';
+      process := tprocess.create(nil);
+      try
+        process.parameters.clear;
+        process.currentdirectory := extractfiledir(track.name);
+        process.executable := 'ffmpeg';
+        process.parameters.add('-y');
+        process.parameters.add('-i');
+        process.parameters.add(extractfilename(track.name));
+        process.parameters.add(tempfile);
+        process.options := [ponoconsole, powaitonexit];
+        process.execute;
+      except
+      end;
+      process.destroy;
     end else
-    begin
-      showmessage('Error to open file');
-      filenames.delete(0);
-      execute;
-    end;
+      tempfile := track.name;
+
+    stream := tfilestream.create(tempfile, fmopenread or fmshareexclusive);
+  except
+    stream := nil;
+  end;
+
+  if assigned(stream) then
+  begin
+    buffer := treadbufstream.create(stream);
+    wave   := ttrackanalyzer.create(track, buffer);
+    wave.onstart    := @onstart;
+    wave.onstop     := @onstop;
+    wave.onprogress := @onprogress;
+    wave.start;
+  end else
+  begin
+    messagedlg('AudioMeter', format('Error to open file "%s"', [tempfile]), mterror, [mbok], '');
+    inc(trackindex);
+    execute;
   end;
 end;
 
 procedure taudiofrm.btnfileclick(sender: tobject);
 begin
+  tracklist.clear;
   if filedialog.execute then
   begin
-    filenames.add(filedialog.filename);
-    filereport := extractfilepath(filenames[0]) + 'audiometer.png';
+    if filesupported(extractfileext(filedialog.filename)) then
+    begin
+      tracklist.add(filedialog.filename);
+      trackfile  := changefileext(filedialog.filename, '.md');
+      trackkill  := false;
+      trackindex := 0;
+    end else
+    begin
+      audio.caption    := 'File format error!';
+      audio.font.color := clred;
+    end;
   end;
   execute;
 end;
@@ -323,24 +359,25 @@ var
   path: string;
   sr:   tsearchrec;
 begin
+  tracklist.clear;
   if dirdialog.execute then
   begin
     path := includetrailingbackslash(dirdialog.filename);
-     err := sysutils.findfirst(path + '*.wav',
-       fareadonly  or fahidden  or fasysfile or favolumeid or
-       fadirectory or faarchive or fasymlink or faanyfile, sr);
+     err := sysutils.findfirst(path + '*.*', faanyfile, sr);
     while err = 0 do
     begin
-      if sr.attr and (fasysfile or favolumeid) = 0 then
+      if sr.attr and (fadirectory) = 0 then
       begin
-        if sr.attr and fadirectory = 0 then
-          filenames.add(path + sr.name);
+        if filesupported(extractfileext(sr.name)) then
+          tracklist.add(path + sr.name);
       end;
       err := findnext(sr);
     end;
     sysutils.findclose(sr);
-    filenames.sort;
-    filereport := path + 'audiometer.png';
+    tracklist.sort;
+    trackfile  := path + extractfilename(dirdialog.filename) + '.md';
+    trackkill  := false;
+    trackindex := 0;
   end;
   execute;
 end;

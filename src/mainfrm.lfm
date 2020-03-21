@@ -1,9 +1,9 @@
 object audiofrm: Taudiofrm
-  Left = 318
+  Left = 353
   Height = 440
-  Top = 101
+  Top = 185
   Width = 700
-  Caption = 'Audio Meter 0.1'
+  Caption = 'AudioMeter 0.2 - Dynamic Range Meter'
   ClientHeight = 440
   ClientWidth = 700
   Color = clGray
@@ -359,7 +359,7 @@ object audiofrm: Taudiofrm
         Title.LabelFont.Name = 'Sans'
         Title.LabelFont.Style = [fsBold]
         Title.Visible = True
-        Title.Caption = 'BlockNum'
+        Title.Caption = 'Block-Num'
         Title.LabelBrush.Style = bsClear
       end>
     BackColor = clBlack
@@ -511,26 +511,26 @@ object audiofrm: Taudiofrm
   end
   object filedialog: TOpenDialog
     left = 496
-    top = 32
+    top = 16
   end
   object rms: TListChartSource
     SortDir = sdDescending
     left = 560
-    top = 32
+    top = 16
   end
   object peak: TListChartSource
     left = 560
-    top = 88
+    top = 80
   end
   object dirdialog: TSelectDirectoryDialog
     left = 496
-    top = 88
+    top = 80
   end
   object buttons: TImageList
     Height = 32
     Width = 32
     left = 432
-    top = 32
+    top = 16
     Bitmap = {
       4C7A0400000020000000200000006D0600000000000078DAED9B5B48155D14C7
       354133CB286F5959919262A979CD308D3EB5BC80082A5A5ACAA79F9F17D4322B
@@ -586,11 +586,5 @@ object audiofrm: Taudiofrm
       93979BC7C2C618C79E961CFFD8B1636C3643587F2223226DB1B64D36C9E83F10
       6FB457
     }
-  end
-  object report: TImageList
-    Height = 146
-    Width = 446
-    left = 428
-    top = 91
   end
 end

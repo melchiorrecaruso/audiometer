@@ -6,7 +6,7 @@ Priority: optional
 Standards-Version: 3.9.2
 
 Package: audiometer
-Version: 0.1
+Version: 0.2
 Maintainer: Melchorre Caruso <melchiorrecaruso@gmail.com>
 Homepage: https://github.com/melchiorrecaruso/audiometer
 # Pre-Depends: <comma-separated list of packages>
@@ -20,10 +20,10 @@ Architecture: amd64
 Copyright: LICENSE
 Readme:    README
 # Extra-Files:         
-Files: audiometer          /usr/bin
-       audiometer.ico      /opt/audiometer/icons/
-       audiometer.desktop  /usr/share/applications/
+Files: ../build/audiometer  /usr/bin
+       ../audiometer.ico    /opt/audiometer/icons/
+       audiometer.desktop   /usr/share/applications/
 
-Description: A simple dynamic range meter. 
+Description: AudioMeter - A simple dynamic range meter. 
 
 

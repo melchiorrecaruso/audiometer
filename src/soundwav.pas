@@ -26,38 +26,38 @@ unit soundwav;
 interface
 
 uses
-  classes, sysutils, math, dialogs, tasources, fgl;
+  classes, sysutils, math, fgl;
 
-// WAVE UTILS
+// WAVE utils
 
 type
   // WAV is formed by the following structures in this order
-  // All items are in little endian order, except the char arrays
-  // Items might be in big endian order if the RIFF identifier is RIFX
+  // all items are in little endian order, except the char arrays
+  // items might be in big endian order if the RIFF identifier is RIFX
 
   triffheader = packed record
     ckid   : array [0..3] of char; // should be RIFF
-    cksize : longword;             // 4 + (8 + SubChunk1Size) + (8 + SubChunk2Size).
-                                   // The entire file size excluding TRiffHeader.ID and .Size
+    cksize : longword;             // 4 + (8 + subchunk1size) + (8 + subchunk2size).
+                                   // the entire file size excluding triffheader.id and .size
     format : array [0..3] of char; // should be WAVE
   end;
 
   tfmt = packed record
-    subckid       : array [0..3] of char; // Should be "fmt "
-    subcksize     : longword;             // SubChunk1Size
-    format        : word;                 // PCM = 1 (Linear quantization), values > 1 indicate a compressed format
-    channels      : word;                 // Mono = 1, Stereo = 2, etc
+    subckid       : array [0..3] of char; // should be "fmt "
+    subcksize     : longword;             // subchunk1size
+    format        : word;                 // pcm = 1 (linear quantization), values > 1 indicate a compressed format
+    channels      : word;                 // mono = 1, stereo = 2, etc
     samplerate    : longword;             // 8000, 44100, etc
-    byterate      : longword;             // = SampleRate * NumChannels * BitsPerSample/8
-    blockalign    : word;                 // = NumChannels * BitsPerSample/8
+    byterate      : longword;             // = samplerate * numchannels * bitspersample/8
+    blockalign    : word;                 // = numchannels * bitspersample/8
     bitspersample : word;                 // examples: 8 bits, 16 bits, etc
   end;
 
   tdatachunk = packed record
     subck2id   : array [0..3] of char; // should be "data"
-    subck2size : longword;             // == NumSamples * NumChannels * BitsPerSample/8
+    subck2size : longword;             // == numsamples * numchannels * bitspersample/8
   end;
-  // And after this header the actual data comes, which is an array of samples
+  // and after this header the actual data comes, which is an array of samples
 
   tdata = packed record
     channelvalues : array of longint;
@@ -66,60 +66,122 @@ type
 
   tdoublelist = specialize tfpglist<double>;
 
-  { TWaveReader }
+  // ttrackchannel
+
+  ttrackchannel = class
+  private
+    frms:  tdoublelist;
+    fpeak: tdoublelist;
+    function getrms (index: longint): double;
+    function getpeak(index: longint): double;
+    function getcount: longint;
+  public
+    constructor create;
+    destructor destroy; override;
+    procedure addrms (const value:  double);
+    procedure addpeak(const value:  double);
+  public
+    property rms [index: longint]: double read getrms;
+    property peak[index: longint]: double read getpeak;
+    property count: longint read getcount;
+  end;
+
+  // ttrack
+
+  ttrack = class
+  private
+    fname: string;
+    falbum: string;
+    fnumber: longint;
+    fsamplerate: longword;
+    fbitspersample: longint;
+    fchannels: tfplist;
+    fbyterate: longint;
+    frms: double;
+    fpeak: double;
+    fdr: double;
+    fduration: string;
+    procedure setchannelcount(value: longint);
+    function getchannel(index: longint): ttrackchannel;
+    function getchannelcount: longint;
+  public
+    constructor create(const filename: string);
+    destructor destroy; override;
+  public
+    property name: string read fname;
+    property album: string read falbum;
+    property number: longint read fnumber;
+    property samplerate: longword read fsamplerate;
+    property bitspersample: longint read fbitspersample;
+    property byterate: longint read fbyterate;
+    property rms: double read frms;
+    property peak: double read fpeak;
+    property dr: double read fdr;
+    property duration: string read fduration;
+    property channels[index: longint]: ttrackchannel read getchannel;
+    property channelcount: longint read getchannelcount write setchannelcount;
+  end;
+
+  { ttrackanalyzer }
   
-  twavereader = class(tthread)
+  ttrackanalyzer = class(tthread)
   private
     ffmt: tfmt;
     fdatachunk: tdatachunk;
     fdata: array of tdata;
     fblocksize: longword;
     fblocknum: longword;
-    frmssrc:  tlistchartsource;
-    fpeaksrc: tlistchartsource;
-
+    //---
+    ftrack: ttrack;
     fstatus: longint;
     fstream : tstream;
-    fdravg: longint;
     fpercentage: double;
-    fonstart:    tthreadmethod;
-    fonstop:     tthreadmethod;
+    fonstart: tthreadmethod;
+    fonstop: tthreadmethod;
     fonprogress: tthreadmethod;
-
     function getpercentage: longint;
-    function getchannels: word;
-    function getbitspersample: word;
-    function getsamplerate: longword;
     procedure setblocksize(value: longword);
     procedure readheaders(astream: tstream);
     procedure readsamples(astream: tstream);
     procedure readfromstream(astream: tstream);
-    function rms(blockid: longword; channel: word): double;
-    function peak(blockid: longword; channel: word): double;
-    function db(value: double): double;
-    function dr(channel: word): double;
+    function getrmsi (blockid: longword; channel: word): double;
+    function getpeaki(blockid: longword; channel: word): double;
+    function getdr(channel: word): double;
     procedure clear;
   public
-    constructor create(astream: tstream);
+    constructor create(atrack: ttrack; astream: tstream);
     destructor destroy; override;
     procedure execute; override;
   public
-    property channels: word read getchannels;
-    property bitspersample: word read getbitspersample;
-    property samplerate: longword read getsamplerate;
-    property blocksize: longword read fblocksize;
-    property blocknum: longword read fblocknum;
-    property dravg: longint read fdravg;
-
-    property rmssources:  tlistchartsource write frmssrc;
-    property peaksources: tlistchartsource write fpeaksrc;
-
     property onstart:    tthreadmethod write fonstart;
     property onstop:     tthreadmethod write fonstop;
     property onprogress: tthreadmethod write fonprogress;
     property percentage: longint read getpercentage;
     property status:     longint read fstatus;
   end;
+
+  // ttracklist
+
+  ttracklist = class
+  private
+    flist: tlist;
+    function getcount: longint;
+    function gettrack(index: longint): ttrack;
+  public
+    constructor create;
+    destructor destroy; override;
+    procedure add(trackname: string);
+    procedure delete(index: longint);
+    procedure clear;
+    procedure sort;
+    procedure savetofile(const filename: string);
+  public
+    property tracks[index: longint]: ttrack read gettrack;
+    property count: longint read getcount;
+  end;
+
+
+  function filesupported(const fileext: string): boolean;
 
 
 implementation
@@ -129,14 +191,157 @@ const
   idwave = 'WAVE';
   idfmt  = 'fmt ';
   iddata = 'data';
+  idlist = 'LIST';
 
-function doublecompare(const item1, item2: double): longint;
+// usefull routines
+
+function filesupported(const fileext: string): boolean;
+begin
+  result := false;
+  if fileext = '.wav'  then result := true;
+  if fileext = '.flac' then result := true;
+  if fileext = '.mp3'  then result := true;
+  if fileext = '.ape'  then result := true;
+end;
+
+function comparedouble(const item1, item2: double): longint;
 begin
   if item1 < item2 then result := +1 else
   if item1 > item2 then result := -1 else result := 0;
 end;
 
-function twavereader.rms(blockid: longword; channel: word): double;
+function comparetrackname(item1, item2: pointer): longint;
+begin
+  result := ansicomparefilename(ttrack(item1).name, ttrack(item2).name);
+end;
+
+function calculate_db(value: double): double;
+begin
+  if value > 0 then
+    result := 20*log10(value)
+  else
+    result := 0;
+end;
+
+// trackchannel
+
+constructor ttrackchannel.create;
+begin
+  inherited create;
+  frms  := tdoublelist.create;
+  fpeak := tdoublelist.create;
+end;
+
+destructor ttrackchannel.destroy;
+begin
+  frms.destroy;
+  fpeak.destroy;
+  inherited destroy;
+end;
+
+procedure ttrackchannel.addrms(const value: double);
+begin
+  frms.add(value);
+end;
+
+procedure ttrackchannel.addpeak(const value:  double);
+begin
+  fpeak.add(value);
+end;
+
+function ttrackchannel.getrms(index: longint): double;
+begin
+  result := frms[index];
+end;
+
+function ttrackchannel.getpeak(index: longint): double;
+begin
+  result := fpeak[index];
+end;
+
+function ttrackchannel.getcount: longint;
+begin
+  result := min(frms.count, fpeak.count);
+end;
+
+// ttrack
+
+constructor ttrack.create(const filename: string);
+begin
+  inherited create;
+  fname          := filename;
+  falbum         := '';
+  fnumber        := -1;
+  fsamplerate    :=  0;
+  fbitspersample := -1;
+  fchannels      := tfplist.create;
+  fbyterate      := -1;
+  fdr            := -1;
+end;
+
+destructor ttrack.destroy;
+begin
+  setchannelcount(0);
+  fchannels.destroy;
+  inherited destroy;
+end;
+
+function ttrack.getchannel(index: longint): ttrackchannel;
+begin
+  result := ttrackchannel(fchannels[index]);
+end;
+
+procedure ttrack.setchannelcount(value: longint);
+begin
+  while fchannels.count < value do
+  begin
+    fchannels.add(ttrackchannel.create);
+  end;
+
+  while fchannels.count > value do
+  begin
+    ttrackchannel(fchannels[0]).destroy;
+    fchannels.delete(0);
+  end;
+end;
+
+function ttrack.getchannelcount: longint;
+begin
+  result := fchannels.count;
+end;
+
+// ttrackanalyzer
+
+constructor ttrackanalyzer.create(atrack: ttrack; astream: tstream);
+begin
+  ftrack  := atrack;
+  fstream := astream;
+  clear;
+
+  freeonterminate := true;
+  inherited create(true);
+end;
+
+destructor ttrackanalyzer.destroy;
+begin
+  clear;
+  inherited destroy;
+end;
+
+procedure ttrackanalyzer.clear;
+var
+  i: longint;
+begin
+  fstatus    := 0;
+  fblocksize := 0;
+  for i := low(fdata) to high(fdata) do
+  begin
+    setlength(fdata[i].channelvalues, 0);
+  end;
+  setlength(fdata, 0);
+end;
+
+function ttrackanalyzer.getrmsi(blockid: longword; channel: word): double;
 var
   i     : longint;
   num   : longint;
@@ -160,7 +365,7 @@ begin
   end;
 end;
 
-function twavereader.peak(blockid: longword; channel: word): double;
+function ttrackanalyzer.getpeaki(blockid: longword; channel: word): double;
 var
   i : longint;
 begin
@@ -172,65 +377,70 @@ begin
     end;
 end;
 
-function twavereader.db(value: double): double;
-begin
-  result := 20*log10(value);
-end;
-
-function twavereader.dr(channel: word): double;
+function ttrackanalyzer.getdr(channel: word): double;
 var
   i        : longint;
   n        : longint;
+  dri      : double;
   rmsi     : double;
   rmslist  : tdoublelist;
   peaki    : double;
   peaklist : tdoublelist;
   peak2nd  : double;
-  tick     : double;
+  step     : double;
 begin
   result := 0;
   if fstatus = -1 then exit;
 
-  tick     := 100 / (fblocknum * ffmt.channels);
   rmslist  := tdoublelist.create;
   peaklist := tdoublelist.create;
+  step := 100 / (fblocknum * ffmt.channels);
   for i := 1 to fblocknum do
   begin
-    fpercentage := fpercentage + tick;
+    fpercentage := fpercentage + step;
     if assigned(fonprogress) then
       synchronize(fonprogress);
 
-    rmsi := rms(i, channel);
+    rmsi := getrmsi(i, channel);
     rmslist.add(rmsi);
 
-    peaki := peak(i, channel);
+    peaki := getpeaki(i, channel);
     peaklist.add(peaki);
 
-    if assigned(frmssrc)  then frmssrc .add(i, db(rmsi ));
-    if assigned(fpeaksrc) then fpeaksrc.add(i, db(peaki));
+    if (rmsi > 1) and (peaki > 1) then
+    begin
+      ftrack.channels[channel].addrms (calculate_db(rmsi ));
+      ftrack.channels[channel].addpeak(calculate_db(peaki));
+    end else
+    begin
+      ftrack.channels[channel].addrms (0);
+      ftrack.channels[channel].addpeak(0);
+    end;
   end;
-  rmslist. sort(@doublecompare);
-  peaklist.sort(@doublecompare);
+  rmslist. sort(@comparedouble);
+  peaklist.sort(@comparedouble);
 
   n := round(0.2 * fblocknum);
   if n > 1 then
   begin
-    peak2nd := peaklist[1];
+    ftrack.frms  := max(ftrack.frms,  calculate_db(rmslist [0]));
+    ftrack.fpeak := max(ftrack.fpeak, calculate_db(peaklist[0]));
 
+    dri     := 0;
+    peak2nd := peaklist[1];
     for i := 0 to n -1 do
     begin
-      result := result + sqr(rmslist[i]);
+      dri := dri + sqr(rmslist[i]);
     end;
-    result := -db(sqrt(result/(n)) * (1/peak2nd));
+    result := -calculate_db(sqrt(dri/(n))*(1/peak2nd));
   end;
-  rmslist.destroy;
   peaklist.destroy;
+  rmslist.destroy;
 end;
 
-procedure twavereader.execute;
+procedure ttrackanalyzer.execute;
 var
-  i   : longint;
-  tmp : double;
+  i: longint;
 begin
   fpercentage := 0;
   if assigned(fonstart) then
@@ -242,60 +452,51 @@ begin
   if fstatus = 0 then
     if ffmt.channels > 0 then
     begin
-      tmp := 0;
+      ftrack.fdr := 0;
       for i := 0 to ffmt.channels -1 do
       begin
-        tmp := tmp + dr(i);
+        ftrack.fdr := ftrack.fdr + getdr(i);
       end;
-      fdravg := round(tmp/ffmt.channels);
+      ftrack.frms  := ftrack.frms  - (6*ffmt.bitspersample);
+      ftrack.fpeak := ftrack.fpeak - (6*ffmt.bitspersample);
+      ftrack.fdr   := ftrack.fdr/ffmt.channels
     end;
 
   if assigned(fonstop) then
     synchronize(fonstop);
 end;
 
-{ twavereader }
-
-constructor twavereader.create(astream: tstream);
-begin
-  fblocksize := 0;
-  frmssrc    := nil;
-  fpeaksrc   := nil;
-
-  fstream    := astream;
-
-  freeonterminate := true;
-  inherited create(true);
-end;
-
-destructor twavereader.destroy;
-begin
-  clear;
-  inherited destroy;
-end;
-
-procedure twavereader.clear;
+procedure ttrackanalyzer.readfromstream(astream:tstream);
 var
-  i: longint;
-begin
-  fdravg     := 0;
-  fstatus    := 0;
-  fblocksize := 0;
-  for i := low(fdata) to high(fdata) do
-  begin
-    setlength(fdata[i].channelvalues, 0);
-  end;
-  setlength(fdata, 0);
-end;
-
-procedure twavereader.readfromstream(astream:tstream);
+  min: longint;
+  sec: longint;
 begin
   clear;
   readheaders(astream);
   readsamples(astream);
+  // update track details
+  ftrack.falbum         := '';
+  ftrack.fnumber        := 0;
+  ftrack.fsamplerate    := ffmt.samplerate;
+  ftrack.fbitspersample := ffmt.bitspersample;
+  ftrack.channelcount   := ffmt.channels;
+  ftrack.fsamplerate    := ffmt.samplerate;
+  ftrack.fbyterate      := ffmt.byterate;
+  ftrack.frms           := 0;
+  ftrack.fpeak          := 0;
+  ftrack.fdr            := 0;
+
+  ftrack.fduration := '00:00';
+  if ftrack.fsamplerate > 0 then
+  begin
+    sec := length(fdata) div ftrack.fsamplerate;
+    min := sec div (60);
+    sec := sec mod (60);
+    ftrack.fduration := format('%3.2d:%2.2d', [min, sec]);
+  end;
 end;
 
-procedure twavereader.readheaders(astream: tstream);
+procedure ttrackanalyzer.readheaders(astream: tstream);
 var
   riff : triffheader;
 begin
@@ -303,7 +504,6 @@ begin
   if riff.ckid   <> idriff then fstatus := -1;
   if riff.format <> idwave then fstatus := -1;
   riff.cksize := leton(riff.cksize);
-
 
   if astream.read(ffmt, sizeof(ffmt)) <> sizeof(ffmt) then fstatus := -1;
   if ffmt.subckid <> idfmt then fstatus := -1;
@@ -316,18 +516,24 @@ begin
   ffmt.blockalign    := leton(ffmt.blockalign);
   ffmt.bitspersample := leton(ffmt.bitspersample);
 
+  // read datachunk
   if astream.read(fdatachunk, sizeof(fdatachunk)) <> sizeof(fdatachunk) then fstatus := -1;
-  if fdatachunk.subck2id <> iddata then fstatus := -1;
+  if fdatachunk.subck2id = idlist then
+  begin
+    astream.seek(fdatachunk.subck2size, socurrent);
+    if astream.read(fdatachunk, sizeof(fdatachunk)) <> sizeof(fdatachunk) then fstatus := -1;
+  end;
 
+  if fdatachunk.subck2id <> iddata then fstatus := -1;
   fdatachunk.subck2size := leton(fdatachunk.subck2size);
 end;
 
-procedure twavereader.readsamples(astream: tstream);
+procedure ttrackanalyzer.readsamples(astream: tstream);
 var
-  i   : longint;
-  j   : longint;
-  s8  : byte;
-  s16 : smallint;
+   i : longint;
+   j : longint;
+  dt : array[0..3] of byte;
+   k : longint;
 begin
   if fstatus = 0 then
   begin
@@ -337,27 +543,42 @@ begin
       setlength(fdata[i].channelvalues, ffmt.channels);
       for j := 0 to ffmt.channels -1 do
       begin
+        fillbyte(dt, sizeof(dt), 0);
+        case ffmt.bitspersample of
+           8: begin
+                astream.read(dt[0], 1);
+                fdata[i].channelvalues[j] := pbyte(@dt[0])^;
+              end;
+          16: begin
+                astream.read(dt[0], 2);
+                fdata[i].channelvalues[j] := psmallint(@dt[0])^;
+              end;
+          24: begin
+                astream.read(dt[0], 3);
 
-        if ffmt.bitspersample = 8 then
-        begin
-          s8 := 0;
-          astream.read(s8, sizeof(s8));
-          fdata[i].channelvalues[j] := s8;
-        end else
-        if ffmt.bitspersample = 16 then
-        begin
-          s16 := 0;
-          astream.read(s16, sizeof(s16));
-          fdata[i].channelvalues[j] := s16;
+                if dt[2] > 127 then
+                  k := longint($FFFFFFFF)
+                else
+                  k := 0;
+
+                k := (k shl 8) or dt[2];
+                k := (k shl 8) or dt[1];
+                k := (k shl 8) or dt[0];
+
+                fdata[i].channelvalues[j] := k;
+              end;
+          32: begin
+                astream.read(dt[0], 4);
+                fdata[i].channelvalues[j] := plongint(@dt[0])^;
+              end;
         end;
-
       end;
     end;
     setblocksize(3 * ffmt.samplerate);
   end;
 end;
 
-procedure twavereader.setblocksize(value: longword);
+procedure ttrackanalyzer.setblocksize(value: longword);
 var
   i: longint;
   j: longint;
@@ -381,24 +602,130 @@ begin
   end;
 end;
 
-function twavereader.getchannels: word;
-begin
-  result := ffmt.channels;
-end;
-
-function twavereader.getbitspersample: word;
-begin
-  result := ffmt.bitspersample;
-end;
-
-function twavereader.getsamplerate: longword;
-begin
-  result := ffmt.samplerate;
-end;
-
-function twavereader.getpercentage: longint;
+function ttrackanalyzer.getpercentage: longint;
 begin
   result := round(fpercentage);
+end;
+
+// ttracklist
+
+constructor ttracklist.create;
+begin
+  inherited create;
+  flist := tlist.create;
+end;
+
+destructor ttracklist.destroy;
+begin
+  clear;
+  flist.destroy;
+  inherited destroy;
+end;
+
+procedure ttracklist.add(trackname: string);
+var
+  track: ttrack;
+begin
+  track := ttrack.create(trackname);
+  flist.add(track);
+end;
+
+procedure ttracklist.delete(index: longint);
+begin
+  ttrack(flist[index]).destroy;
+  flist.delete(index);
+end;
+
+procedure ttracklist.clear;
+begin
+  while flist.count > 0 do
+  begin
+    ttrack(flist[0]).destroy;
+    flist.delete(0);
+  end;
+end;
+
+procedure ttracklist.sort;
+begin
+  flist.sort(@comparetrackname);
+end;
+
+function ttracklist.getcount: longint;
+begin
+  result := flist.count;
+end;
+
+function ttracklist.gettrack(index: longint): ttrack;
+begin
+  result := ttrack(flist[index]);
+end;
+
+procedure ttracklist.savetofile(const filename: string);
+const
+  splitter = '--------------------------------------------------------------------------------';
+var
+  bps: longint;
+  ch: longint;
+  dr: double;
+  i: longint;
+  s: tstringlist;
+  sr: longint;
+  track: ttrack;
+begin
+  s := tstringlist.create;
+  s.add('AudioMeter 0.2 - Dynamic Range Meter');
+  s.add(splitter);
+  s.add(format('Log date : %s', [datetimetostr(now)]));
+  s.add(splitter);
+  s.add('');
+
+  ch  := 0;
+  sr  := 0;
+  bps := 0;
+  dr  := 0;
+  if count > 0 then
+  begin
+    track := gettrack(0);
+    ch  := track.channelcount;
+    sr  := track.samplerate;
+    bps := track.bitspersample;
+
+    s.add('DR         Peak         RMS     Duration   Track');
+    s.add(splitter);
+    for i := 0 to count -1 do
+    begin
+      track := gettrack(i);
+      s.add(format('DR%2.0f     %6.2f dB   %6.2f dB    %-s   %s', [
+        track.dr, track.peak, track.rms,
+        track.duration, extractfilename(track.name)]));
+
+      if ch  <> track.channelcount  then ch  := -1;
+      if sr  <> track.samplerate    then sr  := -1;
+      if bps <> track.bitspersample then bps := -1;
+
+      dr := dr + track.dr;
+    end;
+    dr := round(dr/count);
+
+    s.add(splitter);
+    s.add('');
+    s.add('Number of tracks:  %d',     [count]);
+
+    if ch  >  0 then s.add('Channels:          %d',     [ch ]);
+    if sr  >  0 then s.add('Samplerate:        %d',     [sr ]);
+    if bps >  0 then s.add('Bits per sample:   %d',     [bps]);
+    if dr  >  0 then s.add('Official DR value: %2.0f',  [dr ]);
+
+    if ch  <= 0 then s.add('Channels:          ---');
+    if sr  <= 0 then s.add('Samplerate:        ---');
+    if bps <= 0 then s.add('Bits per sample:   ---');
+    if dr  <= 0 then s.add('Official DR value: 0'  );
+
+    s.add('');
+    s.add(splitter);
+  end;
+  s.savetofile(filename);
+  s.destroy;
 end;
 
 end.
