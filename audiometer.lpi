@@ -25,7 +25,7 @@
             <IncludeFiles Value="$(ProjOutDir)"/>
             <Libraries Value="src"/>
             <OtherUnitFiles Value="src"/>
-            <UnitOutputDirectory Value="build"/>
+            <UnitOutputDirectory Value="build/lib"/>
           </SearchPaths>
           <Parsing>
             <SyntaxOptions>
