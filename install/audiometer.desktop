@@ -2,14 +2,14 @@
 Name=AudioMeter
 GenericName= Dynamic Range Meter
 Comment=A Simple dynamic range meter
-Keywords=audio;
+Keywords=Audio;MP3;FLAC;WAVE;
 
 Icon=/opt/audiometer/icons/audiometer.ico
 
 Type=Application
-Categories=Audio;
+Categories=Audio;Music;AudioVideo;GNOME;GTK;
 
 Exec=/usr/bin/audiometer
 StartupNotify=false
 Terminal=false
-MimeType=audio/x-wav;
+MimeType=application/x-flac;application/x-wav;audio/x-wav;audio/x-flac;
