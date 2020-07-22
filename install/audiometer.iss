@@ -36,10 +36,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\build\audiometer.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\build\ffmpeg.exe";     DestDir: "{app}"; Flags: ignoreversion
-Source: "LICENSE";                 DestDir: "{app}"; Flags: ignoreversion
-Source: "README";                  DestDir: "{app}"; Flags: ignoreversion
+Source: "..\build\audiometerdbg.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\build\audiometer.exe";    DestDir: "{app}"; Flags: ignoreversion
+Source: "..\build\ffmpeg.exe";        DestDir: "{app}"; Flags: ignoreversion
+Source: "LICENSE";                    DestDir: "{app}"; Flags: ignoreversion
+Source: "README";                     DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
