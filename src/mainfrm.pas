@@ -168,10 +168,10 @@ var
 begin
   freeandnil(buffer);
   freeandnil(stream);
-  if fileexists(tempfile) then
-  begin
-    deletefile(tempfile);
-  end;
+  //if fileexists(tempfile) then
+  //begin
+    //deletefile(tempfile);
+  //end;
 
   if wave.status <> 0 then
   begin
@@ -295,6 +295,7 @@ begin
     begin
       tempfile := includetrailingbackslash(
         gettempdir(false)) + 'audiometer-tmp.wav';
+
       process := tprocess.create(nil);
       try
         process.parameters.clear;

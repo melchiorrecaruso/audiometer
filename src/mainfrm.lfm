@@ -18,9 +18,9 @@ object audiofrm: Taudiofrm
     AnchorSideLeft.Control = Bevel1
     AnchorSideTop.Control = Bevel1
     Left = 26
-    Height = 16
+    Height = 15
     Top = 35
-    Width = 24
+    Width = 27
     BorderSpacing.Left = 6
     BorderSpacing.Top = 5
     Caption = '8-bit'
@@ -36,12 +36,12 @@ object audiofrm: Taudiofrm
     AnchorSideTop.Control = bit8
     AnchorSideBottom.Control = bit8
     AnchorSideBottom.Side = asrBottom
-    Left = 61
-    Height = 16
+    Left = 60
+    Height = 15
     Top = 35
-    Width = 30
+    Width = 34
     Anchors = [akTop, akLeft, akBottom]
-    BorderSpacing.Left = 11
+    BorderSpacing.Left = 7
     Caption = '16-bit'
     Color = clBlack
     ParentColor = False
@@ -55,10 +55,10 @@ object audiofrm: Taudiofrm
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = bit16
     AnchorSideBottom.Side = asrBottom
-    Left = 104
-    Height = 16
+    Left = 100
+    Height = 15
     Top = 35
-    Width = 30
+    Width = 34
     Anchors = [akTop, akRight, akBottom]
     BorderSpacing.Left = 8
     BorderSpacing.Right = 6
@@ -95,9 +95,9 @@ object audiofrm: Taudiofrm
     AnchorSideTop.Control = Bevel2
     AnchorSideTop.Side = asrBottom
     Left = 26
-    Height = 16
+    Height = 15
     Top = 61
-    Width = 43
+    Width = 47
     BorderSpacing.Left = 6
     BorderSpacing.Top = 5
     Caption = '44.1 khz'
@@ -114,10 +114,10 @@ object audiofrm: Taudiofrm
     AnchorSideRight.Control = khz44
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Side = asrBottom
-    Left = 35
-    Height = 16
-    Top = 79
-    Width = 34
+    Left = 36
+    Height = 15
+    Top = 78
+    Width = 37
     Anchors = [akTop, akRight]
     BorderSpacing.Left = 6
     BorderSpacing.Top = 2
@@ -137,9 +137,9 @@ object audiofrm: Taudiofrm
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Side = asrBottom
     Left = 26
-    Height = 16
-    Top = 97
-    Width = 43
+    Height = 15
+    Top = 95
+    Width = 47
     Anchors = [akTop, akRight]
     BorderSpacing.Left = 8
     BorderSpacing.Top = 2
@@ -154,10 +154,10 @@ object audiofrm: Taudiofrm
     AnchorSideTop.Control = khz44
     AnchorSideRight.Control = bit24
     AnchorSideRight.Side = asrBottom
-    Left = 100
-    Height = 16
+    Left = 97
+    Height = 15
     Top = 63
-    Width = 34
+    Width = 37
     Anchors = [akTop, akRight]
     BorderSpacing.Top = 2
     Caption = '96 khz'
@@ -175,7 +175,7 @@ object audiofrm: Taudiofrm
     AnchorSideRight.Side = asrBottom
     Left = 20
     Height = 1
-    Top = 117
+    Top = 114
     Width = 120
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Top = 4
@@ -185,10 +185,10 @@ object audiofrm: Taudiofrm
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = khz88
     AnchorSideRight.Side = asrBottom
-    Left = 38
-    Height = 16
-    Top = 123
-    Width = 31
+    Left = 41
+    Height = 15
+    Top = 120
+    Width = 32
     Anchors = [akTop, akRight]
     BorderSpacing.Top = 5
     Caption = 'mono'
@@ -202,10 +202,10 @@ object audiofrm: Taudiofrm
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = khz96
     AnchorSideRight.Side = asrBottom
-    Left = 100
-    Height = 16
-    Top = 123
-    Width = 34
+    Left = 98
+    Height = 15
+    Top = 120
+    Width = 36
     Anchors = [akTop, akRight]
     BorderSpacing.Top = 5
     Caption = 'stereo'
@@ -218,10 +218,10 @@ object audiofrm: Taudiofrm
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = khz96
     AnchorSideRight.Side = asrBottom
-    Left = 97
-    Height = 16
-    Top = 99
-    Width = 37
+    Left = 93
+    Height = 15
+    Top = 97
+    Width = 41
     Anchors = [akTop, akRight]
     BorderSpacing.Top = 2
     Caption = '192khz'
@@ -236,10 +236,10 @@ object audiofrm: Taudiofrm
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = khz96
     AnchorSideRight.Side = asrBottom
-    Left = 85
-    Height = 16
-    Top = 81
-    Width = 49
+    Left = 80
+    Height = 15
+    Top = 80
+    Width = 54
     Anchors = [akTop, akRight]
     BorderSpacing.Top = 2
     Caption = '176.4 khz'
@@ -257,7 +257,7 @@ object audiofrm: Taudiofrm
     Left = 160
     Height = 112
     Top = 20
-    Width = 142
+    Width = 138
     AutoSize = True
     BorderSpacing.Left = 20
     BorderSpacing.Top = 20
@@ -276,9 +276,9 @@ object audiofrm: Taudiofrm
     AnchorSideTop.Control = Owner
     AnchorSideBottom.Side = asrBottom
     Left = 26
-    Height = 16
+    Height = 15
     Top = 10
-    Width = 31
+    Width = 32
     BorderSpacing.Left = 26
     BorderSpacing.Top = 10
     BorderSpacing.Bottom = 5
@@ -295,10 +295,10 @@ object audiofrm: Taudiofrm
     AnchorSideLeft.Side = asrBottom
     AnchorSideTop.Control = drlb
     AnchorSideBottom.Side = asrBottom
-    Left = 307
+    Left = 303
     Height = 112
     Top = 20
-    Width = 68
+    Width = 64
     AutoSize = True
     BorderSpacing.Left = 5
     Caption = '--'
@@ -319,8 +319,8 @@ object audiofrm: Taudiofrm
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
     Left = 3
-    Height = 282
-    Top = 153
+    Height = 285
+    Top = 150
     Width = 694
     AllowPanning = False
     AllowZoom = False
@@ -391,7 +391,7 @@ object audiofrm: Taudiofrm
     AnchorSideTop.Control = drlb
     AnchorSideBottom.Control = drlb
     AnchorSideBottom.Side = asrBottom
-    Left = 309
+    Left = 305
     Height = 92
     Top = 30
     Width = 100
@@ -510,27 +510,27 @@ object audiofrm: Taudiofrm
     Transparent = True
   end
   object filedialog: TOpenDialog
-    left = 496
-    top = 16
+    Left = 496
+    Top = 16
   end
   object rms: TListChartSource
     SortDir = sdDescending
-    left = 560
-    top = 16
+    Left = 560
+    Top = 16
   end
   object peak: TListChartSource
-    left = 560
-    top = 80
+    Left = 560
+    Top = 80
   end
   object dirdialog: TSelectDirectoryDialog
-    left = 496
-    top = 80
+    Left = 496
+    Top = 80
   end
   object buttons: TImageList
     Height = 32
     Width = 32
-    left = 432
-    top = 16
+    Left = 432
+    Top = 16
     Bitmap = {
       4C7A0400000020000000200000006D0600000000000078DAED9B5B48155D14C7
       354133CB286F5959919262A979CD308D3EB5BC80082A5A5ACAA79F9F17D4322B
