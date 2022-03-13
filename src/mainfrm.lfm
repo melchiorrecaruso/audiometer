@@ -13,7 +13,7 @@ object audiofrm: Taudiofrm
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
-  LCLVersion = '2.1.0.0'
+  LCLVersion = '2.3.0.0'
   object bit8: TLabel
     AnchorSideLeft.Control = Bevel1
     AnchorSideTop.Control = Bevel1
@@ -586,5 +586,11 @@ object audiofrm: Taudiofrm
       93979BC7C2C618C79E961CFFD8B1636C3643587F2223226DB1B64D36C9E83F10
       6FB457
     }
+  end
+  object Report: TImageList
+    Height = 146
+    Width = 446
+    Left = 429
+    Top = 80
   end
 end

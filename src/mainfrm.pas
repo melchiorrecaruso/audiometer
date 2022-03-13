@@ -1,7 +1,7 @@
 {
   Description: Main form.
 
-  Copyright (C) 2020 Melchiorre Caruso <melchiorrecaruso@gmail.com>
+  Copyright (C) 2022 Melchiorre Caruso <melchiorrecaruso@gmail.com>
 
   This source is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free
@@ -37,6 +37,7 @@ type
     btnfile: timage;
     btnfolder: timage;
     buttons: timagelist;
+    Report: TImageList;
     peakseries: tbarseries;
     rmseries: tbarseries;
     progresspanel: tpanel;
@@ -67,8 +68,8 @@ type
     procedure btnfoldermousedown(sender: tobject; button: tmousebutton;
       shift: tshiftstate; x, y: integer);
     procedure btnfoldermouseleave(sender: tobject);
-    procedure btnfoldermousemove(sender: tobject; shift: tshiftstate; x,
-      y: integer);
+    procedure btnfoldermousemove(sender: tobject;
+     shift: tshiftstate; x, y: integer);
     procedure btnfoldermouseup(sender: tobject; button: tmousebutton;
       shift: tshiftstate; x, y: integer);
     procedure formclosequery(sender: tobject; var canclose: boolean);
@@ -77,7 +78,8 @@ type
     procedure btnfilemousedown(sender: tobject; button: tmousebutton;
       shift: tshiftstate; x, y: integer);
     procedure btnfilemouseleave(sender: tobject);
-    procedure btnfilemousemove(sender: tobject; shift: tshiftstate; x, y: integer);
+    procedure btnfilemousemove(sender: tobject;
+      shift: tshiftstate; x, y: integer);
     procedure btnfilemouseup(sender: tobject; button: tmousebutton;
       shift: tshiftstate; x, y: integer);
     procedure formdestroy(sender: tobject);
@@ -160,9 +162,10 @@ end;
 
 procedure taudiofrm.onstop;
 var
-      i: longint;
-      j: longint;
-   rmsi: double;
+  i: longint;
+  j: longint;
+  mycapture: tbitmap;
+  rmsi: double;
   peaki: double;
   track: ttrack;
 begin
@@ -182,7 +185,6 @@ begin
   begin
     rms.clear;
     peak.clear;
-
     // load rms and peak
     track := tracklist.tracks[trackindex];
     if track.channelcount > 0 then
@@ -231,21 +233,44 @@ begin
       if round(track.dr) =   8 then drvalue.font.color := rgbtocolor(255,  72, 0);
       if round(track.dr) <=  7 then drvalue.font.color := rgbtocolor(255,   0, 0);
     end;
-
     btnfile      .enabled := true;
     btnfolder    .enabled := true;
     drvalue      .visible := true;
     progresspanel.visible := false;
     progressbar  .value   := 0;
-    application.processmessages;
   end;
   wave := nil;
+
+  mycapture := tbitmap.create;
+  mycapture.setsize(446, 146);
+  mycapture.canvas.fillrect(0, 0, 446, 146);
+  begin
+    borderstyle := bsnone;
+    paintto(mycapture.canvas, 0, 0);
+    borderstyle := bssizeable;
+    application.processmessages;
+  end;
+  report.add(mycapture, nil);
+  mycapture.free;
 
   inc(trackindex);
   if trackindex = tracklist.count then
   begin
+    // save text report
     tracklist.savetofile(trackfile);
+    // save png report
+    mycapture := tbitmap.create;
+    mycapture.setsize(446, report.count*146);
+    mycapture.canvas.fillrect(0, 0, 446, report.count*146);
+    for i := 0 to report.count -1 do
+    begin
+      report.draw(mycapture.canvas, 0, i*146, i);
+    end;
+    mycapture.savetofile(changefileext(trackfile, '.png'));
+    mycapture.destroy;
+    report.clear;
   end;
+  sleep(1000);
   execute;
 end;
 
@@ -313,7 +338,7 @@ begin
     end else
       tempfile := track.name;
 
-    stream := tfilestream.create(tempfile, fmopenread or fmshareexclusive);
+    stream := tbufferedfilestream.create(tempfile, fmopenread or fmshareexclusive);
   except
     stream := nil;
   end;
