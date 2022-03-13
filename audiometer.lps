@@ -19,6 +19,7 @@
         <ComponentName Value="audiofrm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
+        <IsVisibleTab Value="True"/>
         <CursorPos X="46" Y="7"/>
         <UsageCount Value="104"/>
         <Loaded Value="True"/>
@@ -27,11 +28,9 @@
       <Unit>
         <Filename Value="src/soundwav.pas"/>
         <IsPartOfProject Value="True"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="1"/>
         <TopLine Value="670"/>
         <CursorPos X="14" Y="679"/>
-        <FoldState Value=" T3p80F13137E"/>
         <UsageCount Value="104"/>
         <Loaded Value="True"/>
       </Unit>
@@ -233,7 +232,7 @@
         <UsageCount Value="10"/>
       </Unit>
     </Units>
-    <JumpHistory HistoryIndex="29">
+    <JumpHistory HistoryIndex="28">
       <Position>
         <Filename Value="src/soundwav.pas"/>
         <Caret Line="272" Column="24" TopLine="254"/>
@@ -305,10 +304,6 @@
       <Position>
         <Filename Value="src/mainfrm.pas"/>
         <Caret Line="165" Column="32" TopLine="163"/>
-      </Position>
-      <Position>
-        <Filename Value="src/mainfrm.pas"/>
-        <Caret Line="176" Column="31" TopLine="226"/>
       </Position>
       <Position>
         <Filename Value="src/mainfrm.pas"/>
