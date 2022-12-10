@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "AudioMeter"
-#define MyAppVersion "0.3"
+#define MyAppVersion "0.3.1"
 #define MyAppPublisher "Melchiorre Caruso"
 #define MyAppURL "https://github.com/melchiorrecaruso/audiometer"
 #define MyAppExeName "audiometer.exe"
@@ -38,6 +38,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "..\build\audiometerdbg.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\build\audiometer.exe";    DestDir: "{app}"; Flags: ignoreversion
+Source: "..\build\ffprobe.exe";       DestDir: "{app}"; Flags: ignoreversion
 Source: "..\build\ffmpeg.exe";        DestDir: "{app}"; Flags: ignoreversion
 Source: "LICENSE";                    DestDir: "{app}"; Flags: ignoreversion
 Source: "README";                     DestDir: "{app}"; Flags: ignoreversion

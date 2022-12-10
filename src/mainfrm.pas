@@ -28,7 +28,7 @@ interface
 uses
   classes, sysutils, forms, controls, graphics, dialogs, buttons, stdctrls,
   extctrls, comctrls, tagraph, taseries, tasources, bufstream, soundwav,
-  bcradialprogressbar, bclistbox, process;
+  bcradialprogressbar, bclistbox, process, inifiles;
 
 type
   { taudiofrm }
@@ -150,8 +150,7 @@ procedure taudiofrm.onstart;
 begin
   clear;
   audio.font.color := clwhite;
-  audio.caption    := extractfilename(
-    tracklist.tracks[trackindex].name);
+  audio.caption    := extractfilename(tracklist.tracks[trackindex].name);
 
   btnfile      .enabled := false;
   btnfolder    .enabled := false;
@@ -305,6 +304,11 @@ end;
 
 procedure taudiofrm.execute;
 var
+  buf: array[0..4095] of byte;
+  bit4sample: longint;
+  i: longint;
+  ini: tinifile;
+  mem: tmemorystream;
   process: tprocess;
   track:   ttrack;
 begin
@@ -325,10 +329,68 @@ begin
       try
         process.parameters.clear;
         process.currentdirectory := extractfiledir(track.name);
+        process.executable := 'ffprobe';
+        process.parameters.add('-show_streams');
+        process.parameters.add('-hide_banner');
+        process.parameters.add('-print_format');
+        process.parameters.add('ini');
+        process.parameters.add(extractfilename(track.name));
+        process.options := [ponoconsole, pousepipes];
+        process.execute;
+
+        mem := tmemorystream.create;
+        while (process.running) or
+              (process.output.numbytesavailable > 0) or
+              (process.stderr.numbytesavailable > 0) do
+        begin
+          while process.output.numbytesavailable > 0 do
+            mem.write(buf, process.output.read(buf, sizeof(buf)));
+          while process.stderr.numbytesavailable > 0 do
+            process.stderr.read(buf, sizeof(buf));
+          application.processmessages;
+        end;
+        mem.seek(0, sofrombeginning);
+
+        ini := tinifile.create(mem, [ifostripcomments, ifostripinvalid]);
+
+        i := 0;
+        bit4sample := 0;
+        while ini.sectionexists('streams.stream.' + inttostr(i)) do
+        begin
+          if ini.readstring('streams.stream.' + inttostr(i), 'codec_type', '') = 'audio' then
+          begin
+            bit4sample := ini.readinteger('streams.stream.' + inttostr(i), 'bits_per_raw_sample',  bit4sample);
+          end;
+          inc(i);
+        end;
+        ini.destroy;
+        mem.destroy;
+      except
+      end;
+      process.destroy;
+
+      process := tprocess.create(nil);
+      try
+        process.parameters.clear;
+        process.currentdirectory := extractfiledir(track.name);
         process.executable := 'ffmpeg';
         process.parameters.add('-y');
+        process.parameters.add('-hide_banner');
         process.parameters.add('-i');
         process.parameters.add(extractfilename(track.name));
+
+        if bit4sample = 24 then
+        begin
+          process.parameters.add('-c:a');
+          process.parameters.add('pcm_s24le');
+        end;
+
+        if bit4sample = 32 then
+        begin
+          process.parameters.add('-c:a');
+          process.parameters.add('pcm_s24le');
+        end;
+
         process.parameters.add(tempfile);
         process.options := [ponoconsole, powaitonexit];
         process.execute;
@@ -338,7 +400,7 @@ begin
     end else
       tempfile := track.name;
 
-    stream := tbufferedfilestream.create(tempfile, fmopenread or fmshareexclusive);
+    stream := tfilestream.create(tempfile, fmopenread or fmshareexclusive);
   except
     stream := nil;
   end;
