@@ -36,10 +36,10 @@ type
   // items might be in big endian order if the RIFF identifier is RIFX
 
   triffheader = packed record
-    ckid   : array [0..3] of char; // should be RIFF
+    ckid   : array [0..3] of char; // should be "RIFF"
     cksize : longword;             // 4 + (8 + subchunk1size) + (8 + subchunk2size).
                                    // the entire file size excluding triffheader.id and .size
-    format : array [0..3] of char; // should be WAVE
+    format : array [0..3] of char; // should be "WAVE"
   end;
 
   tfmt = packed record
@@ -451,6 +451,10 @@ var
   seconds: longint;
   step: double;
 begin
+  {$ifopt D+}
+  writeln('track.name         ', ftrack.fname);
+  writeln;
+  {$endif}
   //read headers
   readheader(astream);
   if status = -1 then exit;
@@ -506,13 +510,19 @@ end;
 
 procedure ttrackanalyzer.readheader(astream: tstream);
 var
-  riff : triffheader;
+  marker: array[0..3] of char;
+  riff: triffheader;
 begin
   if astream.read(riff, sizeof(riff)) <> sizeof(riff) then fstatus := -1;
   if riff.ckid   <> idriff then fstatus := -1;
   if riff.format <> idwave then fstatus := -1;
   riff.cksize := leton(riff.cksize);
-
+  {$ifopt D+}
+  writeln('riff.ckid          ', riff.ckid);
+  writeln('riff.cksize        ', riff.cksize);
+  writeln('riff.format        ', riff.format);
+  writeln;
+  {$endif}
   if astream.read(ffmt, sizeof(ffmt)) <> sizeof(ffmt) then fstatus := -1;
   if ffmt.subckid <> idfmt then fstatus := -1;
 
@@ -523,17 +533,38 @@ begin
   ffmt.byterate      := leton(ffmt.byterate);
   ffmt.blockalign    := leton(ffmt.blockalign);
   ffmt.bitspersample := leton(ffmt.bitspersample);
-
-  // read datachunk
-  if astream.read(fdatachunk, sizeof(fdatachunk)) <> sizeof(fdatachunk) then fstatus := -1;
-  if fdatachunk.subck2id = idlist then
+  {$ifopt D+}
+  writeln('ffmt.subckid       ', ffmt.subckid);
+  writeln('ffmt.subcksize     ', ffmt.subcksize);
+  writeln('ffmt.format        ', ffmt.format);
+  writeln('ffmt.channels      ', ffmt.channels);
+  writeln('ffmt.samplerate    ', ffmt.samplerate);
+  writeln('ffmt.byterate      ', ffmt.byterate);
+  writeln('ffmt.blockalign    ', ffmt.blockalign);
+  writeln('ffmt.bitspersample ', ffmt.bitspersample);
+  writeln;
+  {$endif}
+  // search data section by scanning
+  fillchar(marker, sizeof(marker), ' ');
+  while astream.read(marker[3], 1) = 1 do
   begin
-    astream.seek(fdatachunk.subck2size, socurrent);
-    if astream.read(fdatachunk, sizeof(fdatachunk)) <> sizeof(fdatachunk) then fstatus := -1;
+    if marker = iddata then
+    begin
+      fdatachunk.subck2id := iddata;
+      astream.read(fdatachunk.subck2size,
+        sizeof(fdatachunk.subck2size));
+      break;
+    end;
+    move(marker[1], marker[0], sizeof(marker) -1);
   end;
 
   if fdatachunk.subck2id <> iddata then fstatus := -1;
   fdatachunk.subck2size := leton(fdatachunk.subck2size);
+  {$ifopt D+}
+  writeln('data.subck2id      ', fdatachunk.subck2id);
+  writeln('data.subck2size    ', fdatachunk.subck2size);
+  writeln;
+  {$endif}
 end;
 
 function ttrackanalyzer.readsamples(astream: tstream; ablock: tsamples): longint;
