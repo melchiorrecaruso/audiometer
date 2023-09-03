@@ -470,7 +470,7 @@ begin
       end;
       ftrack.fdr := ftrack.fdr/ffmt.channels;
       {$ifopt D+}
-      writeln('track.DR:          ', getdr(i):2:1);
+      writeln('track.DR:          ', ftrack.fdr:2:1);
       writeln;
       {$endif}
     end;
@@ -770,7 +770,7 @@ begin
 
     s.add(splitter);
     s.add('');
-    s.add('Number of tracks:  %d',     [count]);
+    s.add('Number of tracks:  %d', [count]);
 
     if ch  >  0 then s.add('Channels:          %d', [ch]);
     if sr  >  0 then s.add('Samplerate:        %d', [sr]);

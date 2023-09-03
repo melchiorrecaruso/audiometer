@@ -109,9 +109,6 @@ implementation
 
 {$R *.lfm}
 
-uses
-  Math;
-
 { taudiofrm }
 
 procedure taudiofrm.formcreate(sender: tobject);
@@ -228,7 +225,7 @@ begin
     drvalue.font.color := clwhite;
     if track.dr > 0 then
     begin
-      drvalue.caption := inttostr(ceil(track.dr));
+      drvalue.caption := format('%2.0f', [track.dr]);
       if round(track.dr) >= 14 then drvalue.font.color := rgbtocolor(  0, 255, 0);
       if round(track.dr) =  13 then drvalue.font.color := rgbtocolor( 72, 255, 0);
       if round(track.dr) =  12 then drvalue.font.color := rgbtocolor(144, 255, 0);
