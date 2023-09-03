@@ -109,6 +109,9 @@ implementation
 
 {$R *.lfm}
 
+uses
+  Math;
+
 { taudiofrm }
 
 procedure taudiofrm.formcreate(sender: tobject);
@@ -170,16 +173,19 @@ var
 begin
   freeandnil(buffer);
   freeandnil(stream);
-  //if fileexists(tempfile) then
-  //begin
-    //deletefile(tempfile);
-  //end;
+//if fileexists(tempfile) then
+//begin
+  //deletefile(tempfile);
+//end;
 
   if wave.status <> 0 then
   begin
-    audio.font.color := clred;
-    audio.caption    := 'File format error!';
-    trackindex       := tracklist.count;
+    trackindex := tracklist.count;
+    audio.caption         := 'File format error!';
+    audio.font.color      := clred;
+    btnfile.enabled       := true;
+    btnfolder.enabled     := true;
+    progresspanel.visible := false;
   end else
   begin
     rms.clear;
@@ -222,7 +228,7 @@ begin
     drvalue.font.color := clwhite;
     if track.dr > 0 then
     begin
-      drvalue.caption := inttostr(round(track.dr));
+      drvalue.caption := inttostr(ceil(track.dr));
       if round(track.dr) >= 14 then drvalue.font.color := rgbtocolor(  0, 255, 0);
       if round(track.dr) =  13 then drvalue.font.color := rgbtocolor( 72, 255, 0);
       if round(track.dr) =  12 then drvalue.font.color := rgbtocolor(144, 255, 0);
@@ -388,7 +394,7 @@ begin
         if bit4sample = 32 then
         begin
           process.parameters.add('-c:a');
-          process.parameters.add('pcm_s24le');
+          process.parameters.add('pcm_s32le');
         end;
 
         process.parameters.add(tempfile);

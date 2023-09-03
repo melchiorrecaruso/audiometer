@@ -3,17 +3,17 @@ object audiofrm: Taudiofrm
   Height = 440
   Top = 185
   Width = 700
-  Caption = 'AudioMeter 0.3.1 - Dynamic Range Meter'
-  ClientHeight = 440
-  ClientWidth = 700
+  Caption = 'AudioMeter 0.4.0 - Dynamic Range Meter'
+  ClientHeight = 0
+  ClientWidth = 0
   Color = clGray
   Constraints.MinHeight = 440
   Constraints.MinWidth = 700
   Font.Style = [fsBold]
+  LCLVersion = '3.99.0.0'
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
-  LCLVersion = '2.3.0.0'
   object bit8: TLabel
     AnchorSideLeft.Control = Bevel1
     AnchorSideTop.Control = Bevel1
@@ -404,6 +404,7 @@ object audiofrm: Taudiofrm
     ClientHeight = 92
     ClientWidth = 100
     Color = clBlack
+    ParentBackground = False
     ParentColor = False
     TabOrder = 3
     object progressbar: TBCRadialProgressBar
@@ -434,11 +435,6 @@ object audiofrm: Taudiofrm
     Width = 32
     Anchors = [akTop, akRight]
     BorderSpacing.Right = 45
-    OnClick = btnfileClick
-    OnMouseDown = btnfileMouseDown
-    OnMouseLeave = btnfileMouseLeave
-    OnMouseMove = btnfileMouseMove
-    OnMouseUp = btnfileMouseUp
     Picture.Data = {
       1754506F727461626C654E6574776F726B47726170686963C102000089504E47
       0D0A1A0A0000000D49484452000000200000001E08060000004D0A1C29000000
@@ -468,6 +464,11 @@ object audiofrm: Taudiofrm
     StretchOutEnabled = False
     StretchInEnabled = False
     Transparent = True
+    OnClick = btnfileClick
+    OnMouseDown = btnfileMouseDown
+    OnMouseLeave = btnfileMouseLeave
+    OnMouseMove = btnfileMouseMove
+    OnMouseUp = btnfileMouseUp
   end
   object btnfolder: TImage
     AnchorSideTop.Control = Owner
@@ -480,11 +481,6 @@ object audiofrm: Taudiofrm
     Anchors = [akTop, akRight]
     BorderSpacing.Top = 13
     BorderSpacing.Right = 12
-    OnClick = btnfolderclick
-    OnMouseDown = btnfolderMouseDown
-    OnMouseLeave = btnfoldermouseleave
-    OnMouseMove = btnfoldermousemove
-    OnMouseUp = btnfoldermouseup
     Picture.Data = {
       1754506F727461626C654E6574776F726B47726170686963E701000089504E47
       0D0A1A0A0000000D494844520000002000000015080600000027CDECEA000000
@@ -508,6 +504,11 @@ object audiofrm: Taudiofrm
     StretchOutEnabled = False
     StretchInEnabled = False
     Transparent = True
+    OnClick = btnfolderclick
+    OnMouseDown = btnfolderMouseDown
+    OnMouseLeave = btnfoldermouseleave
+    OnMouseMove = btnfoldermousemove
+    OnMouseUp = btnfoldermouseup
   end
   object filedialog: TOpenDialog
     Left = 496
