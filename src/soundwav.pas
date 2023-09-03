@@ -1,7 +1,7 @@
 {
   Description: Sound routines.
 
-  Copyright (C) 2022 Melchiorre Caruso <melchiorrecaruso@gmail.com>
+  Copyright (C) 2023 Melchiorre Caruso <melchiorrecaruso@gmail.com>
 
   This source is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free
@@ -39,20 +39,42 @@ type
     ckid   : array [0..3] of char; // should be "RIFF"
     cksize : longword;             // 4 + (8 + subchunk1size) + (8 + subchunk2size).
                                    // the entire file size excluding triffheader.id and .size
-    format : array [0..3] of char; // should be "WAVE"
+    waveid : array [0..3] of char; // should be "WAVE"
   end;
 
-  tfmt = packed record
-    subckid       : array [0..3] of char; // should be "fmt "
-    subcksize     : longword;             // subchunk1size
-    format        : word;                 // pcm = 1 (linear quantization), values > 1 indicate a compressed format
-    channels      : word;                 // mono = 1, stereo = 2, etc
-    samplerate    : longword;             // 8000, 44100, etc
-    byterate      : longword;             // = samplerate * numchannels * bitspersample/8
-    blockalign    : word;                 // = numchannels * bitspersample/8
-    bitspersample : word;                 // examples: 8 bits, 16 bits, etc
+  tfmtchunk = packed record
+    ckid               : array [0..3] of char;  // should be "fmt "
+    cksize             : longword;              // subchunk1size: 16, 18 or 40
+    formattag          : word;                  // pcm = 1 (linear quantization), values > 1 indicate a compressed format
+    channels           : word;                  // mono = 1, stereo = 2, etc
+    samplespersec      : longword;              // 8000, 44100, etc
+    bytespersec        : longword;              // = samplerate * numchannels * bitspersample/8
+    blockalign         : word;                  // = numchannels * bitspersample/8
+    bitspersample      : word;                  // examples: 8 bits, 16 bits, etc
   end;
 
+  tfmtchunkext = packed record
+    cbsize             : word;                  // size of the extension (0 or 22)
+    validbitspersample : word;                  // number of valid bits
+    channelmask        : longword;              // speaker position mask
+    subcode            : word;                  // GUID data format code
+    subformat          : array [0..13] of byte; // GUID
+  end;
+
+  tfactchunk = packed record
+    ckid               : array [0..3] of char;  // should be "fact"
+    cksize             : longword;              // chunk size: minimum 4
+    samplelength       : longword;              // Number of samples (per channel)
+  end;
+
+const
+  WAVE_FORMAT_PCM        = $0001;
+  WAVE_FORMAT_IEEE_FLOAT = $0003;
+  WAVE_FORMAT_ALAW       = $0006;
+  WAVE_FORMAT_MULAW      = $0007;
+  WAVE_FORMAT_EXTENSIBLE = $fffe;
+
+type
   tdatachunk = packed record
     subck2id   : array [0..3] of char; // should be "data"
     subck2size : longword;             // == numsamples * numchannels * bitspersample/8
@@ -126,7 +148,8 @@ type
   
   ttrackanalyzer = class(tthread)
   private
-    ffmt: tfmt;
+    ffmt: tfmtchunk;
+    ffmtext: tfmtchunkext;
     fdatachunk: tdatachunk;
     fdata: array of ttrackchannel;
     //---
@@ -187,6 +210,7 @@ const
   idriff = 'RIFF';
   idwave = 'WAVE';
   idfmt  = 'fmt ';
+  iffact = 'fact';
   iddata = 'data';
   idlist = 'LIST';
 
@@ -353,16 +377,24 @@ end;
 function ttrackanalyzer.getrmsi(block: tsamples; channel: word): double;
 var
   i: longint;
-  smpi2: int64;
+  smpi2: double;
+  maxsmpi2: qword;
 begin
+  maxsmpi2 := 0;
+  for i := low(block) to high(block) do
+    if maxsmpi2 < sqr(qword(block[i].channelvalues[channel])) then
+    begin
+      maxsmpi2 := sqr(qword(block[i].channelvalues[channel]));
+    end;
+
   smpi2 := 0;
   for i := low(block) to high(block) do
   begin
-    smpi2 := smpi2 + sqr(block[i].channelvalues[channel]);
+    smpi2 := smpi2 + double(sqr(qword(block[i].channelvalues[channel]))/maxsmpi2);
   end;
 
   if length(block) > 0 then
-    result := sqrt(2*(smpi2/length(block)))
+    result := sqrt(2*smpi2/length(block)*maxsmpi2)
   else
     result := 0;
 end;
@@ -436,7 +468,11 @@ begin
       begin
         ftrack.fdr := ftrack.fdr + getdr(i);
       end;
-      ftrack.fdr   := ftrack.fdr/ffmt.channels;
+      ftrack.fdr := ftrack.fdr/ffmt.channels;
+      {$ifopt D+}
+      writeln('track.DR:          ', getdr(i):2:1);
+      writeln;
+      {$endif}
     end;
 
   if assigned(fonstop) then
@@ -446,6 +482,7 @@ end;
 procedure ttrackanalyzer.readfromstream(astream:tstream);
 var
   block: tsamples;
+  blocksize: longint;
   i: longint;
   samples: longword;
   seconds: longint;
@@ -453,7 +490,6 @@ var
 begin
   {$ifopt D+}
   writeln('track.name         ', ftrack.fname);
-  writeln;
   {$endif}
   //read headers
   readheader(astream);
@@ -461,11 +497,11 @@ begin
   // update track details
   ftrack.falbum         := '';
   ftrack.fnumber        := 0;
-  ftrack.fsamplerate    := ffmt.samplerate;
+  ftrack.fsamplerate    := ffmt.samplespersec;
   ftrack.fbitspersample := ffmt.bitspersample;
   ftrack.channelcount   := ffmt.channels;
-  ftrack.fsamplerate    := ffmt.samplerate;
-  ftrack.fbyterate      := ffmt.byterate;
+  ftrack.fsamplerate    := ffmt.samplespersec;
+  ftrack.fbyterate      := ffmt.bytespersec;
   ftrack.frms           := 0;
   ftrack.fpeak          := 0;
   ftrack.fdr            := 0;
@@ -481,12 +517,14 @@ begin
   for i := low(fdata) to high(fdata) do
     fdata[i] := ttrackchannel.create;
 
-  samples :=        (fdatachunk.subck2size div ffmt.blockalign);
-  step    := 100 / ((fdatachunk.subck2size div ffmt.blockalign) / (3 * ffmt.samplerate));
-  while samples > 0 do
+  blocksize := 3 * ffmt.samplespersec;
+  samples   :=        (fdatachunk.subck2size div ffmt.blockalign);
+  step      := 100 / ((fdatachunk.subck2size div ffmt.blockalign) / blocksize);
+
+  while samples >= blocksize do
   begin
     // allobate new block (of 3 seconds length)
-    setlength(block, math.min(3 * ffmt.samplerate, samples));
+    setlength(block, blocksize);
     for i := low(block) to high(block) do
       setlength(block[i].channelvalues, ffmt.channels);
     // read samples
@@ -515,35 +553,52 @@ var
 begin
   if astream.read(riff, sizeof(riff)) <> sizeof(riff) then fstatus := -1;
   if riff.ckid   <> idriff then fstatus := -1;
-  if riff.format <> idwave then fstatus := -1;
+  if riff.waveid <> idwave then fstatus := -1;
   riff.cksize := leton(riff.cksize);
   {$ifopt D+}
   writeln('riff.ckid          ', riff.ckid);
   writeln('riff.cksize        ', riff.cksize);
-  writeln('riff.format        ', riff.format);
-  writeln;
+  writeln('riff.format        ', riff.waveid);
   {$endif}
   if astream.read(ffmt, sizeof(ffmt)) <> sizeof(ffmt) then fstatus := -1;
-  if ffmt.subckid <> idfmt then fstatus := -1;
+  if ffmt.ckid <> idfmt then fstatus := -1;
 
-  ffmt.subcksize     := leton(ffmt.subcksize);
-  ffmt.format        := leton(ffmt.format);
+  ffmt.cksize         := leton(ffmt.cksize);
+  ffmt.formattag      := leton(ffmt.formattag);
   ffmt.channels      := leton(ffmt.channels);
-  ffmt.samplerate    := leton(ffmt.samplerate);
-  ffmt.byterate      := leton(ffmt.byterate);
+  ffmt.samplespersec := leton(ffmt.samplespersec);
+  ffmt.bytespersec   := leton(ffmt.bytespersec);
   ffmt.blockalign    := leton(ffmt.blockalign);
-  ffmt.bitspersample := leton(ffmt.bitspersample);
+  ffmt.bitspersample  := leton(ffmt.bitspersample);
+
+//if ffmt.bitspersample = 32 then fstatus := -1;
   {$ifopt D+}
-  writeln('ffmt.subckid       ', ffmt.subckid);
-  writeln('ffmt.subcksize     ', ffmt.subcksize);
-  writeln('ffmt.format        ', ffmt.format);
+  writeln('ffmt.subckid       ', ffmt.ckid);
+  writeln('ffmt.subcksize     ', ffmt.cksize);
+  writeln('ffmt.formattag     ', ffmt.formattag);
   writeln('ffmt.channels      ', ffmt.channels);
-  writeln('ffmt.samplerate    ', ffmt.samplerate);
-  writeln('ffmt.byterate      ', ffmt.byterate);
+  writeln('ffmt.samplerate    ', ffmt.samplespersec);
+  writeln('ffmt.byterate      ', ffmt.bytespersec);
   writeln('ffmt.blockalign    ', ffmt.blockalign);
   writeln('ffmt.bitspersample ', ffmt.bitspersample);
-  writeln;
   {$endif}
+
+  if ffmt.cksize = 40 then
+  begin
+    if astream.read(ffmtext, sizeof(ffmtext)) <> sizeof(ffmtext) then fstatus := -1;
+
+    ffmtext.cbsize             := leton(ffmtext.cbsize);
+    ffmtext.validbitspersample := leton(ffmtext.validbitspersample);
+    ffmtext.channelmask        := leton(ffmtext.channelmask);
+    {$ifopt D+}
+    writeln;
+    writeln('ffmtext.cbsize             ', ffmtext.cbsize);
+    writeln('ffmtext.validbitspersample ', ffmtext.validbitspersample);
+    writeln('ffmtext.channelmask        ', ffmtext.channelmask);
+    writeln;
+    {$endif}
+  end;
+
   // search data section by scanning
   fillchar(marker, sizeof(marker), ' ');
   while astream.read(marker[3], 1) = 1 do
@@ -563,7 +618,6 @@ begin
   {$ifopt D+}
   writeln('data.subck2id      ', fdatachunk.subck2id);
   writeln('data.subck2size    ', fdatachunk.subck2size);
-  writeln;
   {$endif}
 end;
 
@@ -680,7 +734,7 @@ var
   track: ttrack;
 begin
   s := tstringlist.create;
-  s.add('AudioMeter 0.3 - Dynamic Range Meter');
+  s.add('AudioMeter 0.4.0 - Dynamic Range Meter');
   s.add(splitter);
   s.add(format('Log date : %s', [datetimetostr(now)]));
   s.add(splitter);
@@ -712,21 +766,21 @@ begin
 
       dr := dr + track.dr;
     end;
-    dr := round(dr/count);
+    dr := dr/count;
 
     s.add(splitter);
     s.add('');
     s.add('Number of tracks:  %d',     [count]);
 
-    if ch  >  0 then s.add('Channels:          %d',     [ch ]);
-    if sr  >  0 then s.add('Samplerate:        %d',     [sr ]);
-    if bps >  0 then s.add('Bits per sample:   %d',     [bps]);
-    if dr  >  0 then s.add('Official DR value: %2.0f',  [dr ]);
+    if ch  >  0 then s.add('Channels:          %d', [ch]);
+    if sr  >  0 then s.add('Samplerate:        %d', [sr]);
+    if bps >  0 then s.add('Bits per sample:   %d', [bps]);
+    if dr  >  0 then s.add('Official DR value: %d', [ceil(dr)]);
 
     if ch  <= 0 then s.add('Channels:          ---');
     if sr  <= 0 then s.add('Samplerate:        ---');
     if bps <= 0 then s.add('Bits per sample:   ---');
-    if dr  <= 0 then s.add('Official DR value: 0'  );
+    if dr  <= 0 then s.add('Official DR value: ---');
 
     s.add('');
     s.add(splitter);
