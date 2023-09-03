@@ -87,24 +87,24 @@ type
 
   tsamples = array of tsample;
 
-  tdoublelist = specialize tfpglist<double>;
+  tintegerlist = specialize tfpglist<longint>;
 
   // ttrackchannel
 
   ttrackchannel = class
   private
-    frms:  tdoublelist;
-    fpeak: tdoublelist;
-    function getrms (index: longint): double;
-    function getpeak(index: longint): double;
+    frms:  tintegerlist;
+    fpeak: tintegerlist;
+    function getrms (index: longint): longint;
+    function getpeak(index: longint): longint;
     function getcount: longint;
   public
     constructor create;
     destructor destroy; override;
-    procedure add(const rmsi, peaki: double);
+    procedure add(const rmsi, peaki: longint);
   public
-    property rms [index: longint]: double read getrms;
-    property peak[index: longint]: double read getpeak;
+    property rms [index: longint]: longint read getrms;
+    property peak[index: longint]: longint read getpeak;
     property count: longint read getcount;
   end;
 
@@ -119,8 +119,8 @@ type
     fbitspersample: longint;
     fchannels: array of ttrackchannel;
     fbyterate: longint;
-    frms: double;
-    fpeak: double;
+    frms: longint;
+    fpeak: longint;
     fdr: double;
     fduration: string;
     procedure setchannelcount(value: longint);
@@ -136,8 +136,8 @@ type
     property samplerate: longword read fsamplerate;
     property bitspersample: longint read fbitspersample;
     property byterate: longint read fbyterate;
-    property rms: double read frms;
-    property peak: double read fpeak;
+    property rms: longint read frms;
+    property peak: longint read fpeak;
     property dr: double read fdr;
     property duration: string read fduration;
     property channels[index: longint]: ttrackchannel read getchannel;
@@ -164,8 +164,8 @@ type
     procedure readheader(astream: tstream);
     function readsamples(astream: tstream; ablock: tsamples): longint;
     procedure readfromstream(astream: tstream);
-    function getrmsi (block: tsamples; channel: word): double;
-    function getpeaki(block: tsamples; channel: word): double;
+    function getrmsi (block: tsamples; channel: word): longint;
+    function getpeaki(block: tsamples; channel: word): longint;
     function getdr(channel: word): double;
     procedure clear;
   public
@@ -225,7 +225,7 @@ begin
   if fileext = '.ape'  then result := true;
 end;
 
-function comparedouble(const item1, item2: double): longint;
+function compareint(const item1, item2: longint): longint;
 begin
   if item1 < item2 then
     result := +1
@@ -241,7 +241,7 @@ begin
   result := ansicomparefilename(ttrack(item1).name, ttrack(item2).name);
 end;
 
-function calculate_db(value: double): double;
+function db(const value: double): double;
 begin
   if value > 0 then
     result := 20*log10(value)
@@ -254,8 +254,8 @@ end;
 constructor ttrackchannel.create;
 begin
   inherited create;
-  frms  := tdoublelist.create;
-  fpeak := tdoublelist.create;
+  frms  := tintegerlist.create;
+  fpeak := tintegerlist.create;
 end;
 
 destructor ttrackchannel.destroy;
@@ -265,18 +265,18 @@ begin
   inherited destroy;
 end;
 
-procedure ttrackchannel.add(const rmsi, peaki: double);
+procedure ttrackchannel.add(const rmsi, peaki: longint);
 begin
   frms .add(rmsi );
   fpeak.add(peaki);
 end;
 
-function ttrackchannel.getrms(index: longint): double;
+function ttrackchannel.getrms(index: longint): longint;
 begin
   result := frms[index];
 end;
 
-function ttrackchannel.getpeak(index: longint): double;
+function ttrackchannel.getpeak(index: longint): longint;
 begin
   result := fpeak[index];
 end;
@@ -374,32 +374,27 @@ begin
   fstatus := 0;
 end;
 
-function ttrackanalyzer.getrmsi(block: tsamples; channel: word): double;
+function ttrackanalyzer.getrmsi(block: tsamples; channel: word): longint;
 var
   i: longint;
+  norm: qword;
   smpi2: double;
-  maxsmpi2: qword;
 begin
-  maxsmpi2 := 0;
-  for i := low(block) to high(block) do
-    if maxsmpi2 < sqr(qword(block[i].channelvalues[channel])) then
-    begin
-      maxsmpi2 := sqr(qword(block[i].channelvalues[channel]));
-    end;
-
   smpi2 := 0;
+  norm  := 1 shl ffmt.bitspersample;
   for i := low(block) to high(block) do
   begin
-    smpi2 := smpi2 + double(sqr(qword(block[i].channelvalues[channel]))/maxsmpi2);
+    smpi2 := smpi2 + double(sqr(qword(block[i].channelvalues[channel]))/norm);
   end;
+  smpi2 := smpi2 / length(block);
 
   if length(block) > 0 then
-    result := sqrt(2*smpi2/length(block)*maxsmpi2)
+    result := trunc(sqrt(2*smpi2*norm))
   else
     result := 0;
 end;
 
-function ttrackanalyzer.getpeaki(block: tsamples; channel: word): double;
+function ttrackanalyzer.getpeaki(block: tsamples; channel: word): longint;
 var
   i : longint;
 begin
@@ -414,9 +409,10 @@ function ttrackanalyzer.getdr(channel: word): double;
 var
   i, n     : longint;
   drj      : double;
-  rmsi     : double;
-  peaki    : double;
-  peak2nd  : double;
+  norm     : qword;
+  rmsi     : longint;
+  peaki    : longint;
+  peak2nd  : longint;
 begin
   result := 0;
   for i := 0 to fdata[channel].count -1 do
@@ -425,27 +421,33 @@ begin
     peaki := fdata[channel].fpeak[i];
 
     if (rmsi > 1) and (peaki > 1) then
-      ftrack.channels[channel].add(calculate_db(rmsi),
-                                   calculate_db(peaki))
+      ftrack.channels[channel].add(trunc(db(rmsi)), trunc(db(peaki)))
     else
       ftrack.channels[channel].add(0, 0);
   end;
-  fdata[channel].frms .sort(@comparedouble);
-  fdata[channel].fpeak.sort(@comparedouble);
+  fdata[channel].frms .sort(@compareint);
+  fdata[channel].fpeak.sort(@compareint);
 
-  n := round(0.2 * fdata[channel].count);
+  if fdata[channel].count > 0 then
+  begin
+    ftrack.frms  := fdata[channel].frms [0];
+    ftrack.fpeak := fdata[channel].fpeak[0];
+  end;
+
+  n := ceil(0.2 * fdata[channel].count);
   if n > 1 then
   begin
-    ftrack.frms  := max(ftrack.frms,  calculate_db(fdata[channel].frms [0]));
-    ftrack.fpeak := max(ftrack.fpeak, calculate_db(fdata[channel].fpeak[0]));
-
-    drj     := 0;
     peak2nd := fdata[channel].fpeak[1];
+
+    drj  := 0;
+    norm := 1 shl ffmt.bitspersample;
     for i := 0 to n -1 do
     begin
-      drj := drj + sqr(fdata[channel].frms[i]);
+      drj := drj + double(sqr(qword(fdata[channel].frms[i]))/norm);
     end;
-    result := -calculate_db(sqrt(drj/n)*(1/peak2nd));
+    drj := drj / n;
+
+    result := -db(sqrt(drj*norm)/peak2nd);
   end;
 end;
 
@@ -757,7 +759,7 @@ begin
     begin
       track := gettrack(i);
       s.add(format('DR%2.0f     %6.2f dB   %6.2f dB    %-s   %s', [
-        track.dr, track.peak, track.rms,
+        track.dr, db(track.peak), db(track.rms),
         track.duration, extractfilename(track.name)]));
 
       if ch  <> track.channelcount  then ch  := -1;
