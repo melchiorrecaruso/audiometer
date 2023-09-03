@@ -3,7 +3,11 @@
   <ProjectOptions>
     <Version Value="12"/>
     <General>
-      <SessionStorage Value="InProjectDir"/>
+      <Flags>
+        <SaveClosedFiles Value="False"/>
+        <SaveJumpHistory Value="False"/>
+        <SaveFoldState Value="False"/>
+      </Flags>
       <Title Value="AudioMeter"/>
       <Scaled Value="True"/>
       <ResourceType Value="res"/>
@@ -13,7 +17,12 @@
       </XPManifest>
       <Icon Value="0"/>
     </General>
-    <BuildModes>
+    <VersionInfo>
+      <UseVersionInfo Value="True"/>
+      <MinorVersionNr Value="4"/>
+      <StringTable FileDescription="AudioMeter" LegalCopyright="Melchiorre Caruso" ProductName="AudioMeter" ProductVersion="0.4"/>
+    </VersionInfo>
+    <BuildModes Active="Release">
       <Item Name="Debug" Default="True"/>
       <Item Name="Release">
         <CompilerOptions>
@@ -31,19 +40,20 @@
             <SyntaxOptions>
               <CStyleOperator Value="False"/>
               <AllowLabel Value="False"/>
-              <CPPInline Value="False"/>
               <UseAnsiStrings Value="False"/>
+              <CPPInline Value="False"/>
             </SyntaxOptions>
           </Parsing>
           <CodeGeneration>
             <SmartLinkUnit Value="True"/>
             <Optimizations>
-              <OptimizationLevel Value="3"/>
+              <OptimizationLevel Value="4"/>
             </Optimizations>
           </CodeGeneration>
           <Linking>
             <Debugging>
               <GenerateDebugInfo Value="False"/>
+              <RunWithoutDebug Value="True"/>
               <DebugInfoType Value="dsDwarf2Set"/>
               <UseLineInfoUnit Value="False"/>
             </Debugging>
@@ -54,9 +64,15 @@
               </Win32>
             </Options>
           </Linking>
+          <Other>
+            <ConfigFile>
+              <WriteConfigFilePath Value="$(ProjOutDir)/fpclaz.cfg"/>
+            </ConfigFile>
+          </Other>
         </CompilerOptions>
       </Item>
     </BuildModes>
+    <ManyBuildModesSelection Value="Debug,Release"/>
     <PublishOptions>
       <Version Value="2"/>
       <UseFileFilters Value="True"/>
@@ -82,6 +98,10 @@
       <Unit>
         <Filename Value="audiometer.lpr"/>
         <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="4"/>
+        <CursorPos X="50" Y="27"/>
+        <UsageCount Value="200"/>
       </Unit>
       <Unit>
         <Filename Value="src/mainfrm.pas"/>
@@ -89,10 +109,21 @@
         <ComponentName Value="audiofrm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
+        <TopLine Value="219"/>
+        <CursorPos X="35" Y="228"/>
+        <UsageCount Value="144"/>
+        <Loaded Value="True"/>
+        <LoadedDesigner Value="True"/>
       </Unit>
       <Unit>
         <Filename Value="src/soundwav.pas"/>
         <IsPartOfProject Value="True"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="1"/>
+        <TopLine Value="636"/>
+        <CursorPos X="57" Y="661"/>
+        <UsageCount Value="144"/>
+        <Loaded Value="True"/>
       </Unit>
     </Units>
   </ProjectOptions>
@@ -112,8 +143,8 @@
         <CStyleOperator Value="False"/>
         <IncludeAssertionCode Value="True"/>
         <AllowLabel Value="False"/>
-        <CPPInline Value="False"/>
         <UseAnsiStrings Value="False"/>
+        <CPPInline Value="False"/>
       </SyntaxOptions>
     </Parsing>
     <CodeGeneration>
@@ -134,6 +165,11 @@
         <UseHeaptrc Value="True"/>
       </Debugging>
     </Linking>
+    <Other>
+      <ConfigFile>
+        <WriteConfigFilePath Value="$(ProjOutDir)/fpclaz.cfg"/>
+      </ConfigFile>
+    </Other>
   </CompilerOptions>
   <Debugging>
     <Exceptions>
