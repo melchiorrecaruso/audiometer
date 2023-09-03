@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "AudioMeter"
-#define MyAppVersion "0.3.1"
+#define MyAppVersion "0.4.0"
 #define MyAppPublisher "Melchiorre Caruso"
 #define MyAppURL "https://github.com/melchiorrecaruso/audiometer"
 #define MyAppExeName "audiometer.exe"
