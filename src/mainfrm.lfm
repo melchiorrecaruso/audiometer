@@ -3,9 +3,10 @@ object audiofrm: Taudiofrm
   Height = 440
   Top = 185
   Width = 700
+  BorderIcons = [biSystemMenu, biMaximize]
   Caption = 'AudioMeter 0.4.0 - Dynamic Range Meter'
-  ClientHeight = 0
-  ClientWidth = 0
+  ClientHeight = 440
+  ClientWidth = 700
   Color = clGray
   Constraints.MinHeight = 440
   Constraints.MinWidth = 700
