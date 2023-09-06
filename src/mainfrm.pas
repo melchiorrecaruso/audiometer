@@ -164,6 +164,7 @@ var
   i: longint;
   j: longint;
   mycapture: tbitmap;
+  norm: int64;
   rmsi: double;
   peaki: double;
   track: ttrack;
@@ -178,8 +179,13 @@ begin
   if wave.status <> 0 then
   begin
     trackindex := tracklist.count;
-    audio.caption         := 'File format error!';
-    audio.font.color      := clred;
+    audio.font.color := clred;
+    case wave.status of
+      -1: audio.caption := 'File format error!';
+      -2: audio.caption := 'File is empty!';
+      -3: audio.caption := 'File is too short!';
+    else  audio.caption := 'Unknown error!';
+    end;
     btnfile.enabled       := true;
     btnfolder.enabled     := true;
     progresspanel.visible := false;
@@ -190,20 +196,21 @@ begin
     // load rms and peak
     track := tracklist.tracks[trackindex];
     if track.channelcount > 0 then
+    begin
+      norm := 1 shl track.bitspersample;
       for i := 0 to track.channels[0].count -1 do
       begin
         rmsi := 0;
         for j := 0 to track.channelcount -1 do
-          rmsi := rmsi + track.channels[j].rms[i];
-        rmsi := rmsi/track.channelcount;
-        rms.add(i, rmsi);
+          rmsi := rmsi + double(sqrt(track.channels[j].rms2[i])/norm);
+        rms.add(i, db(rmsi/track.channelcount*norm));
 
         peaki := 0;
         for j := 0 to track.channelcount -1 do
-          peaki := peaki + track.channels[j].peak[i];
-        peaki := peaki/track.channelcount;
-        peak.add(i, peaki);
+          peaki := peaki + double(track.channels[j].peak[i]/norm);
+        peak.add(i, db(peaki/track.channelcount*norm));
       end;
+    end;
     dbchart.bottomaxis.range.max := rms.count;
     dbchart.invalidate;
 
