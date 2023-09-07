@@ -197,17 +197,19 @@ begin
     track := tracklist.tracks[trackindex];
     if track.channelcount > 0 then
     begin
-      norm := 1 shl track.bitspersample;
+      norm := 1 shl (track.bitspersample -1);
       for i := 0 to track.channels[0].count -1 do
       begin
         rmsi := 0;
         for j := 0 to track.channelcount -1 do
-          rmsi := rmsi + double(sqrt(track.channels[j].rms2[i])/norm);
+        begin
+          rmsi := rmsi + sqrt(track.channels[j].rms2[i])/norm;
+        end;
         rms.add(i, db(rmsi/track.channelcount*norm));
 
         peaki := 0;
         for j := 0 to track.channelcount -1 do
-          peaki := peaki + double(track.channels[j].peak[i]/norm);
+          peaki := peaki + track.channels[j].peak[i]/norm;
         peak.add(i, db(peaki/track.channelcount*norm));
       end;
     end;
