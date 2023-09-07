@@ -24,8 +24,8 @@ program audiometer;
 {$mode objfpc}{$H+}
 
 uses
-  {$IFDEF UNIX} cthreads, {$ENDIF} interfaces, forms,
-  mainfrm, soundwav, tachartlazaruspkg;
+  {$IFDEF UNIX} cthreads, {$ENDIF} interfaces,
+  forms, mainfrm, tachartlazaruspkg;
 
 {$R *.res}
 

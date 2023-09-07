@@ -19,7 +19,6 @@
       <Icon Value="0"/>
     </General>
     <VersionInfo>
-      <UseVersionInfo Value="True"/>
       <MinorVersionNr Value="4"/>
       <StringTable FileDescription="AudioMeter" LegalCopyright="Melchiorre Caruso" ProductName="AudioMeter" ProductVersion="0.4"/>
     </VersionInfo>
