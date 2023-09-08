@@ -486,7 +486,7 @@ begin
       ftrack.frms  := ftrack.frms /ffmt.channels;
       {$ifopt D+}
       writeln;
-      writeln('track.DR:          ', ftrack.fdr            :2:1);
+      writeln('track.DR:          ', ftrack.fdr      :2:1);
       writeln('track.Peak         ', db(ftrack.fpeak):2:2);
       writeln('track.Rms          ', db(ftrack.frms ):2:1);
       writeln;
@@ -790,7 +790,7 @@ begin
     begin
       track := gettrack(i);
       s.add(format('DR%2.0f     %6.2f dB   %6.2f dB    %-s   %s', [
-        track.dr, track.peak, track.rms, track.duration,
+        track.dr, db(track.peak), db(track.rms), track.duration,
         extractfilename(track.name)]));
 
       if ch  <> track.channelcount  then ch  := 0;
