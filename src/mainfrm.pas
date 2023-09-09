@@ -1,7 +1,7 @@
 {
   Description: Main form.
 
-  Copyright (C) 2022 Melchiorre Caruso <melchiorrecaruso@gmail.com>
+  Copyright (C) 2023 Melchiorre Caruso <melchiorrecaruso@gmail.com>
 
   This source is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free
@@ -164,7 +164,7 @@ var
   i: longint;
   j: longint;
   mycapture: tbitmap;
-  norm: int64;
+  norm: longint;
   rmsi: double;
   peaki: double;
   track: ttrack;
@@ -202,14 +202,12 @@ begin
       begin
         rmsi := 0;
         for j := 0 to track.channelcount -1 do
-        begin
-          rmsi := rmsi + sqrt(track.channels[j].rms2[i])/norm;
-        end;
+          rmsi := rmsi + sqrt(track.channels[j].rms2[i]);
         rms.add(i, db(rmsi/track.channelcount*norm));
 
         peaki := 0;
         for j := 0 to track.channelcount -1 do
-          peaki := peaki + track.channels[j].peak[i]/norm;
+          peaki := peaki + track.channels[j].peak[i];
         peak.add(i, db(peaki/track.channelcount*norm));
       end;
     end;
@@ -281,7 +279,6 @@ begin
     mycapture.destroy;
     report.clear;
   end;
-  sleep(1000);
   execute;
 end;
 
