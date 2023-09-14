@@ -109,6 +109,9 @@ implementation
 
 {$R *.lfm}
 
+uses
+  math;
+
 { taudiofrm }
 
 procedure taudiofrm.formcreate(sender: tobject);
@@ -163,7 +166,7 @@ procedure taudiofrm.onstop;
 var
   i: longint;
   j: longint;
-  mycapture: tbitmap;
+//mycapture: tbitmap;
   norm: longint;
   rmsi: double;
   peaki: double;
@@ -203,14 +206,14 @@ begin
         rmsi := 0;
         for j := 0 to track.channelcount -1 do
           rmsi := rmsi + sqrt(track.channels[j].rms2[i]);
-        rms.add(i, db(rmsi/track.channelcount*norm));
+          rms.add(i, max(0, db(rmsi/track.channelcount*norm)));
 
         peaki := 0;
         for j := 0 to track.channelcount -1 do
           peaki := peaki + track.channels[j].peak[i];
-        peak.add(i, db(peaki/track.channelcount*norm));
+        peak.add(i, max(0, db(peaki/track.channelcount*norm)));
+        end;
       end;
-    end;
     dbchart.bottomaxis.range.max := rms.count;
     dbchart.invalidate;
 
@@ -233,34 +236,41 @@ begin
     if track.dr > 0 then
     begin
       drvalue.caption := format('%2.0f', [track.dr]);
-      if round(track.dr) >= 14 then drvalue.font.color := rgbtocolor(  0, 255, 0);
-      if round(track.dr) =  13 then drvalue.font.color := rgbtocolor( 72, 255, 0);
-      if round(track.dr) =  12 then drvalue.font.color := rgbtocolor(144, 255, 0);
-      if round(track.dr) =  11 then drvalue.font.color := rgbtocolor(217, 255, 0);
-      if round(track.dr) =  10 then drvalue.font.color := rgbtocolor(255, 217, 0);
-      if round(track.dr) =   9 then drvalue.font.color := rgbtocolor(255, 145, 0);
-      if round(track.dr) =   8 then drvalue.font.color := rgbtocolor(255,  72, 0);
-      if round(track.dr) <=  7 then drvalue.font.color := rgbtocolor(255,   0, 0);
+      if drvalue.caption = ' 0' then drvalue.font.color := rgbtocolor(255,   0, 0) else
+      if drvalue.caption = ' 1' then drvalue.font.color := rgbtocolor(255,   0, 0) else
+      if drvalue.caption = ' 2' then drvalue.font.color := rgbtocolor(255,   0, 0) else
+      if drvalue.caption = ' 3' then drvalue.font.color := rgbtocolor(255,   0, 0) else
+      if drvalue.caption = ' 4' then drvalue.font.color := rgbtocolor(255,   0, 0) else
+      if drvalue.caption = ' 5' then drvalue.font.color := rgbtocolor(255,   0, 0) else
+      if drvalue.caption = ' 6' then drvalue.font.color := rgbtocolor(255,   0, 0) else
+      if drvalue.caption = ' 7' then drvalue.font.color := rgbtocolor(255,   0, 0) else
+      if drvalue.caption = ' 8' then drvalue.font.color := rgbtocolor(255,  72, 0) else
+      if drvalue.caption = ' 9' then drvalue.font.color := rgbtocolor(255, 145, 0) else
+      if drvalue.caption = '10' then drvalue.font.color := rgbtocolor(255, 217, 0) else
+      if drvalue.caption = '11' then drvalue.font.color := rgbtocolor(217, 255, 0) else
+      if drvalue.caption = '12' then drvalue.font.color := rgbtocolor(144, 255, 0) else
+      if drvalue.caption = '13' then drvalue.font.color := rgbtocolor( 72, 255, 0) else
+                                     drvalue.font.color := rgbtocolor(  0, 255, 0);
     end;
+    drvalue      .visible := true;
     btnfile      .enabled := true;
     btnfolder    .enabled := true;
-    drvalue      .visible := true;
     progresspanel.visible := false;
     progressbar  .value   := 0;
   end;
   wave := nil;
 
-  mycapture := tbitmap.create;
-  mycapture.setsize(446, 146);
-  mycapture.canvas.fillrect(0, 0, 446, 146);
-  begin
-    borderstyle := bsnone;
-    paintto(mycapture.canvas, 0, 0);
-    borderstyle := bssizeable;
-    application.processmessages;
-  end;
-  report.add(mycapture, nil);
-  mycapture.free;
+  //mycapture := tbitmap.create;
+  //mycapture.setsize(446, 146);
+  //mycapture.canvas.fillrect(0, 0, 446, 146);
+  //begin
+  //  borderstyle := bsnone;
+  //  paintto(mycapture.canvas, 0, 0);
+  //  borderstyle := bssizeable;
+  application.processmessages;
+  //end;
+  //report.add(mycapture, nil);
+  //mycapture.free;
 
   inc(trackindex);
   if trackindex = tracklist.count then
@@ -268,6 +278,7 @@ begin
     // save text report
     tracklist.savetofile(trackfile);
     // save png report
+    (*
     mycapture := tbitmap.create;
     mycapture.setsize(446, report.count*146);
     mycapture.canvas.fillrect(0, 0, 446, report.count*146);
@@ -278,7 +289,9 @@ begin
     mycapture.savetofile(changefileext(trackfile, '.png'));
     mycapture.destroy;
     report.clear;
+    *)
   end;
+  {$ifopt D-} sleep(1000); {$endif}
   execute;
 end;
 
