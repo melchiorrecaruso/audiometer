@@ -755,12 +755,9 @@ procedure ttracklist.savetofile(const filename: string);
 const
   splitter = '--------------------------------------------------------------------------------';
 var
-  bps: longint;
-  ch: longint;
   dr: double;
   i: longint;
   s: tstringlist;
-  sr: longword;
   track: ttrack;
 begin
   s := tstringlist.create;
@@ -770,29 +767,24 @@ begin
   s.add(splitter);
   s.add('');
 
-  ch  := 0;
-  sr  := 0;
-  bps := 0;
   dr  := 0;
   if count > 0 then
   begin
     track := gettrack(0);
-    ch  := track.channelcount;
-    sr  := track.samplerate;
-    bps := track.bitspersample;
-
-    s.add('DR         Peak         RMS     Duration   Track');
+    s.add('DR      Peak        RMS     bps  chs      SR  Duration  Track');
     s.add(splitter);
     for i := 0 to count -1 do
     begin
       track := gettrack(i);
-      s.add(format('DR%2.0f     %6.2f dB   %6.2f dB    %-s   %s', [
-        track.dr, db(track.peak), db(track.rms), track.duration,
+      s.add(format('DR%2.0f %7.2f dB %7.2f dB %4.0d %4.0d %7.0d %-s     %s', [
+        track.dr,
+        db(track.peak),
+        db(track.rms),
+        track.bitspersample,
+        track.channelcount,
+        track.samplerate,
+        track.duration,
         extractfilename(track.name)]));
-
-      if ch  <> track.channelcount  then ch  := 0;
-      if sr  <> track.samplerate    then sr  := 0;
-      if bps <> track.bitspersample then bps := 0;
 
       dr := dr + track.dr;
     end;
@@ -801,16 +793,8 @@ begin
     s.add(splitter);
     s.add('');
     s.add('Number of tracks:  %d', [count]);
-
-    if ch  >  0 then s.add('Channels:          %d',    [ch ]);
-    if sr  >  0 then s.add('Samplerate:        %u',    [sr ]);
-    if bps >  0 then s.add('Bits per sample:   %d',    [bps]);
     if dr  >  0 then s.add('Official DR value: %1.0f', [dr ]);
-
-    if ch  <= 0 then s.add('Channels:           ---');
-    if sr  <= 0 then s.add('Samplerate:         ---');
-    if bps <= 0 then s.add('Bits per sample:    ---');
-    if dr  <= 0 then s.add('Official DR value:  ---');
+    if dr  <= 0 then s.add('Official DR value: ---');
 
     s.add('');
     s.add(splitter);
