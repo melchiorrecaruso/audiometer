@@ -6,7 +6,7 @@ Priority: optional
 Standards-Version: 3.9.2
 
 Package: audiometer
-Version: 0.4.2
+Version: 0.4.4
 Maintainer: Melchorre Caruso <melchiorrecaruso@gmail.com>
 Homepage: https://github.com/melchiorrecaruso/audiometer
 # Pre-Depends: <comma-separated list of packages>
