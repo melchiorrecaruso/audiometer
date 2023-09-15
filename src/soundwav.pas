@@ -761,7 +761,7 @@ var
   track: ttrack;
 begin
   s := tstringlist.create;
-  s.add('AudioMeter 0.4.2 - Dynamic Range Meter');
+  s.add('AudioMeter 0.4.4 - Dynamic Range Meter');
   s.add(splitter);
   s.add(format('Log date : %s', [datetimetostr(now)]));
   s.add(splitter);
