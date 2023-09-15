@@ -1,7 +1,7 @@
 {
   Description: Main form.
 
-  Copyright (C) 2023 Melchiorre Caruso <melchiorrecaruso@gmail.com>
+  Copyright (C) 2020-2023 Melchiorre Caruso <melchiorrecaruso@gmail.com>
 
   This source is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free
@@ -291,7 +291,7 @@ begin
     report.clear;
     *)
   end;
-  {$ifopt D-} sleep(1000); {$endif}
+  {$ifopt D-} sleep(800); {$endif}
   execute;
 end;
 
