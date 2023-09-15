@@ -125,29 +125,24 @@
     <Parsing>
       <SyntaxOptions>
         <CStyleOperator Value="False"/>
-        <IncludeAssertionCode Value="True"/>
         <AllowLabel Value="False"/>
         <UseAnsiStrings Value="False"/>
         <CPPInline Value="False"/>
       </SyntaxOptions>
     </Parsing>
     <CodeGeneration>
-      <Checks>
-        <IOChecks Value="True"/>
-        <RangeChecks Value="True"/>
-        <OverflowChecks Value="True"/>
-        <StackChecks Value="True"/>
-      </Checks>
-      <VerifyObjMethodCallValidity Value="True"/>
+      <SmartLinkUnit Value="True"/>
       <Optimizations>
-        <OptimizationLevel Value="0"/>
+        <OptimizationLevel Value="4"/>
       </Optimizations>
     </CodeGeneration>
     <Linking>
       <Debugging>
+        <RunWithoutDebug Value="True"/>
         <DebugInfoType Value="dsDwarf2Set"/>
         <UseHeaptrc Value="True"/>
       </Debugging>
+      <LinkSmart Value="True"/>
     </Linking>
     <Other>
       <ConfigFile>
