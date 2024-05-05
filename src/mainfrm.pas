@@ -34,33 +34,38 @@ type
   { taudiofrm }
 
   taudiofrm = class(tform)
+    Bevel1: TBevel;
+    Bevel2: TBevel;
+    Bevel3: TBevel;
+    bit16: TLabel;
+    bit24: TLabel;
+    bit8: TLabel;
     btnfile: timage;
     btnfolder: timage;
     buttons: timagelist;
+    drlb: TStaticText;
+    drvalue: TStaticText;
+    khz176: TLabel;
+    khz192: TLabel;
+    khz44: TLabel;
+    khz48: TLabel;
+    khz88: TLabel;
+    khz96: TLabel;
+    DetailsPanel: TPanel;
+    BitsPanel: TPanel;
+    LeftHzPanel: TPanel;
+    mono: TLabel;
+    DRPanel: TPanel;
+    progressbar: TBCRadialProgressBar;
+    progresspanel: TPanel;
+    RightHzPanel: TPanel;
+    stereo: TLabel;
     Report: TImageList;
     peakseries: tbarseries;
     rmseries: tbarseries;
-    progresspanel: tpanel;
-    bevel1: tbevel;
-    bevel2: tbevel;
-    bevel3: tbevel;
     dbchart: tchart;
-    khz48: tlabel;
-    khz88: tlabel;
-    khz96: tlabel;
-    khz44: tlabel;
-    bit8: tlabel;
-    bit16: tlabel;
-    bit24: tlabel;
-    khz192: tlabel;
-    khz176: tlabel;
     audio: tlabel;
-    mono: tlabel;
-    progressbar: tbcradialprogressbar;
     dirdialog: tselectdirectorydialog;
-    drlb: tstatictext;
-    drvalue: tstatictext;
-    stereo: tlabel;
     peak: tlistchartsource;
     rms: tlistchartsource;
     filedialog: topendialog;
@@ -83,6 +88,7 @@ type
     procedure btnfilemouseup(sender: tobject; button: tmousebutton;
       shift: tshiftstate; x, y: integer);
     procedure formdestroy(sender: tobject);
+    procedure FormResize(Sender: TObject);
     procedure onstart;
     procedure onstop;
     procedure onprogress;
@@ -136,11 +142,26 @@ begin
   clear;
 end;
 
+function cutoff(const S: string): string;
+begin
+  result := s;
+  setlength(result, max(0, length(result) - 4));
+  result := result + '...';
+end;
+
 procedure taudiofrm.formdestroy(sender: tobject);
 begin
   rms.clear;
   peak.clear;
   tracklist.destroy;
+end;
+
+procedure taudiofrm.formresize(Sender: TObject);
+begin
+  while (audio.Left + audio.Width) > (btnFolder.Left + btnFolder.Width) do
+  begin
+    audio.Caption := cutoff(audio.Caption);
+  end;
 end;
 
 procedure taudiofrm.formclosequery(sender: tobject; var canclose: boolean);
@@ -152,8 +173,13 @@ end;
 procedure taudiofrm.onstart;
 begin
   clear;
+
   audio.font.color := clwhite;
   audio.caption    := extractfilename(tracklist.tracks[trackindex].name);
+  while (audio.Left + audio.Width) > (btnFolder.Left + btnFolder.Width) do
+  begin
+    audio.Caption := cutoff(audio.Caption);
+  end;
 
   btnfile      .enabled := false;
   btnfolder    .enabled := false;
@@ -336,9 +362,6 @@ var
 begin
   if trackkill then exit;
   if trackindex >= tracklist.count then exit;
-
-  drvalue.visible       := false;
-  progresspanel.visible := false;
 
   track := tracklist.tracks[trackindex];
   try
