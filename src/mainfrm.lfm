@@ -76,7 +76,6 @@ object audiofrm: Taudiofrm
         Marks.LabelFont.Color = clWhite
         Marks.LabelBrush.Style = bsClear
         Minors = <>
-        OrthogonalAxisIndex = 0
         Range.Max = 25
         Range.UseMax = True
         Range.UseMin = True
