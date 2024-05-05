@@ -47,7 +47,7 @@
           <CodeGeneration>
             <SmartLinkUnit Value="True"/>
             <Optimizations>
-              <OptimizationLevel Value="4"/>
+              <OptimizationLevel Value="2"/>
             </Optimizations>
           </CodeGeneration>
           <Linking>
@@ -126,9 +126,8 @@
       </SyntaxOptions>
     </Parsing>
     <CodeGeneration>
-      <SmartLinkUnit Value="True"/>
       <Optimizations>
-        <OptimizationLevel Value="4"/>
+        <OptimizationLevel Value="0"/>
       </Optimizations>
     </CodeGeneration>
     <Linking>
@@ -137,7 +136,6 @@
         <DebugInfoType Value="dsDwarf2Set"/>
         <UseHeaptrc Value="True"/>
       </Debugging>
-      <LinkSmart Value="True"/>
     </Linking>
   </CompilerOptions>
   <Debugging>
