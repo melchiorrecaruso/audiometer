@@ -20,7 +20,7 @@ AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
-LicenseFile=LICENSE
+LicenseFile=source\LICENSE
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 ;PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
@@ -36,12 +36,12 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "bin\audiometerdbg.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "bin\audiometer.exe";    DestDir: "{app}"; Flags: ignoreversion
-Source: "bin\ffprobe.exe";       DestDir: "{app}"; Flags: ignoreversion
-Source: "bin\ffmpeg.exe";        DestDir: "{app}"; Flags: ignoreversion
-Source: "LICENSE";               DestDir: "{app}"; Flags: ignoreversion
-Source: "README";                DestDir: "{app}"; Flags: ignoreversion
+Source: "source\audiometerdbg.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "source\audiometer.exe";    DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "source\ffprobe.exe";       DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "source\ffmpeg.exe";        DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "source\LICENSE";           DestDir: "{app}";     Flags: ignoreversion
+Source: "source\README";            DestDir: "{app}";     Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
