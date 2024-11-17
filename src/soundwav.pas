@@ -1,7 +1,7 @@
 {
   Description: Sound routines.
 
-  Copyright (C) 2020-2023 Melchiorre Caruso <melchiorrecaruso@gmail.com>
+  Copyright (C) 2020-2024 Melchiorre Caruso <melchiorrecaruso@gmail.com>
 
   This source is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free
@@ -26,7 +26,7 @@ unit soundwav;
 interface
 
 uses
-  classes, sysutils, math, fgl;
+  classes, sysutils, math, fgl, ufft, utypes;
 
 // WAVE utils
 
@@ -95,6 +95,7 @@ type
   private
     frms2: tdoublelist;
     fpeak: tdoublelist;
+    fspectrum: tdoublelist;
     function getrms2(index: longint): double;
     function getpeak(index: longint): double;
     function getcount: longint;
@@ -103,6 +104,7 @@ type
     destructor destroy; override;
     procedure add(const rms2i, peaki: double);
   public
+    property spectrum: tdoublelist read fspectrum;
     property rms2[index: longint]: double read getrms2;
     property peak[index: longint]: double read getpeak;
     property count: longint read getcount;
@@ -165,6 +167,7 @@ type
     procedure readheader(astream: tstream);
     function readsamples(astream: tstream; ablock: tsamples): longint;
     procedure readfromstream(astream: tstream);
+    procedure putfreq(block: tsamples; channel: word; var spectrum: tdoublelist);
     function getrms2(block: tsamples; channel: word): double;
     function getpeak(block: tsamples; channel: word): double;
     function getrms(channel: word): double;
@@ -199,7 +202,7 @@ type
     procedure sort;
     procedure savetofile(const filename: string);
   public
-    property tracks[index: longint]: ttrack read gettrack;
+    property tracks[index: longint]: ttrack read gettrack; default;
     property count: longint read getcount;
   end;
 
@@ -260,12 +263,14 @@ begin
   inherited create;
   frms2 := tdoublelist.create;
   fpeak := tdoublelist.create;
+  fspectrum := tdoublelist.create;
 end;
 
 destructor ttrackchannel.destroy;
 begin
   frms2.destroy;
   fpeak.destroy;
+  fspectrum.destroy;
   inherited destroy;
 end;
 
@@ -372,6 +377,32 @@ begin
   end;
   fdata   := nil;
   fstatus := 0;
+end;
+
+procedure ttrackanalyzer.putfreq(block: tsamples; channel: word; var spectrum: tdoublelist);
+var
+  ibuff: array of complex = nil;
+  i, j, k: longint;
+  freq: tcompvector;
+begin
+  j := 0;
+  setlength(ibuff, 1024);
+  for i := low(block) to high(block) do
+  begin
+    ibuff[j].x := block[i].channelvalues[channel];
+    ibuff[j].y := 0;
+    inc(j);
+
+    if j = 1024 then
+    begin
+      freq := FFT(j, ibuff);
+      for k := low(freq) to high(freq) do
+        spectrum.add(sqrt(sqr(freq[k].x) + sqr(freq[k].y)));
+      freq := nil;
+      j := 0;
+    end;
+  end;
+  ibuff := nil;
 end;
 
 function ttrackanalyzer.getrms2(block: tsamples; channel: word): double;
@@ -499,9 +530,10 @@ var
   block: tsamples;
   blocksize: longword;
   blockcount: longword;
-  i, j: longint;
+  i, j, k: longint;
   samples: longword;
   seconds: longword;
+  spectrum: tdoublelist;
 begin
   {$ifopt D+}
   writeln('track.name         ', ftrack.fname);
@@ -543,11 +575,14 @@ begin
   if blockcount = 0 then fstatus := -3;
   if blocksize  = 0 then fstatus := -3;
   if status <> 0 then exit;
-  // allobate new block (of 3 seconds length)
+  // allocate new block (of 3 seconds length)
   block := nil;
   setlength(block, blocksize);
   for i := low(block) to high(block) do
     setlength(block[i].channelvalues, ffmt.channels);
+  // clear track spectrum
+  for i := 0 to ftrack.channelcount -1 do
+    ftrack.fchannels[i].fspectrum.clear;
   // read samples
   for i := 0 to blockcount -1  do
   begin
@@ -561,6 +596,9 @@ begin
     begin
       fdata[j].add(getrms2(block, j),
                    getpeak(block, j));
+
+      // calculate spectrum
+      putfreq(block, j, ftrack.fchannels[j].fspectrum);
     end;
   end;
   fpercentage := 100;

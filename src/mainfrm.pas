@@ -1,7 +1,7 @@
 {
   Description: Main form.
 
-  Copyright (C) 2020-2023 Melchiorre Caruso <melchiorrecaruso@gmail.com>
+  Copyright (C) 2020-2024 Melchiorre Caruso <melchiorrecaruso@gmail.com>
 
   This source is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free
@@ -27,13 +27,25 @@ interface
 
 uses
   classes, sysutils, forms, controls, graphics, dialogs, buttons, stdctrls,
-  extctrls, comctrls, tagraph, taseries, tasources, bufstream, soundwav,
-  bcradialprogressbar, bclistbox, process, inifiles;
+  extctrls, comctrls, tagraph, taseries, tasources, TAChartImageList, bufstream,
+  soundwav, bcradialprogressbar, bclistbox, BCComboBox, dtthemedgauge,
+  dtthemedclock, DTAnalogClock, BCLeaLCDDisplay, BGRASpeedButton,
+  ColorSpeedButton, BCButton, BCImageButton, BGRAVirtualScreen, process,
+  inifiles, BGRABitmap, BGRABitmapTypes, BCTypes;
 
 type
   { taudiofrm }
 
   taudiofrm = class(tform)
+    BlocksBtn: TBCButton;
+    FrequencyPanel: TPanel;
+    frequencyfirstvalue: TLabel;
+    frequencysecondvalue: TLabel;
+    SpectrumImage: TImage;
+    spectrumsecondvalue: TLabel;
+    spectrumfirstvalue: TLabel;
+    DurationPanel: TPanel;
+    SpectrumBtn: TBCButton;
     Bevel1: TBevel;
     Bevel2: TBevel;
     Bevel3: TBevel;
@@ -43,6 +55,7 @@ type
     btnfile: timage;
     btnfolder: timage;
     buttons: timagelist;
+    dbchart: TChart;
     drlb: TStaticText;
     drvalue: TStaticText;
     khz176: TLabel;
@@ -56,19 +69,22 @@ type
     LeftHzPanel: TPanel;
     mono: TLabel;
     DRPanel: TPanel;
+    Notebook: TNotebook;
+    Page1: TPage;
+    Page2: TPage;
+    peakseries: TBarSeries;
     progressbar: TBCRadialProgressBar;
     progresspanel: TPanel;
     RightHzPanel: TPanel;
+    rmseries: TBarSeries;
     stereo: TLabel;
     Report: TImageList;
-    peakseries: tbarseries;
-    rmseries: tbarseries;
-    dbchart: tchart;
     audio: tlabel;
     dirdialog: tselectdirectorydialog;
     peak: tlistchartsource;
     rms: tlistchartsource;
     filedialog: topendialog;
+    procedure blocksbtnclick(sender: tobject);
     procedure btnfolderclick(sender: tobject);
     procedure btnfoldermousedown(sender: tobject; button: tmousebutton;
       shift: tshiftstate; x, y: integer);
@@ -88,14 +104,15 @@ type
     procedure btnfilemouseup(sender: tobject; button: tmousebutton;
       shift: tshiftstate; x, y: integer);
     procedure formdestroy(sender: tobject);
-    procedure FormResize(Sender: TObject);
+    procedure formresize(sender: tobject);
     procedure onstart;
     procedure onstop;
     procedure onprogress;
     procedure clear;
-
-    procedure btnloadicon(btn: timage; index: longint; x, y: longint);
     procedure execute;
+    procedure createspectrum(atrack: ttrack);
+    procedure btnloadicon(btn: timage; index: longint; x, y: longint);
+
   private
     buffer:     treadbufstream;
     stream:     tfilestream;
@@ -138,6 +155,15 @@ begin
   progressbar  .value   := 0;
   // inizialize mail form
   color := clblack;
+  // initialize buttons
+  blocksbtn  .statenormal .fontex.shadow := false;
+  blocksbtn  .statehover  .fontex.shadow := false;
+  blocksbtn  .stateclicked.fontex.shadow := false;
+  spectrumbtn.statenormal .fontex.shadow := false;
+  spectrumbtn.statehover  .fontex.shadow := false;
+  spectrumbtn.stateclicked.fontex.shadow := false;
+  // initialize notebook
+  notebook.pageindex := 0;
   // inizialize
   clear;
 end;
@@ -238,8 +264,8 @@ begin
         for j := 0 to track.channelcount -1 do
           peaki := peaki + track.channels[j].peak[i];
         peak.add(i, max(0, db(peaki/track.channelcount*norm)));
-        end;
       end;
+    end;
     dbchart.bottomaxis.range.max := rms.count;
     dbchart.invalidate;
 
@@ -283,6 +309,8 @@ begin
     btnfolder    .enabled := true;
     progresspanel.visible := false;
     progressbar  .value   := 0;
+    // create spectrum image
+    createspectrum(track);
   end;
   wave := nil;
 
@@ -341,13 +369,15 @@ begin
   mono  .font.color := clgray;
   stereo.font.color := clgray;
 
-  rms .clear;
+  rms.clear;
   peak.clear;
   audio.caption      := 'Audio';
   audio.font.color   := clwhite;
   drvalue.caption    := '--';
   drvalue.font.color := clwhite;
   dbchart.invalidate;
+
+  blocksbtnclick(nil);
 end;
 
 procedure taudiofrm.execute;
@@ -370,6 +400,7 @@ begin
       tempfile := includetrailingbackslash(
         gettempdir(false)) + 'audiometer-tmp.wav';
 
+      // get file properties
       process := tprocess.create(nil);
       try
         process.parameters.clear;
@@ -414,6 +445,7 @@ begin
       end;
       process.destroy;
 
+      // decode to .wave
       process := tprocess.create(nil);
       try
         process.parameters.clear;
@@ -442,6 +474,7 @@ begin
       except
       end;
       process.destroy;
+
     end else
       tempfile := track.name;
 
@@ -464,6 +497,85 @@ begin
     inc(trackindex);
     execute;
   end;
+end;
+
+function getcolor(factor: double): tbgrapixel;
+var
+  r1, g1, b1, r2, g2, b2: byte;
+  color1: tbgrapixel;
+  color2: tbgrapixel;
+begin
+  if factor < 1/3 then
+  begin
+    color1 := clyellow;
+    color2 := clred;
+    factor := (factor -   0) / (1/3);
+  end else
+  if factor < 2/3 then
+  begin
+    color1 := clred;
+    color2 := clpurple;
+    factor := (factor - 1/3) / (1/3);
+  end else
+  begin
+    color1 := clpurple;
+    color2 := clblue;
+    factor := (factor - 2/3) / (1/3);
+  end;
+
+  r1 := color1.red;
+  g1 := color1.green;
+  b1 := color1.blue;
+
+  r2 := color2.red;
+  g2 := color2.green;
+  b2 := color2.blue;
+
+  result.red   := trunc(r1 + (r2 - r1) * factor);
+  result.green := trunc(g1 + (g2 - g1) * factor);
+  result.blue  := trunc(b1 + (b2 - b1) * factor);
+  result.alpha := 1;
+end;
+
+procedure taudiofrm.createspectrum(atrack: ttrack);
+var
+  bit: tbgrabitmap;
+  i, j, k: longint;
+  x, y, z: double;
+  px: tbgrapixel;
+begin
+  bit := tbgrabitmap.create;
+  bit.setsize(spectrumimage.width, spectrumimage.height);
+  bit.filltransparent;
+
+  for i := 0 to atrack.channelcount -1 do
+  begin
+    k := 0;
+    for j := 0 to atrack.channels[i].spectrum.count -1 do
+    begin
+      z := atrack.channels[i].spectrum[j] / atrack.samplerate * 2;
+      y := (bit.height-1) * j / atrack.channels[i].spectrum.count;
+      x := (bit.width -1) * z;
+
+      px := bit.scanat(trunc(x), trunc(y));
+      if px.alpha = 0 then
+      begin
+        px := getcolor(z);
+      end else
+      begin
+        if px.alpha < 255 then
+          px.alpha := px.alpha + 1;
+      end;
+      bit.setpixel(trunc(x), trunc(y), px);
+    end;
+  end;
+  bit.draw(spectrumimage.canvas, 0, 0, false);
+  bit.destroy;
+
+  spectrumfirstvalue  .caption := '0:00s';
+  spectrumsecondvalue .caption := atrack.duration + 's';
+  frequencyfirstvalue .caption := '0 Hz';
+  frequencysecondvalue.caption := (atrack.samplerate div 2).tostring + ' Hz';
 end;
 
 procedure taudiofrm.btnfileclick(sender: tobject);
@@ -513,6 +625,51 @@ begin
     trackindex := 0;
   end;
   execute;
+end;
+
+procedure taudiofrm.blocksbtnclick(sender: tobject);
+var
+  btn1: tbcbutton;
+  btn2: tbcbutton;
+begin
+ if sender = nil then
+ begin
+   if notebook.pageindex = 0 then
+   begin
+     btn1 := blocksbtn;
+     btn2 := spectrumbtn;
+   end else
+   begin
+     btn1 := spectrumbtn;
+     btn2 := blocksbtn;
+   end;
+ end else
+ begin
+   btn1 := sender as tbcbutton;
+   if btn1 = blocksbtn then
+     btn2 := spectrumbtn
+   else
+     btn2 := blocksbtn;
+
+   if btn1 = blocksbtn   then notebook.pageindex := 0 else
+   if btn1 = spectrumbtn then notebook.pageindex := 1;
+ end;
+
+ btn1.statenormal .background.color  := clwhite;
+ btn1.statehover  .background.color  := clwhite;
+ btn1.stateclicked.background.color  := clblack;
+
+ btn1.statenormal .fontex    .color  := clblack;
+ btn1.statehover  .fontex    .color  := clblack;
+ btn1.stateclicked.fontex    .color  := clwhite;
+
+ btn2.statenormal .background.color  := clblack;
+ btn2.statehover  .background.color  := clblack;
+ btn2.stateclicked.background.color  := clwhite;
+
+ btn2.statenormal .fontex    .color  := clwhite;
+ btn2.statehover  .fontex    .color  := clwhite;
+ btn2.stateclicked.fontex    .color  := clblack;
 end;
 
 procedure taudiofrm.btnfilemouseup(sender: tobject; button: tmousebutton;
