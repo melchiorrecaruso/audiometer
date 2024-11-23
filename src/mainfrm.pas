@@ -303,7 +303,8 @@ begin
     progresspanel.visible := false;
     progressbar  .value   := 0;
     // create spectrum image
-    spectrumimage.redrawbitmap;
+    if notebook.pageindex = 1 then
+      spectrumimage.redrawbitmap;
   end;
   wave := nil;
 
@@ -682,6 +683,10 @@ begin
  btn2.statenormal .fontex    .color  := clwhite;
  btn2.statehover  .fontex    .color  := clwhite;
  btn2.stateclicked.fontex    .color  := clblack;
+
+ // update spectrum image
+ if notebook.PageIndex = 1 then
+   spectrumimage.redrawbitmap;
 end;
 
 procedure taudiofrm.btnfilemouseup(sender: tobject; button: tmousebutton;

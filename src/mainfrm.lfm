@@ -539,7 +539,7 @@ object audiofrm: Taudiofrm
     Height = 344
     Top = 222
     Width = 694
-    PageIndex = 1
+    PageIndex = 0
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Left = 3
     BorderSpacing.Top = 5
@@ -720,6 +720,8 @@ object audiofrm: Taudiofrm
           BitmapAutoScale = False
           Align = alClient
           Alignment = taLeftJustify
+          Color = clWhite
+          ParentColor = False
           TabOrder = 0
         end
       end
