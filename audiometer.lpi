@@ -76,10 +76,10 @@
     </RunParams>
     <RequiredPackages>
       <Item>
-        <PackageName Value="BGRABitmapPack"/>
+        <PackageName Value="lmDSP"/>
       </Item>
       <Item>
-        <PackageName Value="LMath"/>
+        <PackageName Value="BGRABitmapPack"/>
       </Item>
       <Item>
         <PackageName Value="fcl"/>

@@ -27,11 +27,9 @@ interface
 
 uses
   classes, sysutils, forms, controls, graphics, dialogs, buttons, stdctrls,
-  extctrls, comctrls, tagraph, taseries, tasources, TAChartImageList, bufstream,
-  soundwav, bcradialprogressbar, bclistbox, BCComboBox, dtthemedgauge,
-  dtthemedclock, DTAnalogClock, BCLeaLCDDisplay, BGRASpeedButton,
-  ColorSpeedButton, BCButton, BCImageButton, BGRAVirtualScreen, process,
-  inifiles, BGRABitmap, BGRABitmapTypes, BCTypes;
+  extctrls, comctrls, tagraph, taseries, tasources, bufstream, soundwav,
+  bcradialprogressbar, bclistbox, bcbutton,  bgravirtualscreen, process,
+  inifiles, bgrabitmap, bgrabitmaptypes, bctypes;
 
 type
   { taudiofrm }
@@ -41,7 +39,8 @@ type
     FrequencyPanel: TPanel;
     frequencyfirstvalue: TLabel;
     frequencysecondvalue: TLabel;
-    SpectrumImage: TImage;
+    SpectrumImage: TBGRAVirtualScreen;
+    SpectrumPanel: TPanel;
     spectrumsecondvalue: TLabel;
     spectrumfirstvalue: TLabel;
     DurationPanel: TPanel;
@@ -86,23 +85,17 @@ type
     filedialog: topendialog;
     procedure blocksbtnclick(sender: tobject);
     procedure btnfolderclick(sender: tobject);
-    procedure btnfoldermousedown(sender: tobject; button: tmousebutton;
-      shift: tshiftstate; x, y: integer);
+    procedure btnfoldermousedown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
     procedure btnfoldermouseleave(sender: tobject);
-    procedure btnfoldermousemove(sender: tobject;
-     shift: tshiftstate; x, y: integer);
-    procedure btnfoldermouseup(sender: tobject; button: tmousebutton;
-      shift: tshiftstate; x, y: integer);
+    procedure btnfoldermousemove(sender: tobject; shift: tshiftstate; x, y: integer);
+    procedure btnfoldermouseup(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
     procedure formclosequery(sender: tobject; var canclose: boolean);
     procedure formcreate(sender: tobject);
     procedure btnfileclick(sender: tobject);
-    procedure btnfilemousedown(sender: tobject; button: tmousebutton;
-      shift: tshiftstate; x, y: integer);
+    procedure btnfilemousedown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
     procedure btnfilemouseleave(sender: tobject);
-    procedure btnfilemousemove(sender: tobject;
-      shift: tshiftstate; x, y: integer);
-    procedure btnfilemouseup(sender: tobject; button: tmousebutton;
-      shift: tshiftstate; x, y: integer);
+    procedure btnfilemousemove(sender: tobject; shift: tshiftstate; x, y: integer);
+    procedure btnfilemouseup(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
     procedure formdestroy(sender: tobject);
     procedure formresize(sender: tobject);
     procedure onstart;
@@ -110,9 +103,9 @@ type
     procedure onprogress;
     procedure clear;
     procedure execute;
-    procedure createspectrum(atrack: ttrack);
+    function drawspectrum(atrack: ttrack): tbgrabitmap;
     procedure btnloadicon(btn: timage; index: longint; x, y: longint);
-
+    procedure SpectrumImageRedraw(Sender: TObject; Bitmap: TBGRABitmap);
   private
     buffer:     treadbufstream;
     stream:     tfilestream;
@@ -310,7 +303,7 @@ begin
     progresspanel.visible := false;
     progressbar  .value   := 0;
     // create spectrum image
-    createspectrum(track);
+    spectrumimage.redrawbitmap;
   end;
   wave := nil;
 
@@ -505,22 +498,34 @@ var
   color1: tbgrapixel;
   color2: tbgrapixel;
 begin
-  if factor < 1/3 then
+  if factor < 1/5 then
   begin
-    color1 := clyellow;
-    color2 := clred;
-    factor := (factor -   0) / (1/3);
+    color1 := clblack;
+    color2 := clblue;
+    factor := (factor -   0) / (1/5);
   end else
-  if factor < 2/3 then
+  if factor < 2/5 then
   begin
-    color1 := clred;
+    color1 := clblue;
     color2 := clpurple;
-    factor := (factor - 1/3) / (1/3);
+    factor := (factor - 1/5) / (1/5);
   end else
+  if factor < 3/5 then
   begin
     color1 := clpurple;
-    color2 := clblue;
-    factor := (factor - 2/3) / (1/3);
+    color2 := clred;
+    factor := (factor - 2/5) / (1/5);
+  end else
+  if factor < 4/5 then
+  begin
+    color1 := clred;
+    color2 := clyellow;
+    factor := (factor - 3/5) / (1/5);
+  end else
+  begin
+    color1 := clyellow;
+    color2 := clwhite;
+    factor := (factor - 4/5) / (1/5);
   end;
 
   r1 := color1.red;
@@ -534,43 +539,50 @@ begin
   result.red   := trunc(r1 + (r2 - r1) * factor);
   result.green := trunc(g1 + (g2 - g1) * factor);
   result.blue  := trunc(b1 + (b2 - b1) * factor);
-  result.alpha := 1;
+  result.alpha := 255;
 end;
 
-procedure taudiofrm.createspectrum(atrack: ttrack);
+function taudiofrm.drawspectrum(atrack: ttrack): tbgrabitmap;
 var
-  bit: tbgrabitmap;
-  i, j, k: longint;
+  i, j, k, q: longint;
   x, y, z: double;
-  px: tbgrapixel;
+  index: longint;
+  windowsize: longint;
+  windowcount: longint;
+  zmax: double;
+  zmin: double;
 begin
-  bit := tbgrabitmap.create;
-  bit.setsize(spectrumimage.width, spectrumimage.height);
-  bit.filltransparent;
+  result := tbgrabitmap.create;
+  result.setsize(spectrumpanel.width, spectrumpanel.height);
+  result.filltransparent;
 
+  zmax := minfloat;
+  zmin := maxfloat;
   for i := 0 to atrack.channelcount -1 do
-  begin
-    k := 0;
-    for j := 0 to atrack.channels[i].spectrum.count -1 do
+    for j := 0 to length(atrack.channels[i].spectrum) -1 do
     begin
-      z := atrack.channels[i].spectrum[j] / atrack.samplerate * 2;
-      y := (bit.height-1) * j / atrack.channels[i].spectrum.count;
-      x := (bit.width -1) * z;
+      if zmin > atrack.channels[i].spectrum[j] then
+        zmin := atrack.channels[i].spectrum[j];
 
-      px := bit.scanat(trunc(x), trunc(y));
-      if px.alpha = 0 then
-      begin
-        px := getcolor(z);
-      end else
-      begin
-        if px.alpha < 255 then
-          px.alpha := px.alpha + 1;
-      end;
-      bit.setpixel(trunc(x), trunc(y), px);
+      if zmax < atrack.channels[i].spectrum[j] then
+        zmax := atrack.channels[i].spectrum[j];
     end;
-  end;
-  bit.draw(spectrumimage.canvas, 0, 0, false);
-  bit.destroy;
+
+  for i := 0 to result.width -1 do
+    for j := 0 to result.height -1 do
+    begin
+      z := 0;
+      for k := 0 to atrack.channelcount -1 do
+      begin
+        windowsize  := 512;
+        windowcount := length(atrack.channels[k].spectrum) div windowsize;
+
+        index := trunc((j+1)/result.height*(windowcount -1))*windowsize + trunc(i/result.width*windowsize);
+
+        z := z + db(atrack.channels[k].spectrum[index] - zmin)/db(zmax - zmin);
+      end;
+      result.setpixel(i, j, getcolor(z/atrack.channelcount));
+    end;
 
   spectrumfirstvalue  .caption := '0:00s';
   spectrumsecondvalue .caption := atrack.duration + 's';
@@ -727,6 +739,26 @@ begin
   btn.proportional   := true;
   btn.picture.bitmap := nil;
   buttons.draw(btn.canvas, x, y, index);
+end;
+
+procedure taudiofrm.spectrumimageredraw(sender: tobject; bitmap: tbgrabitmap);
+var
+  bit: tbgrabitmap;
+begin
+  if tracklist.count > 0 then
+  begin
+    if trackindex < tracklist.count then
+      bit := drawspectrum(tracklist[trackindex])
+    else
+      bit := drawspectrum(tracklist[tracklist.count -1]);
+  end else
+  begin
+    bit := tbgrabitmap.create;
+    bit.setsize(spectrumimage.width, spectrumimage.height);
+    bit.filltransparent;
+  end;
+  bitmap.putimage(0, 0, bit, dmset, 255);
+  bit.destroy;
 end;
 
 end.
