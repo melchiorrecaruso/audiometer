@@ -338,7 +338,7 @@ begin
     report.clear;
     *)
   end;
-  {$ifopt D-} sleep(800); {$endif}
+  {$ifopt D-} sleep(500); {$endif}
   execute;
 end;
 
