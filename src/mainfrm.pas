@@ -223,7 +223,6 @@ begin
 //begin
   //deletefile(tempfile);
 //end;
-
   if wave.status <> 0 then
   begin
     trackindex := tracklist.count;
@@ -302,7 +301,7 @@ begin
     btnfolder    .enabled := true;
     progresspanel.visible := false;
     progressbar  .value   := 0;
-    // create spectrum image
+    // update spectrum image
     if notebook.pageindex = 1 then
       spectrumimage.redrawbitmap;
   end;
@@ -559,31 +558,35 @@ begin
 
   zmax := minfloat;
   zmin := maxfloat;
-  for i := 0 to atrack.channelcount -1 do
-    for j := 0 to length(atrack.channels[i].spectrum) -1 do
-    begin
-      if zmin > atrack.channels[i].spectrum[j] then
-        zmin := atrack.channels[i].spectrum[j];
 
-      if zmax < atrack.channels[i].spectrum[j] then
-        zmax := atrack.channels[i].spectrum[j];
-    end;
-
-  for i := 0 to result.width -1 do
-    for j := 0 to result.height -1 do
-    begin
-      z := 0;
-      for k := 0 to atrack.channelcount -1 do
+  if atrack.channelcount > 0 then
+  begin
+    for i := 0 to atrack.channelcount -1 do
+      for j := 0 to length(atrack.channels[i].spectrum) -1 do
       begin
-        windowsize  := 512;
-        windowcount := length(atrack.channels[k].spectrum) div windowsize;
+        if zmin > atrack.channels[i].spectrum[j] then
+          zmin := atrack.channels[i].spectrum[j];
 
-        index := trunc((j+1)/result.height*(windowcount -1))*windowsize + trunc(i/result.width*windowsize);
-
-        z := z + db(atrack.channels[k].spectrum[index] - zmin)/db(zmax - zmin);
+        if zmax < atrack.channels[i].spectrum[j] then
+          zmax := atrack.channels[i].spectrum[j];
       end;
-      result.setpixel(i, j, getcolor(z/atrack.channelcount));
-    end;
+
+    for i := 0 to result.width -1 do
+      for j := 0 to result.height -1 do
+      begin
+        z := 0;
+        for k := 0 to atrack.channelcount -1 do
+        begin
+          windowsize  := 512;
+          windowcount := length(atrack.channels[k].spectrum) div windowsize;
+
+          index := trunc((j+1)/result.height*(windowcount -1))*windowsize + trunc(i/result.width*windowsize);
+
+          z := z + db(atrack.channels[k].spectrum[index] - zmin)/db(zmax - zmin);
+        end;
+        result.setpixel(i, j, getcolor(z/atrack.channelcount));
+      end;
+  end;
 
   spectrumfirstvalue  .caption := '0:00s';
   spectrumsecondvalue .caption := atrack.duration + 's';
@@ -685,7 +688,7 @@ begin
  btn2.stateclicked.fontex    .color  := clblack;
 
  // update spectrum image
- if notebook.PageIndex = 1 then
+ if notebook.pageindex = 1 then
    spectrumimage.redrawbitmap;
 end;
 
