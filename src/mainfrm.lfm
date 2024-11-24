@@ -539,7 +539,7 @@ object audiofrm: Taudiofrm
     Height = 344
     Top = 222
     Width = 694
-    PageIndex = 0
+    PageIndex = 1
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Left = 3
     BorderSpacing.Top = 5
@@ -641,7 +641,7 @@ object audiofrm: Taudiofrm
           Width = 40
           Align = alTop
           Alignment = taRightJustify
-          Caption = '0:00'
+          Caption = '0:00s'
         end
         object spectrumsecondvalue: TLabel
           Left = 0
@@ -650,7 +650,7 @@ object audiofrm: Taudiofrm
           Width = 40
           Align = alBottom
           Alignment = taRightJustify
-          Caption = '0:00'
+          Caption = '0:00s'
         end
       end
       object FrequencyPanel: TPanel

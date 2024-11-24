@@ -589,7 +589,11 @@ begin
   end;
 
   spectrumfirstvalue  .caption := '0:00s';
-  spectrumsecondvalue .caption := atrack.duration + 's';
+  if atrack.duration = '' then
+    spectrumsecondvalue .caption := '0:00s'
+  else
+    spectrumsecondvalue .caption := atrack.duration + 's';
+
   frequencyfirstvalue .caption := '0 Hz';
   frequencysecondvalue.caption := (atrack.samplerate div 2).tostring + ' Hz';
 end;
