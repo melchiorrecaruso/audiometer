@@ -320,24 +320,28 @@ begin
   //mycapture.free;
 
   inc(trackindex);
-  if trackindex = tracklist.count then
-  begin
-    // save text report
-    tracklist.savetofile(trackfile);
-    // save png report
-    (*
-    mycapture := tbitmap.create;
-    mycapture.setsize(446, report.count*146);
-    mycapture.canvas.fillrect(0, 0, 446, report.count*146);
-    for i := 0 to report.count -1 do
+  // release unused spectrum
+  if trackindex < tracklist.count then
+    tracklist.tracks[trackindex -1].clearspectrum
+  else
+    if trackindex = tracklist.count then
     begin
-      report.draw(mycapture.canvas, 0, i*146, i);
+      // save text report
+      tracklist.savetofile(trackfile);
+      // save png report
+      (*
+      mycapture := tbitmap.create;
+      mycapture.setsize(446, report.count*146);
+      mycapture.canvas.fillrect(0, 0, 446, report.count*146);
+      for i := 0 to report.count -1 do
+      begin
+        report.draw(mycapture.canvas, 0, i*146, i);
+      end;
+      mycapture.savetofile(changefileext(trackfile, '.png'));
+      mycapture.destroy;
+      report.clear;
+      *)
     end;
-    mycapture.savetofile(changefileext(trackfile, '.png'));
-    mycapture.destroy;
-    report.clear;
-    *)
-  end;
   {$ifopt D-} sleep(500); {$endif}
   execute;
 end;

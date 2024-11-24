@@ -134,6 +134,7 @@ type
   public
     constructor create(const filename: string);
     destructor destroy; override;
+    procedure clearspectrum;
   public
     property name: string read fname;
     property album: string read falbum;
@@ -324,6 +325,14 @@ begin
   end;
   fchannels := nil;
   inherited destroy;
+end;
+
+procedure ttrack.clearspectrum;
+var
+  i: longint;
+begin
+  for i := 0 to length(fchannels) -1 do
+    setlength(fchannels[i].fspectrum, 0);
 end;
 
 function ttrack.getchannel(index: longint): ttrackchannel;
