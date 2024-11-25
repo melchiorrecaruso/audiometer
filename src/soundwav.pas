@@ -401,7 +401,7 @@ begin
   setlength(ibuff, spectrumws);
   for i := 0 to length(achannel) -1 do
   begin
-    ibuff[j].x := achannel[i];
+    ibuff[j].x := (0.5-0.5*cos(2*pi*j/(spectrumws-1)))*achannel[i];
     ibuff[j].y := 0;
     inc(j);
 
@@ -410,7 +410,7 @@ begin
       freq := FFT(j, ibuff);
       for k := 0 to length(freq) div 2 -1 do
       begin
-        spectrum[index] := sqrt(sqr(freq[k].x / spectrumws) + sqr(freq[k].y / spectrumws));
+        spectrum[index] := 2*sqrt(sqr(freq[k].x) + sqr(freq[k].y))/spectrumws;
         inc(index);
       end;
       freq := nil;
