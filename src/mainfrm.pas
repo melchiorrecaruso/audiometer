@@ -502,15 +502,18 @@ var
   color1: tbgrapixel;
   color2: tbgrapixel;
 begin
+  if factor < 0 then exit(clblack);
+  if factor > 1 then exit(clwhite);
+
   if factor < 1/5 then
   begin
     color1 := clblack;
-    color2 := clblue;
+    color2 := clnavy;
     factor := (factor -   0) / (1/5);
   end else
   if factor < 2/5 then
   begin
-    color1 := clblue;
+    color1 := clnavy;
     color2 := clpurple;
     factor := (factor - 1/5) / (1/5);
   end else
@@ -548,45 +551,30 @@ end;
 
 function taudiofrm.drawspectrum(atrack: ttrack): tbgrabitmap;
 var
-  i, j, k, q: longint;
-  x, y, z: double;
+  i, j, k: longint;
+  z: double;
   index: longint;
   windowsize: longint;
   windowcount: longint;
-  zmax: double;
-  zmin: double;
 begin
   result := tbgrabitmap.create;
   result.setsize(spectrumpanel.width, spectrumpanel.height);
   result.filltransparent;
 
-  zmax := minfloat;
-  zmin := maxfloat;
-
   if atrack.channelcount > 0 then
   begin
-    for i := 0 to atrack.channelcount -1 do
-      for j := 0 to length(atrack.channels[i].spectrum) -1 do
-      begin
-        if zmin > atrack.channels[i].spectrum[j] then
-          zmin := atrack.channels[i].spectrum[j];
-
-        if zmax < atrack.channels[i].spectrum[j] then
-          zmax := atrack.channels[i].spectrum[j];
-      end;
-
     for i := 0 to result.width -1 do
       for j := 0 to result.height -1 do
       begin
         z := 0;
         for k := 0 to atrack.channelcount -1 do
         begin
-          windowsize  := 512;
+          windowsize  := atrack.channels[k].spectrumws div 2;
           windowcount := length(atrack.channels[k].spectrum) div windowsize;
 
           index := trunc((j+1)/result.height*(windowcount -1))*windowsize + trunc(i/result.width*windowsize);
 
-          z := z + db(atrack.channels[k].spectrum[index] - zmin)/db(zmax - zmin);
+          z := z + log10(2*atrack.channels[k].spectrum[index])/log10(intpower(2, atrack.bitspersample));
         end;
         result.setpixel(i, j, getcolor(z/atrack.channelcount));
       end;
