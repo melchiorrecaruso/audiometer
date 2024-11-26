@@ -115,6 +115,7 @@ type
     trackfile:  string;
     tempfile:   string;
     wave:       ttrackanalyzer;
+    working:    boolean;
   public
   end;
 
@@ -157,7 +158,10 @@ begin
   spectrumbtn.stateclicked.fontex.shadow := false;
   // initialize notebook
   notebook.pageindex := 0;
+  // initialize spectrumimage
+  spectrumimage.parentcolor := true;
   // inizialize
+  working := false;
   clear;
 end;
 
@@ -192,7 +196,7 @@ end;
 procedure taudiofrm.onstart;
 begin
   clear;
-
+  working := true;
   audio.font.color := clwhite;
   audio.caption    := extractfilename(tracklist.tracks[trackindex].name);
   while (audio.Left + audio.Width) > (btnFolder.Left + btnFolder.Width) do
@@ -301,9 +305,6 @@ begin
     btnfolder    .enabled := true;
     progresspanel.visible := false;
     progressbar  .value   := 0;
-    // update spectrum image
-    if notebook.pageindex = 1 then
-      spectrumimage.redrawbitmap;
   end;
   wave := nil;
 
@@ -320,28 +321,28 @@ begin
   //mycapture.free;
 
   inc(trackindex);
-  // release unused spectrum
-  if trackindex < tracklist.count then
-    tracklist.tracks[trackindex -1].clearspectrum
-  else
-    if trackindex = tracklist.count then
+  if trackindex = tracklist.count then
+  begin
+    // save text report
+    tracklist.savetofile(trackfile);
+    // save png report
+    (*
+    mycapture := tbitmap.create;
+    mycapture.setsize(446, report.count*146);
+    mycapture.canvas.fillrect(0, 0, 446, report.count*146);
+    for i := 0 to report.count -1 do
     begin
-      // save text report
-      tracklist.savetofile(trackfile);
-      // save png report
-      (*
-      mycapture := tbitmap.create;
-      mycapture.setsize(446, report.count*146);
-      mycapture.canvas.fillrect(0, 0, 446, report.count*146);
-      for i := 0 to report.count -1 do
-      begin
-        report.draw(mycapture.canvas, 0, i*146, i);
-      end;
-      mycapture.savetofile(changefileext(trackfile, '.png'));
-      mycapture.destroy;
-      report.clear;
-      *)
+      report.draw(mycapture.canvas, 0, i*146, i);
     end;
+    mycapture.savetofile(changefileext(trackfile, '.png'));
+    mycapture.destroy;
+    report.clear;
+    *)
+    working := false;
+    // update spectrum image
+    if notebook.pageindex = 1 then
+      spectrumimage.redrawbitmap;
+  end;
   execute;
 end;
 
@@ -482,7 +483,7 @@ begin
   if assigned(stream) then
   begin
     buffer := treadbufstream.create(stream);
-    wave   := ttrackanalyzer.create(track, buffer);
+    wave   := ttrackanalyzer.create(track, buffer, trackindex = tracklist.count -1);
     wave.onstart    := @onstart;
     wave.onstop     := @onstop;
     wave.onprogress := @onprogress;
@@ -748,20 +749,19 @@ procedure taudiofrm.spectrumimageredraw(sender: tobject; bitmap: tbgrabitmap);
 var
   bit: tbgrabitmap;
 begin
-  if tracklist.count > 0 then
+  if (working = false) and (tracklist.count > 0) then
   begin
-    if trackindex < tracklist.count then
-      bit := drawspectrum(tracklist[trackindex])
-    else
-      bit := drawspectrum(tracklist[tracklist.count -1]);
+    bit := tbgrabitmap.create;
+    bit := drawspectrum(tracklist[tracklist.count -1]);
+    bitmap.putimage(0, 0, bit, dmset, 255);
+    bit.destroy;
   end else
   begin
     bit := tbgrabitmap.create;
     bit.setsize(spectrumimage.width, spectrumimage.height);
     bit.filltransparent;
+    bit.destroy;
   end;
-  bitmap.putimage(0, 0, bit, dmset, 255);
-  bit.destroy;
 end;
 
 end.

@@ -134,7 +134,6 @@ type
   public
     constructor create(const filename: string);
     destructor destroy; override;
-    procedure clearspectrum;
   public
     property name: string read fname;
     property album: string read falbum;
@@ -167,6 +166,7 @@ type
     fonstop: tthreadmethod;
     fonprogress: tthreadmethod;
     fnorm: longint;
+    fspectrumon: boolean;
     function getpercentage: longint;
     procedure readheader(astream: tstream);
     function readsamples(astream: tstream; achannels: tchannels; achannelsize: longint): longint;
@@ -179,7 +179,7 @@ type
     function getdr(channel: word): double;
     procedure clear;
   public
-    constructor create(atrack: ttrack; astream: tstream);
+    constructor create(atrack: ttrack; astream: tstream; aspectrumon: boolean);
     destructor destroy; override;
     procedure execute; override;
   public
@@ -327,14 +327,6 @@ begin
   inherited destroy;
 end;
 
-procedure ttrack.clearspectrum;
-var
-  i: longint;
-begin
-  for i := 0 to length(fchannels) -1 do
-    setlength(fchannels[i].fspectrum, 0);
-end;
-
 function ttrack.getchannel(index: longint): ttrackchannel;
 begin
   result := fchannels[index];
@@ -361,13 +353,14 @@ end;
 
 // ttrackanalyzer
 
-constructor ttrackanalyzer.create(atrack: ttrack; astream: tstream);
+constructor ttrackanalyzer.create(atrack: ttrack; astream: tstream; aspectrumon: boolean);
 begin
   fdata   := nil;
   ftrack  := atrack;
   fstream := astream;
   clear;
 
+  fspectrumon := aspectrumon;
   freeonterminate := true;
   inherited create(true);
 end;
@@ -592,8 +585,9 @@ begin
   // allocate track channels
   setlength(ftrack.fchannels, ffmt.channels);
   // allocate track channels spectrum
-  for i := 0 to length(ftrack.fchannels) -1 do
-    setlength(ftrack.fchannels[i].fspectrum, samples div 2);
+  if fspectrumon then
+    for i := 0 to length(ftrack.fchannels) -1 do
+      setlength(ftrack.fchannels[i].fspectrum, samples div 2);
   // allocate channels buffer
   setlength(channels, ffmt.channels);
   for i := 0 to length(ftrack.fchannels) -1 do
@@ -613,8 +607,9 @@ begin
     end;
   end;
   // calculate spectrum
-  for i := 0 to ffmt.channels -1 do
-    putfreq(channels[i], ftrack.fchannels[i].fspectrum, ftrack.fchannels[i].spectrumws);
+  if fspectrumon then
+    for i := 0 to ffmt.channels -1 do
+      putfreq(channels[i], ftrack.fchannels[i].fspectrum, ftrack.fchannels[i].spectrumws);
   // de-allocate channels buffer
   for i := 0 to length(ftrack.fchannels) -1 do
     setlength(channels[i], 0);
