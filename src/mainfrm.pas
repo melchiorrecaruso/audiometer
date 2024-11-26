@@ -574,7 +574,7 @@ begin
 
           index := trunc((j+1)/result.height*(windowcount -1))*windowsize + trunc(i/result.width*windowsize);
 
-          z := z + log10(2*atrack.channels[k].spectrum[index])/log10(intpower(2, atrack.bitspersample));
+          z := z + db(2*atrack.channels[k].spectrum[index])/db(1 shl atrack.bitspersample);
         end;
         result.setpixel(i, j, getcolor(z/atrack.channelcount));
       end;
