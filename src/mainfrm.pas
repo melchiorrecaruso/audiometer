@@ -26,10 +26,10 @@ unit mainfrm;
 interface
 
 uses
-  classes, sysutils, forms, controls, graphics, dialogs, buttons, stdctrls,
-  extctrls, comctrls, tagraph, taseries, tasources, bufstream, soundwav,
-  bcradialprogressbar, bclistbox, bcbutton, process, inifiles, bgrabitmap,
-  bgrabitmaptypes, bctypes, tadrawutils;
+  classes, sysutils, uplaysound, forms, controls, graphics, dialogs, buttons,
+  stdctrls, extctrls, comctrls, tagraph, taseries, tasources, bufstream,
+  soundwav, bcradialprogressbar, bclistbox, bcbutton, process, inifiles,
+  bgrabitmap, bgrabitmaptypes, bctypes, tadrawutils;
 
 type
   { taudiofrm }
@@ -37,6 +37,8 @@ type
   taudiofrm = class(tform)
     blocksbtn: tbcbutton;
     freq: tlistchartsource;
+    btnplay: TImage;
+    playsound: Tplaysound;
     spectrumchart: tchart;
     page3: tpage;
     spectranalisysbtn: tbcbutton;
@@ -87,6 +89,10 @@ type
     procedure btnfoldermouseleave(sender: tobject);
     procedure btnfoldermousemove(sender: tobject; shift: tshiftstate; x, y: integer);
     procedure btnfoldermouseup(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
+    procedure btnplaymousedown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
+    procedure btnplaymouseleave(sender: tobject);
+    procedure btnplaymousemove(sender: tobject; shift: tshiftstate; x, y: integer);
+    procedure btnplaymouseup(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
     procedure formclosequery(sender: tobject; var canclose: boolean);
     procedure formcreate(sender: tobject);
     procedure btnfileclick(sender: tobject);
@@ -96,6 +102,7 @@ type
     procedure btnfilemouseup(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
     procedure formdestroy(sender: tobject);
     procedure formresize(sender: tobject);
+    procedure btnplayclick(sender: tobject);
     procedure onstart;
     procedure onstop;
     procedure onprogress;
@@ -127,7 +134,7 @@ implementation
 {$R *.lfm}
 
 uses
-  math;
+  math, fileutil;
 
 { taudiofrm }
 
@@ -188,6 +195,31 @@ begin
   end;
 end;
 
+procedure taudiofrm.btnplayclick(sender: tobject);
+begin
+  case btnplay.imageindex of
+    6: begin
+         playsound.stopsound;
+         btnplay.imageindex := 5;
+       end;
+    7: begin
+         playsound.stopsound;
+         btnplay.imageindex := 5;
+       end;
+  else begin
+         playsound.stopsound;
+         btnplay.imageindex := 5;
+         if fileexists(tempfile) then
+         begin
+           playsound.playstyle := psasync;
+           playsound.soundfile := tempfile;
+           playsound.execute;
+           btnplay.imageindex := 6;
+         end;
+       end;
+  end;
+end;
+
 procedure taudiofrm.formclosequery(sender: tobject; var canclose: boolean);
 begin
   trackkill := true;
@@ -205,6 +237,7 @@ begin
     audio.caption := cutoff(audio.caption);
   end;
 
+  btnplay      .enabled := false;
   btnfile      .enabled := false;
   btnfolder    .enabled := false;
   drvalue      .visible := false;
@@ -238,6 +271,7 @@ begin
       -3: audio.caption := 'file is too short!';
     else  audio.caption := 'unknown error!';
     end;
+    btnplay.enabled       := true;
     btnfile.enabled       := true;
     btnfolder.enabled     := true;
     progresspanel.visible := false;
@@ -310,6 +344,7 @@ begin
 
     //
     drvalue      .visible := true;
+    btnplay      .enabled := true;
     btnfile      .enabled := true;
     btnfolder    .enabled := true;
     progresspanel.visible := false;
@@ -592,10 +627,10 @@ begin
           // skip DC component
           if index mod windowsize <> 0 then
           begin
-            amp := amp + db(atrack.maxamp*atrack.channels[k].spectrum[index]/maxamp)/db(1 shl atrack.bitspersample);
+            amp := max(amp, db(atrack.maxamp*atrack.channels[k].spectrum[index]/maxamp)/db(1 shl atrack.bitspersample));
           end;
         end;
-        result.setpixel(i, j, getcolor(amp/atrack.channelcount));
+        result.setpixel(i, j, getcolor(amp));
       end;
   end;
 end;
@@ -653,6 +688,8 @@ begin
   tracklist.clear;
   if filedialog.execute then
   begin
+    playsound.stopsound;
+    btnplay.imageindex := 5;
     if filesupported(extractfileext(filedialog.filename)) then
     begin
       tracklist.add(filedialog.filename);
@@ -677,6 +714,8 @@ begin
   tracklist.clear;
   if dirdialog.execute then
   begin
+    playsound.stopsound;
+    btnplay.imageindex := 5;
     path := includetrailingbackslash(dirdialog.filename);
      err := sysutils.findfirst(path + '*.*', faanyfile, sr);
     while err = 0 do
@@ -816,6 +855,44 @@ procedure taudiofrm.btnfoldermouseup(sender: tobject; button: tmousebutton;
   shift: tshiftstate; x, y: integer);
 begin
   btnfolder.onmousemove := @btnfoldermousemove;
+end;
+
+procedure taudiofrm.btnplaymousedown(sender: tobject; button: tmousebutton;
+  shift: tshiftstate; x, y: integer);
+begin
+ btnplay.onmousemove := nil;
+ case btnplay.imageindex of
+   4: btnplay.imageindex := 5;
+   5: btnplay.imageindex := 4;
+   6: btnplay.imageindex := 7;
+   7: btnplay.imageindex := 6;
+ end;
+end;
+
+procedure taudiofrm.btnplaymouseleave(sender: tobject);
+begin
+ case btnplay.imageindex of
+   4: btnplay.imageindex := 5;
+   6: btnplay.imageindex := 7;
+ end;
+end;
+
+procedure taudiofrm.btnplaymousemove(sender: tobject; shift: tshiftstate; x, y: integer);
+begin
+ case btnplay.imageindex of
+   5: btnplay.imageindex := 4;
+   7: btnplay.imageindex := 6;
+ end;
+end;
+
+procedure taudiofrm.btnplaymouseup(sender: tobject; button: tmousebutton;
+  shift: tshiftstate; x, y: integer);
+begin
+  btnplay.onmousemove := @btnplaymousemove;
+  case btnplay.imageindex of
+    5: btnplay.imageindex := 4;
+    7: btnplay.imageindex := 6;
+  end;
 end;
 
 procedure taudiofrm.btnloadicon(btn: timage; index: longint; x, y: longint);
