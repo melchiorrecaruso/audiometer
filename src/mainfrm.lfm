@@ -665,6 +665,7 @@ object audiofrm: Taudiofrm
         Foot.Brush.Color = clBtnFace
         Foot.Font.Color = clBlue
         Frame.Visible = False
+        GUIConnector = guiconnector
         Title.Brush.Color = clBtnFace
         Title.Font.Color = clBlue
         Title.Text.Strings = (
@@ -1123,6 +1124,10 @@ object audiofrm: Taudiofrm
     Top = 80
   end
   object freq: TListChartSource
+    Left = 624
+    Top = 80
+  end
+  object guiconnector: TChartGUIConnectorBGRA
     Left = 576
     Top = 144
   end
