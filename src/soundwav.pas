@@ -1,7 +1,7 @@
 {
   Description: Sound routines.
 
-  Copyright (C) 2020-2023 Melchiorre Caruso <melchiorrecaruso@gmail.com>
+  Copyright (C) 2020-2024 Melchiorre Caruso <melchiorrecaruso@gmail.com>
 
   This source is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free
@@ -26,7 +26,7 @@ unit soundwav;
 interface
 
 uses
-  classes, sysutils, math, fgl;
+  classes, sysutils, math, fgl, ufft, utypes;
 
 // WAVE utils
 
@@ -81,20 +81,18 @@ type
   end;
   // and after this header the actual data comes, which is an array of samples
 
-  tsample = packed record
-    channelvalues : array of longint;
-  end;
-
-  tsamples = array of tsample;
-
-  tdoublelist = specialize tfpglist<double>;
+  tfloatlist  = specialize tfpglist<double>;
+  tspectrum   = array of double;
+  tchannel    = array of longint;
+  tchannels   = array of tchannel;
 
   // ttrackchannel
 
   ttrackchannel = class
   private
-    frms2: tdoublelist;
-    fpeak: tdoublelist;
+    frms2: tfloatlist;
+    fpeak: tfloatlist;
+    fspectrum: tspectrum;
     function getrms2(index: longint): double;
     function getpeak(index: longint): double;
     function getcount: longint;
@@ -103,10 +101,15 @@ type
     destructor destroy; override;
     procedure add(const rms2i, peaki: double);
   public
+    property spectrum: tspectrum read fspectrum;
     property rms2[index: longint]: double read getrms2;
     property peak[index: longint]: double read getpeak;
     property count: longint read getcount;
   end;
+
+  // ttrackchannels
+
+  ttrackchannels = array of ttrackchannel;
 
   // ttrack
 
@@ -117,12 +120,14 @@ type
     fnumber: longint;
     fsamplerate: longword;
     fbitspersample: longint;
-    fchannels: array of ttrackchannel;
+    fchannels: ttrackchannels;
     fbyterate: longint;
     frms: double;
     fpeak: double;
     fdr: double;
+    fmaxamp: double;
     fduration: string;
+    fspectrumws: longint;
     procedure setchannelcount(value: longint);
     function getchannel(index: longint): ttrackchannel;
     function getchannelcount: longint;
@@ -139,9 +144,11 @@ type
     property rms: double read frms;
     property peak: double read fpeak;
     property dr: double read fdr;
+    property maxamp: double read fmaxamp;
     property duration: string read fduration;
     property channels[index: longint]: ttrackchannel read getchannel;
     property channelcount: longint read getchannelcount write setchannelcount;
+    property spectrumws: longint read fspectrumws;
   end;
 
   { ttrackanalyzer }
@@ -151,7 +158,6 @@ type
     ffmt: tfmtchunk;
     ffmtext: tfmtchunkext;
     fdatachunk: tdatachunk;
-    fdata: array of ttrackchannel;
     //---
     ftrack: ttrack;
     fstatus: longint;
@@ -160,19 +166,21 @@ type
     fonstart: tthreadmethod;
     fonstop: tthreadmethod;
     fonprogress: tthreadmethod;
-    fnorm: longint;
+    fnorm: double;
+    fspectrumon: boolean;
     function getpercentage: longint;
     procedure readheader(astream: tstream);
-    function readsamples(astream: tstream; ablock: tsamples): longint;
+    function readsamples(astream: tstream; achannels: tchannels; achannelsize: longint): longint;
     procedure readfromstream(astream: tstream);
-    function getrms2(block: tsamples; channel: word): double;
-    function getpeak(block: tsamples; channel: word): double;
+    procedure getspectrum(achannel: plongint; count: longint; aspectrum: pfloat);
+    function getrms2(achannel: tchannel; index, count: longint): double;
+    function getpeak(achannel: tchannel; index, count: longint): double;
+    function getmaxamp(achannel: tchannel; index, count: longint): double;
     function getrms(channel: word): double;
     function getpeak(channel: word): double;
     function getdr(channel: word): double;
-    procedure clear;
   public
-    constructor create(atrack: ttrack; astream: tstream);
+    constructor create(atrack: ttrack; astream: tstream; aspectrumon: boolean);
     destructor destroy; override;
     procedure execute; override;
   public
@@ -199,7 +207,7 @@ type
     procedure sort;
     procedure savetofile(const filename: string);
   public
-    property tracks[index: longint]: ttrack read gettrack;
+    property tracks[index: longint]: ttrack read gettrack; default;
     property count: longint read getcount;
   end;
 
@@ -247,7 +255,7 @@ end;
 
 function db(const value: double): double;
 begin
-  if value > 0 then
+  if value > 1.0 then
     result := 20*log10(value)
   else
     result := 0;
@@ -258,8 +266,8 @@ end;
 constructor ttrackchannel.create;
 begin
   inherited create;
-  frms2 := tdoublelist.create;
-  fpeak := tdoublelist.create;
+  frms2 := tfloatlist.create;
+  fpeak := tfloatlist.create;
 end;
 
 destructor ttrackchannel.destroy;
@@ -305,6 +313,8 @@ begin
   frms           := 0;
   fpeak          := 0;
   fdr            := 0;
+  fmaxamp        := 0;
+  fspectrumws    := 1024;
 end;
 
 destructor ttrack.destroy;
@@ -312,9 +322,7 @@ var
   i: longint;
 begin
   for i := low(fchannels) to high(fchannels) do
-  begin
     fchannels[i].destroy;
-  end;
   fchannels := nil;
   inherited destroy;
 end;
@@ -345,85 +353,118 @@ end;
 
 // ttrackanalyzer
 
-constructor ttrackanalyzer.create(atrack: ttrack; astream: tstream);
+constructor ttrackanalyzer.create(atrack: ttrack; astream: tstream; aspectrumon: boolean);
 begin
-  fdata   := nil;
   ftrack  := atrack;
   fstream := astream;
-  clear;
 
+  fspectrumon := aspectrumon;
   freeonterminate := true;
   inherited create(true);
 end;
 
 destructor ttrackanalyzer.destroy;
 begin
-  clear;
   inherited destroy;
 end;
 
-procedure ttrackanalyzer.clear;
+procedure ttrackanalyzer.getspectrum(achannel: plongint; count: longint; aspectrum: pfloat);
 var
   i: longint;
+  buff: tcompvector = nil;
+  freq: tcompvector = nil;
 begin
-  for i := low(fdata) to high(fdata) do
+  if count > 0 then
   begin
-    fdata[i].destroy;
+    setlength(buff, count);
+    for i := 0 to count -1 do
+    begin
+      buff[i].x := (0.5-0.5*cos(2*pi*i/(count-1)))*achannel^;
+      buff[i].y := 0;
+      inc(achannel);
+    end;
+
+    freq := FFT(count, buff);
+    aspectrum^ := abs(freq[0].x)/count;
+    inc(aspectrum);
+    for i := 1 to (count div 2) -1 do
+    begin
+      aspectrum^ := 2*sqrt(sqr(freq[i].x) + sqr(freq[i].y))/count;
+      inc(aspectrum);
+    end;
+    freq := nil;
+    buff := nil;
   end;
-  fdata   := nil;
-  fstatus := 0;
 end;
 
-function ttrackanalyzer.getrms2(block: tsamples; channel: word): double;
+function ttrackanalyzer.getrms2(achannel: tchannel; index, count: longint): double;
 var
   i: longint;
 begin
   result := 0;
-  for i := low(block) to high(block) do
+  for i := index to (index + count) -1 do
   begin
-    result := result + sqr(block[i].channelvalues[channel]/fnorm);
+    result := result + sqr(achannel[i]/fnorm);
   end;
-  result := 2*result/length(block);
+  result := 2*result/count;
 end;
 
-function ttrackanalyzer.getpeak(block: tsamples; channel: word): double;
+function ttrackanalyzer.getpeak(achannel: tchannel; index, count: longint): double;
 var
   i : longint;
 begin
   result := 0;
-  for i := low(block) to high(block) do
+  for i := index to (index + count) -1 do
   begin
-    result := max(result, abs(block[i].channelvalues[channel])/fnorm);
+    result := max(result, abs(achannel[i])/fnorm);
   end;
+end;
+
+function ttrackanalyzer.getmaxamp(achannel: tchannel; index, count: longint): double;
+var
+  i: longint;
+  zmin, zmax: float;
+begin
+  result := 0;
+  zmin := maxfloat;
+  zmax := minfloat;
+  for i := index to (index + count) -1 do
+  begin
+    zmin := min(zmin, achannel[i]);
+    zmax := max(zmax, achannel[i]);
+  end;
+  result := zmax - zmin;
 end;
 
 function ttrackanalyzer.getdr(channel: word): double;
 var
   i, n: longint;
   peak2nd: double;
+  chn: ttrackchannel;
 begin
   result := 0;
-  for i := 0 to fdata[channel].count -1 do
+  chn := ttrackchannel.create;
+  for i := 0 to ftrack.channels[channel].count -1 do
   begin
-    ftrack.channels[channel].add(
-      fdata[channel].frms2[i],
-      fdata[channel].fpeak[i]);
+    chn.add(ftrack.channels[channel].frms2[i],
+            ftrack.channels[channel].fpeak[i]);
   end;
-  fdata[channel].frms2.sort(@compare);
-  fdata[channel].fpeak.sort(@compare);
+  chn.frms2.sort(@compare);
+  chn.fpeak.sort(@compare);
 
-  n := trunc(0.2 * fdata[channel].count);
+  n := trunc(0.2 * chn.count);
   if n > 1 then
   begin
-    peak2nd := fdata[channel].fpeak[1];
+    peak2nd := chn.fpeak[1];
 
     result := 0;
     for i := 0 to n -1 do
     begin
-      result := result + fdata[channel].frms2[i];
+      result := result + chn.frms2[i];
     end;
     result := db(peak2nd/sqrt(result/n));
   end;
+  chn.destroy;
 end;
 
 function ttrackanalyzer.getrms(channel: word): double;
@@ -470,13 +511,13 @@ begin
       begin
         dr := getdr(i);
         ftrack.fdr   := ftrack.fdr   + dr;
-        ftrack.frms  := ftrack.frms  + getrms (i);
-        ftrack.fpeak := ftrack.fpeak + getpeak(i);
+        ftrack.frms  := ftrack.frms  + getrms (i)*fnorm;
+        ftrack.fpeak := ftrack.fpeak + getpeak(i)*fnorm;
         {$ifopt D+}
         writeln;
         writeln('track.DR  [', i,']      ', dr            :2:1);
-        writeln('track.Peak[', i,']      ', db(getpeak(i)):2:2);
-        writeln('track.Rms [', i,']      ', db(getrms (i)):2:2);
+        writeln('track.Peak[', i,']      ', db(getpeak(i)*fnorm):2:2);
+        writeln('track.Rms [', i,']      ', db(getrms (i)*fnorm):2:2);
         {$endif}
       end;
       ftrack.fdr   := ftrack.fdr  /ffmt.channels;
@@ -496,12 +537,13 @@ end;
 
 procedure ttrackanalyzer.readfromstream(astream:tstream);
 var
-  block: tsamples;
+  i, j, k: longint;
   blocksize: longword;
   blockcount: longword;
-  i, j: longint;
-  samples: longword;
-  seconds: longword;
+  samples: tchannels = nil;
+  samplecount: longword;
+  secondcount: longword;
+  step, steps: longint;
 begin
   {$ifopt D+}
   writeln('track.name         ', ftrack.fname);
@@ -520,56 +562,82 @@ begin
   ftrack.frms           := 0;
   ftrack.fpeak          := 0;
   ftrack.fdr            := 0;
+  ftrack.fmaxamp        := 0;
   ftrack.fduration      := '00:00';
 
   fnorm := 1 shl (ftrack.fbitspersample -1);
   if ftrack.fsamplerate > 0 then
   begin
-    seconds := (fdatachunk.subck2size div ffmt.blockalign) div ftrack.fsamplerate;
-    ftrack.fduration := format('%3.2d:%2.2d', [seconds div (60), seconds mod (60)]);
+    secondcount := (fdatachunk.subck2size div ffmt.blockalign) div ftrack.fsamplerate;
+    ftrack.fduration := format('%3.2d:%2.2d', [secondcount div (60), secondcount mod (60)]);
   end;
-  // read samples
-  if status <> 0 then exit;
-  setlength(fdata, ffmt.channels);
-  for i := low(fdata) to high(fdata) do
-    fdata[i] := ttrackchannel.create;
-
-  samples    := fdatachunk.subck2size div ffmt.blockalign;
-  blocksize  := trunc(132480 / 44100 * ffmt.samplespersec);
-  blockcount := 0;
+  // read samplecount
+  samplecount  := fdatachunk.subck2size div ffmt.blockalign;
+  blocksize    := trunc(132480 / 44100 * ffmt.samplespersec);
+  blockcount   := 0;
   if blocksize > 0 then
-    blockcount := samples div blocksize;
+    blockcount := samplecount div blocksize;
 
   if blockcount = 0 then fstatus := -3;
   if blocksize  = 0 then fstatus := -3;
   if status <> 0 then exit;
-  // allobate new block (of 3 seconds length)
-  block := nil;
-  setlength(block, blocksize);
-  for i := low(block) to high(block) do
-    setlength(block[i].channelvalues, ffmt.channels);
-  // read samples
+  // allocate track samples
+  ftrack.channelcount := ffmt.channels;
+  // allocate track samples spectrum
+  if fspectrumon then
+    for i := 0 to length(ftrack.fchannels) -1 do
+      setlength(ftrack.fchannels[i].fspectrum, samplecount div 2);
+  // allocate samples buffer
+  setlength(samples, ffmt.channels);
+  for i := 0 to length(ftrack.fchannels) -1 do
+    setlength(samples[i], samplecount);
+  // calculate steps
+  step  := 1;
+  steps := blockcount;
+  if fspectrumon then
+    for i := 0 to ffmt.channels -1 do
+      steps := steps + samplecount div ftrack.spectrumws;
+  // read samplescount
+  readsamples(astream, samples, samplecount);
   for i := 0 to blockcount -1  do
   begin
-    fpercentage := 100*i/blockcount;
+    fpercentage := 100*step/steps;
     if assigned(fonprogress) then
-      Queue(fonprogress);
-
-    readsamples(astream, block);
-    // calculate block rms and peak
+      queue(fonprogress);
+    inc(step);
+    // calculate block rms and peak and db
     for j := 0 to ffmt.channels -1 do
     begin
-      fdata[j].add(getrms2(block, j),
-                   getpeak(block, j));
+      ftrack.fchannels[j].add(
+        getrms2(samples[j], i * blocksize, blocksize),
+        getpeak(samples[j], i * blocksize, blocksize));
+
+      ftrack.fmaxamp := max(ftrack.fmaxamp, getmaxamp(samples[j], i * blocksize, blocksize));
     end;
   end;
+
+  // calculate spectrum
+  if fspectrumon then
+    for i := 0 to ffmt.channels -1 do
+      for j := 0 to (samplecount div ftrack.spectrumws) -1 do
+      begin
+        fpercentage := 100*step/steps;
+        if assigned(fonprogress) then
+          queue(fonprogress);
+        inc(step);
+
+        k := j * ftrack.spectrumws;
+
+        getspectrum(@samples[i][k], ftrack.spectrumws, @ftrack.fchannels[i].fspectrum[k div 2]);
+      end;
+  // de-allocate samples buffer
+  for i := 0 to length(ftrack.fchannels) -1 do
+    setlength(samples[i], 0);
+  setlength(samples, 0);
+
   fpercentage := 100;
   if assigned(fonprogress) then
     Queue(fonprogress);
-  // de-allocate block
-  for i := low(block) to high(block) do
-    block[i].channelvalues := nil;
-  block := nil;
 end;
 
 procedure ttrackanalyzer.readheader(astream: tstream);
@@ -651,24 +719,25 @@ begin
   if fdatachunk.subck2size = 0 then fstatus := -2;
 end;
 
-function ttrackanalyzer.readsamples(astream: tstream; ablock: tsamples): longint;
+function ttrackanalyzer.readsamples(astream: tstream; achannels: tchannels; achannelsize: longint): longint;
 var
   i, j, k: longint;
   dt : array[0..3] of byte;
+  zmin, zmax: longint;
 begin
-  result := length(ablock);
-  for i := low(ablock) to high(ablock) do
+  result := 0;
+  for i := 0 to achannelsize -1 do
     for j := 0 to ffmt.channels -1 do
     begin
       if ffmt.bitspersample = 8 then
       begin
         if astream.read(dt[0], 1) <> 1 then fstatus := -1;
-        ablock[i].channelvalues[j] := pbyte(@dt[0])^;
+        achannels[j][i] := pbyte(@dt[0])^;
       end else
       if ffmt.bitspersample = 16 then
       begin
         if astream.read(dt[0], 2) <> 2 then fstatus := -1;
-        ablock[i].channelvalues[j] := psmallint(@dt[0])^;
+        achannels[j][i] := psmallint(@dt[0])^;
       end else
       if ffmt.bitspersample = 24 then
       begin
@@ -683,12 +752,12 @@ begin
         k := (k shl 8) or dt[1];
         k := (k shl 8) or dt[0];
 
-        ablock[i].channelvalues[j] := k;
+        achannels[j][i] := k;
       end else
       if ffmt.bitspersample = 32 then
       begin
         if astream.read(dt[0], 4) <> 4 then fstatus := -1;
-        ablock[i].channelvalues[j] := plongint(@dt[0])^;
+        achannels[j][i] := plongint(@dt[0])^;
       end;
    end;
 end;
@@ -761,7 +830,7 @@ var
   track: ttrack;
 begin
   s := tstringlist.create;
-  s.add('AudioMeter 0.4.4 - Dynamic Range Meter');
+  s.add('AudioMeter 0.4.6 - Dynamic Range Meter');
   s.add(splitter);
   s.add(format('Log date : %s', [datetimetostr(now)]));
   s.add(splitter);
@@ -778,8 +847,8 @@ begin
       track := gettrack(i);
       s.add(format('DR%2.0f %7.2f dB %7.2f dB %4.0d %4.0d %7.0d %-s     %s', [
         track.dr,
-        db(track.peak),
-        db(track.rms),
+        db(track.peak)-db(1 shl (track.fbitspersample -1)),
+        db(track.rms )-db(1 shl (track.fbitspersample -1)),
         track.bitspersample,
         track.channelcount,
         track.samplerate,
