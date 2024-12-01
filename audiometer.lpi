@@ -46,6 +46,7 @@
           </Parsing>
           <CodeGeneration>
             <SmartLinkUnit Value="True"/>
+            <TargetCPU Value="x86_64"/>
             <Optimizations>
               <OptimizationLevel Value="2"/>
             </Optimizations>
@@ -75,6 +76,15 @@
       <FormatVersion Value="2"/>
     </RunParams>
     <RequiredPackages>
+      <Item>
+        <PackageName Value="playwavepackage"/>
+      </Item>
+      <Item>
+        <PackageName Value="lmDSP"/>
+      </Item>
+      <Item>
+        <PackageName Value="BGRABitmapPack"/>
+      </Item>
       <Item>
         <PackageName Value="fcl"/>
       </Item>
@@ -126,13 +136,13 @@
       </SyntaxOptions>
     </Parsing>
     <CodeGeneration>
+      <TargetCPU Value="x86_64"/>
       <Optimizations>
         <OptimizationLevel Value="0"/>
       </Optimizations>
     </CodeGeneration>
     <Linking>
       <Debugging>
-        <RunWithoutDebug Value="True"/>
         <DebugInfoType Value="dsDwarf2Set"/>
         <UseHeaptrc Value="True"/>
       </Debugging>
