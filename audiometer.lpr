@@ -25,7 +25,7 @@ program audiometer;
 
 uses
   {$IFDEF UNIX} cthreads, {$ENDIF} interfaces,
-  forms, mainfrm, tachartlazaruspkg, tachartbgra;
+  forms, mainfrm, tachartlazaruspkg;
 
 {$R *.res}
 

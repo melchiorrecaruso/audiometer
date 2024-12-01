@@ -539,7 +539,7 @@ object audiofrm: Taudiofrm
     Height = 344
     Top = 222
     Width = 711
-    PageIndex = 1
+    PageIndex = 2
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Left = 3
     BorderSpacing.Top = 5
@@ -550,7 +550,7 @@ object audiofrm: Taudiofrm
         Left = 0
         Height = 344
         Top = 0
-        Width = 711
+        Width = 705
         AllowPanning = False
         AllowZoom = False
         AxisList = <        
@@ -603,6 +603,7 @@ object audiofrm: Taudiofrm
         )
         Align = alClient
         Anchors = []
+        BorderSpacing.Right = 6
         ParentColor = True
         object rmseries: TBarSeries
           BarBrush.Color = clYellow
@@ -619,7 +620,7 @@ object audiofrm: Taudiofrm
         Left = 0
         Height = 344
         Top = 0
-        Width = 711
+        Width = 705
         AllowPanning = False
         AllowZoom = False
         AxisList = <        
@@ -644,6 +645,7 @@ object audiofrm: Taudiofrm
           end        
           item
             Grid.Visible = False
+            Intervals.Count = 9
             Intervals.Options = [aipUseCount, aipUseMinLength, aipUseNiceSteps]
             Alignment = calBottom
             Arrow.Visible = True
@@ -665,7 +667,6 @@ object audiofrm: Taudiofrm
         Foot.Brush.Color = clBtnFace
         Foot.Font.Color = clBlue
         Frame.Visible = False
-        GUIConnector = guiconnector
         Title.Brush.Color = clBtnFace
         Title.Font.Color = clBlue
         Title.Text.Strings = (
@@ -674,6 +675,7 @@ object audiofrm: Taudiofrm
         OnBeforeCustomDrawBackWall = spectrumscreenBeforeCustomDrawBackWall
         Align = alClient
         Anchors = []
+        BorderSpacing.Right = 6
         ParentColor = True
       end
     end
@@ -682,7 +684,7 @@ object audiofrm: Taudiofrm
         Left = 0
         Height = 344
         Top = 0
-        Width = 711
+        Width = 705
         AllowPanning = False
         AllowZoom = False
         AxisList = <        
@@ -707,6 +709,7 @@ object audiofrm: Taudiofrm
           end        
           item
             Grid.Visible = False
+            Intervals.Count = 9
             Intervals.Options = [aipUseCount, aipUseMinLength, aipUseNiceSteps]
             Alignment = calBottom
             Arrow.Visible = True
@@ -735,6 +738,7 @@ object audiofrm: Taudiofrm
         )
         Align = alClient
         Anchors = []
+        BorderSpacing.Right = 6
         ParentColor = True
         object spectrumseries: TBarSeries
           BarBrush.Color = clRed
@@ -1126,9 +1130,5 @@ object audiofrm: Taudiofrm
   object freq: TListChartSource
     Left = 624
     Top = 80
-  end
-  object guiconnector: TChartGUIConnectorBGRA
-    Left = 576
-    Top = 144
   end
 end

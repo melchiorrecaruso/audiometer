@@ -77,9 +77,6 @@
     </RunParams>
     <RequiredPackages>
       <Item>
-        <PackageName Value="TAChartBgra"/>
-      </Item>
-      <Item>
         <PackageName Value="lmDSP"/>
       </Item>
       <Item>

@@ -29,14 +29,13 @@ uses
   classes, sysutils, forms, controls, graphics, dialogs, buttons, stdctrls,
   extctrls, comctrls, tagraph, taseries, tasources, bufstream, soundwav,
   bcradialprogressbar, bclistbox, bcbutton, process, inifiles, bgrabitmap,
-  bgrabitmaptypes, bctypes, tadrawutils, taguiconnectorbgra;
+  bgrabitmaptypes, bctypes, tadrawutils;
 
 type
   { taudiofrm }
 
   taudiofrm = class(tform)
     blocksbtn: tbcbutton;
-    guiconnector: TChartGUIConnectorBGRA;
     freq: tlistchartsource;
     spectrumchart: tchart;
     page3: tpage;
@@ -128,7 +127,7 @@ implementation
 {$R *.lfm}
 
 uses
-  tadrawerbgra, math;
+  math;
 
 { taudiofrm }
 
