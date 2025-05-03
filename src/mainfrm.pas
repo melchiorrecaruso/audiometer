@@ -1,7 +1,7 @@
 {
   Description: Main form.
 
-  Copyright (C) 2020-2024 Melchiorre Caruso <melchiorrecaruso@gmail.com>
+  Copyright (C) 2020-2025 Melchiorre Caruso <melchiorrecaruso@gmail.com>
 
   This source is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free
@@ -26,19 +26,22 @@ unit mainfrm;
 interface
 
 uses
-  classes, sysutils, uplaysound, forms, controls, graphics, dialogs, buttons,
+  classes, basegraphics, sysutils, uplaysound, forms, controls, graphics, dialogs, buttons,
   stdctrls, extctrls, comctrls, tagraph, taseries, tasources, bufstream,
   soundwav, bcradialprogressbar, bclistbox, bcbutton, process, inifiles,
-  bgrabitmap, bgrabitmaptypes, bctypes, tadrawutils;
+  bgrabitmap, bgrabitmaptypes, bctypes, BGRAVirtualScreen, tadrawutils;
 
 type
   { taudiofrm }
 
   taudiofrm = class(tform)
+    BGRAVirtualScreen1: TBGRAVirtualScreen;
     blocksbtn: tbcbutton;
     freq: tlistchartsource;
     btnplay: TImage;
+    Page4: TPage;
     playsound: Tplaysound;
+    WaveBtn: TBCButton;
     spectrumchart: tchart;
     page3: tpage;
     spectranalisysbtn: tbcbutton;
@@ -83,6 +86,7 @@ type
     peak: tlistchartsource;
     rms: tlistchartsource;
     filedialog: topendialog;
+    procedure BGRAVirtualScreen1Redraw(Sender: TObject; Bitmap: TBGRABitmap);
     procedure blocksbtnclick(sender: tobject);
     procedure btnfolderclick(sender: tobject);
     procedure btnfoldermousedown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
@@ -110,6 +114,7 @@ type
     procedure execute;
     procedure updatespectrumchart(atrack: ttrack);
     function  drawspectrum(atrack: ttrack; awidth, aheight: longint): tbgrabitmap;
+    function  drawwave(atrack: ttrack; awidth, aheight: longint): tbgrabitmap;
     procedure btnloadicon(btn: timage; index: longint; x, y: longint);
     procedure spectrumscreenbeforecustomdrawbackwall(asender: tchart;
       adrawer: ichartdrawer; const arect: trect; var adodefaultdrawing: boolean);
@@ -140,6 +145,8 @@ uses
 
 procedure taudiofrm.formcreate(sender: tobject);
 begin
+  DoubleBuffered := True;
+
   trackindex := 0;
   trackkill  := false;
   tracklist  := ttracklist.create;
@@ -166,6 +173,9 @@ begin
   spectranalisysbtn.statenormal .fontex.shadow := false;
   spectranalisysbtn.statehover  .fontex.shadow := false;
   spectranalisysbtn.stateclicked.fontex.shadow := false;
+  wavebtn.statenormal .fontex.shadow := false;
+  wavebtn.statehover  .fontex.shadow := false;
+  wavebtn.stateclicked.fontex.shadow := false;
   // initialize notebook
   notebook.pageindex := 0;
   // inizialize
@@ -386,6 +396,9 @@ begin
     // update spectrum image
     if notebook.pageindex = 1 then
       spectrumscreen.invalidate;
+  end else
+  begin
+    tracklist[trackindex -1].channelcount := 0;
   end;
   execute;
 end;
@@ -635,6 +648,90 @@ begin
   end;
 end;
 
+function taudiofrm.drawwave(atrack: ttrack; awidth, aheight: longint): tbgrabitmap;
+var
+  i, j, k: longint;
+  windowxsize: longint;
+  windowysize: longint;
+  windowxcount: longint;
+  windowycount: longint;
+  zmax, zmin, zdelta: double;
+
+  p1,p2: TPointF;
+  chart: BaseGraphics.TChart;
+begin
+  result := tbgrabitmap.create;
+  result.setsize(awidth, aheight);
+  result.filltransparent;
+
+  chart := basegraphics.tchart.create;
+  chart.legendenabled := false;
+  chart.title := '';
+  chart.xaxislabel := 'blocknum';
+  chart.yaxislabel := '%';
+  chart.scale := 1.0;
+  chart.backgroundcolor := clblack;
+  chart.xaxisfontcolor:= clwhite;
+  chart.yaxisfontcolor:= clwhite;
+  chart.xaxislinecolor := clwhite;
+  chart.yaxislinecolor := clwhite;
+  chart.xaxislabelpos := true;
+  chart.yaxislabelpos := true;
+
+  if atrack.channelcount > 0 then
+  begin
+    windowxcount := result.width;
+    windowycount := atrack.channelcount;
+
+    chart.YMaxF := +100;
+    chart.YMinF := -100;
+    chart.XMinF := 0;
+    chart.XMaxF := length(atrack.channels[i].samples);
+
+    for i := 0 to windowycount -1 do
+    begin
+      windowxsize  := length(atrack.channels[i].samples) div windowxcount;
+      windowysize  := result.height div windowycount;
+
+      for j := 0 to windowxcount -1 do
+      begin
+        zmin :=  maxint;
+        zmax := -maxint;
+        for k := 0 to windowxsize -1 do
+        begin
+          zmin :=  min(zmin, atrack.channels[i].samples[j * windowxsize + k]);
+          zmax :=  max(zmax, atrack.channels[i].samples[j * windowxsize + k]);
+        end;
+
+        zdelta := 100*(zmax-zmin)/(1 shl atrack.bitspersample);
+        //result.drawlineantialias(j,  windowysize * (i + 0.5) - zdelta,
+        //                         j,  windowysize * (i + 0.5) + zdelta, clyellow, 1, false);
+
+        p1.x := j;
+        p1.y := -zdelta;
+        p2.x := j;
+        p2.y := +zdelta;
+
+        chart.addpolyline([p1, p2],false,'');
+        chart.YMaxF := +100;
+        chart.YMinF := -100;
+        chart.XMinF := 0;
+        chart.XMaxF := windowxcount;
+
+        chart.AdjustXMin := False;
+        chart.AdjustXMax := False;
+        chart.AdjustYMin := False;
+        chart.AdjustYMax := False;
+
+      end;
+      chart.draw(result.canvas, result.width, result.height);
+    end;
+  end;
+
+
+  chart.destroy;
+end;
+
 procedure taudiofrm.updatespectrumchart(atrack: ttrack);
 var
   i, j, k: longint;
@@ -741,6 +838,7 @@ var
   btn1: tbcbutton;
   btn2: tbcbutton;
   btn3: tbcbutton;
+  btn4: tbcbutton;
 begin
  if sender = nil then
  begin
@@ -749,17 +847,27 @@ begin
      btn1 := blocksbtn;
      btn2 := spectrumbtn;
      btn3 := spectranalisysbtn;
+     btn4 := wavebtn;
    end else
    if notebook.pageindex = 1 then
    begin
      btn2 := blocksbtn;
      btn1 := spectrumbtn;
      btn3 := spectranalisysbtn;
+     btn4 := wavebtn;
    end else
+   if notebook.pageindex = 2 then
    begin
      btn2 := blocksbtn;
      btn3 := spectrumbtn;
      btn1 := spectranalisysbtn;
+     btn4 := wavebtn;
+   end else
+   begin
+     btn2 := blocksbtn;
+     btn3 := spectrumbtn;
+     btn4 := spectranalisysbtn;
+     btn1 := wavebtn;
    end;
  end else
  begin
@@ -768,20 +876,30 @@ begin
    begin
      btn2 := spectrumbtn;
      btn3 := spectranalisysbtn;
+     btn4 := wavebtn;
    end else
    if btn1 = spectrumbtn then
    begin
      btn2 := blocksbtn;
      btn3 := spectranalisysbtn;
+     btn4 := wavebtn;
+   end else
+   if btn1 = spectranalisysbtn then
+   begin
+     btn2 := blocksbtn;
+     btn3 := spectrumbtn;
+     btn4 := wavebtn;
    end else
    begin
      btn2 := blocksbtn;
      btn3 := spectrumbtn;
+     btn4 := spectranalisysbtn;
    end;
 
    if btn1 = blocksbtn         then notebook.pageindex := 0 else
    if btn1 = spectrumbtn       then notebook.pageindex := 1 else
-   if btn1 = spectranalisysbtn then notebook.pageindex := 2;
+   if btn1 = spectranalisysbtn then notebook.pageindex := 2 else
+   if btn1 = wavebtn           then notebook.pageindex := 3;
  end;
 
  btn1.statenormal .background.color  := clwhite;
@@ -807,6 +925,29 @@ begin
  btn3.statenormal .fontex    .color  := clwhite;
  btn3.statehover  .fontex    .color  := clwhite;
  btn3.stateclicked.fontex    .color  := clblack;
+
+ btn4.statenormal .background.color  := clblack;
+ btn4.statehover  .background.color  := clblack;
+ btn4.stateclicked.background.color  := clwhite;
+
+ btn4.statenormal .fontex    .color  := clwhite;
+ btn4.statehover  .fontex    .color  := clwhite;
+ btn4.stateclicked.fontex    .color  := clblack;
+end;
+
+procedure taudiofrm.bgravirtualscreen1redraw(sender: tobject; bitmap: tbgrabitmap);
+var
+  bit: tbgrabitmap;
+begin
+  if (working = false) and (tracklist.count > 0) then
+  begin
+    if notebook.pageindex = 3 then
+    begin
+      bit := drawwave(tracklist[tracklist.count -1], bgravirtualscreen1.width, bgravirtualscreen1.height);
+      bitmap.putimage(0, 0, bit, dmset);
+      bit.destroy;
+    end;
+  end;
 end;
 
 procedure taudiofrm.btnfilemouseup(sender: tobject; button: tmousebutton;
@@ -904,8 +1045,8 @@ begin
   buttons.draw(btn.canvas, x, y, index);
 end;
 
-procedure taudiofrm.spectrumscreenBeforeCustomDrawBackWall(asender: tchart;
-  adrawer: ichartdrawer; const arect: trect; var adodefaultdrawing: boolean);
+procedure taudiofrm.spectrumscreenbeforecustomdrawbackwall(asender: tchart;
+      adrawer: ichartdrawer; const arect: trect; var adodefaultdrawing: boolean);
 var
   bit: tbgrabitmap;
 begin

@@ -1,11 +1,11 @@
 object audiofrm: Taudiofrm
-  Left = 958
+  Left = 1062
   Height = 571
-  Top = 475
-  Width = 714
+  Top = 337
+  Width = 824
   Caption = 'AudioMeter 0.4.6 - Dynamic Range Meter'
   ClientHeight = 571
-  ClientWidth = 714
+  ClientWidth = 824
   Color = clGray
   Constraints.MinHeight = 440
   Constraints.MinWidth = 700
@@ -24,7 +24,7 @@ object audiofrm: Taudiofrm
     Left = 26
     Height = 19
     Top = 10
-    Width = 40
+    Width = 42
     BorderSpacing.Left = 26
     BorderSpacing.Top = 10
     Caption = 'Audio'
@@ -38,7 +38,7 @@ object audiofrm: Taudiofrm
   object btnfile: TImage
     AnchorSideTop.Control = btnfolder
     AnchorSideRight.Control = btnfolder
-    Left = 628
+    Left = 738
     Height = 32
     Top = 34
     Width = 32
@@ -84,7 +84,7 @@ object audiofrm: Taudiofrm
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
-    Left = 670
+    Left = 780
     Height = 32
     Top = 34
     Width = 32
@@ -127,12 +127,12 @@ object audiofrm: Taudiofrm
     Left = 26
     Height = 126
     Top = 34
-    Width = 141
+    Width = 144
     AutoSize = True
     BorderSpacing.Top = 5
     BevelOuter = bvNone
     ClientHeight = 126
-    ClientWidth = 141
+    ClientWidth = 144
     Color = clBlack
     ParentBackground = False
     ParentColor = False
@@ -144,12 +144,12 @@ object audiofrm: Taudiofrm
       Left = 0
       Height = 19
       Top = 6
-      Width = 141
+      Width = 144
       AutoSize = True
       BorderSpacing.Top = 5
       BevelOuter = bvNone
       ClientHeight = 19
-      ClientWidth = 141
+      ClientWidth = 144
       ParentBackground = False
       TabOrder = 0
       object bit8: TLabel
@@ -157,7 +157,7 @@ object audiofrm: Taudiofrm
         Left = 4
         Height = 19
         Top = 0
-        Width = 34
+        Width = 35
         BorderSpacing.Left = 4
         Caption = '8-bit'
         Color = clBlack
@@ -173,7 +173,7 @@ object audiofrm: Taudiofrm
         AnchorSideTop.Control = bit8
         AnchorSideBottom.Control = bit8
         AnchorSideBottom.Side = asrBottom
-        Left = 46
+        Left = 47
         Height = 19
         Top = 0
         Width = 41
@@ -191,10 +191,10 @@ object audiofrm: Taudiofrm
         AnchorSideRight.Side = asrBottom
         AnchorSideBottom.Control = bit16
         AnchorSideBottom.Side = asrBottom
-        Left = 95
+        Left = 96
         Height = 19
         Top = 0
-        Width = 42
+        Width = 44
         Anchors = [akTop, akLeft, akBottom]
         BorderSpacing.Left = 8
         BorderSpacing.Right = 4
@@ -215,7 +215,7 @@ object audiofrm: Taudiofrm
       Left = 0
       Height = 1
       Top = 0
-      Width = 141
+      Width = 144
       Anchors = [akTop, akLeft, akRight]
     end
     object Bevel2: TBevel
@@ -227,7 +227,7 @@ object audiofrm: Taudiofrm
       Left = 0
       Height = 1
       Top = 30
-      Width = 141
+      Width = 144
       Anchors = [akTop, akLeft, akRight]
       BorderSpacing.Top = 5
     end
@@ -238,7 +238,7 @@ object audiofrm: Taudiofrm
       Left = 73
       Height = 61
       Top = 35
-      Width = 64
+      Width = 67
       Anchors = [akTop, akRight]
       AutoSize = True
       BorderSpacing.Left = 4
@@ -246,17 +246,17 @@ object audiofrm: Taudiofrm
       BorderSpacing.Right = 4
       BevelOuter = bvNone
       ClientHeight = 61
-      ClientWidth = 64
+      ClientWidth = 67
       ParentBackground = False
       TabOrder = 1
       object khz96: TLabel
         AnchorSideTop.Control = RightHzPanel
         AnchorSideRight.Control = RightHzPanel
         AnchorSideRight.Side = asrBottom
-        Left = 19
+        Left = 18
         Height = 19
         Top = 0
-        Width = 45
+        Width = 49
         Anchors = [akTop, akRight]
         Caption = '96 khz'
         Color = clBlack
@@ -274,7 +274,7 @@ object audiofrm: Taudiofrm
         Left = 0
         Height = 19
         Top = 21
-        Width = 64
+        Width = 67
         Anchors = [akTop, akRight]
         BorderSpacing.Top = 2
         Caption = '176.4 khz'
@@ -293,7 +293,7 @@ object audiofrm: Taudiofrm
         Left = 16
         Height = 19
         Top = 42
-        Width = 48
+        Width = 51
         Anchors = [akTop, akRight]
         BorderSpacing.Top = 2
         Caption = '192khz'
@@ -311,23 +311,23 @@ object audiofrm: Taudiofrm
       Left = 4
       Height = 61
       Top = 35
-      Width = 57
+      Width = 62
       AutoSize = True
       BorderSpacing.Left = 4
       BorderSpacing.Top = 5
       BevelOuter = bvNone
       ClientHeight = 61
-      ClientWidth = 57
+      ClientWidth = 62
       ParentBackground = False
       TabOrder = 2
       object khz44: TLabel
         AnchorSideTop.Control = LeftHzPanel
         AnchorSideRight.Control = LeftHzPanel
         AnchorSideRight.Side = asrBottom
-        Left = 1
+        Left = 4
         Height = 19
         Top = 0
-        Width = 56
+        Width = 58
         Anchors = [akTop, akRight]
         Caption = '44.1 khz'
         Color = clBlack
@@ -343,10 +343,10 @@ object audiofrm: Taudiofrm
         AnchorSideRight.Control = khz44
         AnchorSideRight.Side = asrBottom
         AnchorSideBottom.Side = asrBottom
-        Left = 12
+        Left = 13
         Height = 19
         Top = 21
-        Width = 45
+        Width = 49
         Anchors = [akTop, akRight]
         BorderSpacing.Top = 2
         Caption = '48 khz'
@@ -367,7 +367,7 @@ object audiofrm: Taudiofrm
         Left = 0
         Height = 19
         Top = 42
-        Width = 57
+        Width = 62
         Anchors = [akTop, akRight]
         BorderSpacing.Top = 2
         Caption = '88.2 khz'
@@ -388,7 +388,7 @@ object audiofrm: Taudiofrm
       Left = 0
       Height = 1
       Top = 101
-      Width = 141
+      Width = 144
       Anchors = [akTop, akLeft, akRight]
       BorderSpacing.Top = 5
     end
@@ -397,7 +397,7 @@ object audiofrm: Taudiofrm
       AnchorSideTop.Side = asrBottom
       AnchorSideRight.Control = LeftHzPanel
       AnchorSideRight.Side = asrBottom
-      Left = 21
+      Left = 26
       Height = 19
       Top = 107
       Width = 40
@@ -413,10 +413,10 @@ object audiofrm: Taudiofrm
       AnchorSideTop.Side = asrBottom
       AnchorSideRight.Control = RightHzPanel
       AnchorSideRight.Side = asrBottom
-      Left = 93
+      Left = 94
       Height = 19
       Top = 107
-      Width = 44
+      Width = 46
       Anchors = [akTop, akRight]
       BorderSpacing.Top = 5
       Caption = 'stereo'
@@ -432,16 +432,16 @@ object audiofrm: Taudiofrm
     AnchorSideTop.Side = asrBottom
     AnchorSideBottom.Control = DetailsPanel
     AnchorSideBottom.Side = asrBottom
-    Left = 177
+    Left = 180
     Height = 131
     Top = 29
-    Width = 248
+    Width = 247
     Anchors = [akTop, akLeft, akBottom]
     AutoSize = True
     BorderSpacing.Left = 10
     BevelOuter = bvNone
     ClientHeight = 131
-    ClientWidth = 248
+    ClientWidth = 247
     ParentBackground = False
     TabOrder = 2
     object drlb: TStaticText
@@ -451,7 +451,7 @@ object audiofrm: Taudiofrm
       Left = 0
       Height = 134
       Top = 0
-      Width = 136
+      Width = 135
       AutoSize = True
       BorderSpacing.CellAlignVertical = ccaLeftTop
       Caption = 'DR'
@@ -470,7 +470,7 @@ object audiofrm: Taudiofrm
       AnchorSideTop.Control = DRPanel
       AnchorSideBottom.Control = drlb
       AnchorSideBottom.Side = asrBottom
-      Left = 141
+      Left = 140
       Height = 134
       Top = 0
       Width = 64
@@ -492,7 +492,7 @@ object audiofrm: Taudiofrm
       AnchorSideTop.Control = drlb
       AnchorSideBottom.Control = drlb
       AnchorSideBottom.Side = asrBottom
-      Left = 148
+      Left = 147
       Height = 114
       Top = 10
       Width = 100
@@ -537,8 +537,8 @@ object audiofrm: Taudiofrm
     Left = 3
     Height = 344
     Top = 222
-    Width = 711
-    PageIndex = 0
+    Width = 821
+    PageIndex = 1
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Left = 3
     BorderSpacing.Top = 5
@@ -549,7 +549,7 @@ object audiofrm: Taudiofrm
         Left = 0
         Height = 344
         Top = 0
-        Width = 705
+        Width = 815
         AllowPanning = False
         AllowZoom = False
         AxisList = <        
@@ -620,7 +620,7 @@ object audiofrm: Taudiofrm
         Left = 0
         Height = 344
         Top = 0
-        Width = 705
+        Width = 815
         AllowPanning = False
         AllowZoom = False
         AxisList = <        
@@ -684,7 +684,7 @@ object audiofrm: Taudiofrm
         Left = 0
         Height = 344
         Top = 0
-        Width = 705
+        Width = 815
         AllowPanning = False
         AllowZoom = False
         AxisList = <        
@@ -745,6 +745,22 @@ object audiofrm: Taudiofrm
           Source = freq
           StackedNaN = snDoNotDraw
         end
+      end
+    end
+    object Page4: TPage
+      Color = clNone
+      object BGRAVirtualScreen1: TBGRAVirtualScreen
+        Left = 0
+        Height = 344
+        Top = 0
+        Width = 821
+        OnRedraw = BGRAVirtualScreen1Redraw
+        BitmapAutoScale = False
+        Align = alClient
+        Alignment = taLeftJustify
+        Color = clWhite
+        ParentColor = False
+        TabOrder = 0
       end
     end
   end
@@ -1048,7 +1064,7 @@ object audiofrm: Taudiofrm
     AnchorSideRight.Control = btnfile
     AnchorSideBottom.Control = btnfile
     AnchorSideBottom.Side = asrBottom
-    Left = 584
+    Left = 694
     Height = 32
     Top = 34
     Width = 32
@@ -1062,28 +1078,127 @@ object audiofrm: Taudiofrm
     OnMouseMove = btnplayMouseMove
     OnMouseUp = btnplayMouseUp
   end
+  object WaveBtn: TBCButton
+    AnchorSideLeft.Control = SpectrumBtn
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = DetailsPanel
+    AnchorSideTop.Side = asrBottom
+    Left = 476
+    Height = 32
+    Top = 185
+    Width = 140
+    StateClicked.Background.Gradient1.StartColor = 8404992
+    StateClicked.Background.Gradient1.EndColor = 4194304
+    StateClicked.Background.Gradient1.GradientType = gtRadial
+    StateClicked.Background.Gradient1.Point1XPercent = 50
+    StateClicked.Background.Gradient1.Point1YPercent = 100
+    StateClicked.Background.Gradient1.Point2XPercent = 0
+    StateClicked.Background.Gradient1.Point2YPercent = 0
+    StateClicked.Background.Gradient2.StartColor = clWhite
+    StateClicked.Background.Gradient2.EndColor = clBlack
+    StateClicked.Background.Gradient2.GradientType = gtLinear
+    StateClicked.Background.Gradient2.Point1XPercent = 0
+    StateClicked.Background.Gradient2.Point1YPercent = 0
+    StateClicked.Background.Gradient2.Point2XPercent = 0
+    StateClicked.Background.Gradient2.Point2YPercent = 100
+    StateClicked.Background.Gradient1EndPercent = 100
+    StateClicked.Background.Style = bbsColor
+    StateClicked.Border.Style = bboNone
+    StateClicked.FontEx.Color = 16770790
+    StateClicked.FontEx.FontQuality = fqSystemClearType
+    StateClicked.FontEx.Shadow = True
+    StateClicked.FontEx.ShadowRadius = 2
+    StateClicked.FontEx.ShadowOffsetX = 1
+    StateClicked.FontEx.ShadowOffsetY = 1
+    StateClicked.FontEx.Style = [fsBold]
+    StateHover.Background.Gradient1.StartColor = 16744448
+    StateHover.Background.Gradient1.EndColor = 8404992
+    StateHover.Background.Gradient1.GradientType = gtRadial
+    StateHover.Background.Gradient1.Point1XPercent = 50
+    StateHover.Background.Gradient1.Point1YPercent = 100
+    StateHover.Background.Gradient1.Point2XPercent = 0
+    StateHover.Background.Gradient1.Point2YPercent = 0
+    StateHover.Background.Gradient2.StartColor = clWhite
+    StateHover.Background.Gradient2.EndColor = clBlack
+    StateHover.Background.Gradient2.GradientType = gtLinear
+    StateHover.Background.Gradient2.Point1XPercent = 0
+    StateHover.Background.Gradient2.Point1YPercent = 0
+    StateHover.Background.Gradient2.Point2XPercent = 0
+    StateHover.Background.Gradient2.Point2YPercent = 100
+    StateHover.Background.Gradient1EndPercent = 100
+    StateHover.Background.Style = bbsColor
+    StateHover.Border.Color = clWhite
+    StateHover.Border.Style = bboSolid
+    StateHover.FontEx.Color = clWhite
+    StateHover.FontEx.FontQuality = fqSystemClearType
+    StateHover.FontEx.Shadow = True
+    StateHover.FontEx.ShadowRadius = 2
+    StateHover.FontEx.ShadowOffsetX = 1
+    StateHover.FontEx.ShadowOffsetY = 1
+    StateHover.FontEx.Style = [fsBold]
+    StateNormal.Background.Gradient1.StartColor = 4194304
+    StateNormal.Background.Gradient1.EndColor = 8405056
+    StateNormal.Background.Gradient1.GradientType = gtLinear
+    StateNormal.Background.Gradient1.Point1XPercent = 0
+    StateNormal.Background.Gradient1.Point1YPercent = 0
+    StateNormal.Background.Gradient1.Point2XPercent = 0
+    StateNormal.Background.Gradient1.Point2YPercent = 100
+    StateNormal.Background.Gradient2.StartColor = 8405056
+    StateNormal.Background.Gradient2.EndColor = 4194304
+    StateNormal.Background.Gradient2.GradientType = gtRadial
+    StateNormal.Background.Gradient2.Point1XPercent = 50
+    StateNormal.Background.Gradient2.Point1YPercent = 100
+    StateNormal.Background.Gradient2.Point2XPercent = 0
+    StateNormal.Background.Gradient2.Point2YPercent = 0
+    StateNormal.Background.Gradient1EndPercent = 60
+    StateNormal.Background.Style = bbsColor
+    StateNormal.Border.Color = clWhite
+    StateNormal.Border.Style = bboSolid
+    StateNormal.FontEx.Color = 16770790
+    StateNormal.FontEx.FontQuality = fqSystemClearType
+    StateNormal.FontEx.Shadow = False
+    StateNormal.FontEx.ShadowRadius = 2
+    StateNormal.FontEx.ShadowOffsetX = 1
+    StateNormal.FontEx.ShadowOffsetY = 1
+    StateNormal.FontEx.Style = [fsBold]
+    BorderSpacing.Left = 10
+    BorderSpacing.Top = 25
+    Caption = 'Wave'
+    Color = clNone
+    DropDownWidth = 16
+    DropDownArrowSize = 8
+    GlobalOpacity = 255
+    OnClick = BlocksBtnClick
+    ParentColor = False
+    Rounding.RoundX = 0
+    Rounding.RoundY = 0
+    RoundingDropDown.RoundX = 1
+    RoundingDropDown.RoundY = 1
+    TextApplyGlobalOpacity = False
+    MemoryUsage = bmuHigh
+  end
   object filedialog: TOpenDialog
-    Left = 544
-    Top = 120
+    Left = 528
+    Top = 48
   end
   object rms: TListChartSource
     SortDir = sdDescending
-    Left = 544
-    Top = 168
+    Left = 528
+    Top = 112
   end
   object peak: TListChartSource
-    Left = 592
-    Top = 168
+    Left = 584
+    Top = 112
   end
   object dirdialog: TSelectDirectoryDialog
-    Left = 592
-    Top = 120
+    Left = 584
+    Top = 48
   end
   object buttons: TImageList
     Height = 32
     Width = 32
-    Left = 496
-    Top = 120
+    Left = 472
+    Top = 48
     Bitmap = {
       4C7A080000002000000020000000070C00000000000078DAED9C576C15471B86
       2140E8A17708BD0842EFA2858E6902D14CE898DE0C846A6C40F4DE842809575C
@@ -1187,12 +1302,12 @@ object audiofrm: Taudiofrm
   object report: TImageList
     Height = 146
     Width = 446
-    Left = 496
-    Top = 168
+    Left = 472
+    Top = 112
   end
   object freq: TListChartSource
     Left = 640
-    Top = 168
+    Top = 112
   end
   object playsound: Tplaysound
     About.Description.Strings = (
@@ -1212,6 +1327,6 @@ object audiofrm: Taudiofrm
     About.LicenseType = abModifiedGPL
     PlayCommand = 'aplay -q'
     Left = 640
-    Top = 120
+    Top = 48
   end
 end
