@@ -95,9 +95,6 @@
         <PackageName Value="bgracontrols"/>
       </Item>
       <Item>
-        <PackageName Value="tachartlazaruspkg"/>
-      </Item>
-      <Item>
         <PackageName Value="LCL"/>
       </Item>
     </RequiredPackages>
@@ -115,6 +112,10 @@
       </Unit>
       <Unit>
         <Filename Value="src/soundwav.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/drawers.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
     </Units>
