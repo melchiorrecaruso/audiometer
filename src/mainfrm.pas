@@ -42,8 +42,8 @@ type
     playsound: Tplaysound;
     timer: TTimer;
     WaveBtn: TBCButton;
-    spectranalisysbtn: tbcbutton;
     spectrumbtn: tbcbutton;
+    spectrogrambtn: tbcbutton;
     bevel1: tbevel;
     bevel2: tbevel;
     bevel3: tbevel;
@@ -73,8 +73,6 @@ type
     report: timagelist;
     audio: tlabel;
     dirdialog: tselectdirectorydialog;
-    peak: tlistchartsource;
-    rms: tlistchartsource;
     filedialog: topendialog;
     procedure screenredraw(Sender: TObject; Bitmap: TBGRABitmap);
 
@@ -91,6 +89,7 @@ type
 
     procedure formclosequery(sender: tobject; var canclose: boolean);
     procedure formcreate(sender: tobject);
+
     procedure btnfileclick(sender: tobject);
     procedure btnfilemousedown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
     procedure btnfilemouseleave(sender: tobject);
@@ -108,8 +107,6 @@ type
     procedure timerstarttimer(sender: tobject);
     procedure timerstoptimer(sender: tobject);
     procedure timertimer(sender: tobject);
-
-    procedure updatespectrumchart(atrack: ttrack);
 
     procedure btnloadicon(btn: timage; index: longint; x, y: longint);
 
@@ -173,26 +170,25 @@ begin
   blocksbtn.statenormal .fontex.shadow := false;
   blocksbtn.statehover  .fontex.shadow := false;
   blocksbtn.stateclicked.fontex.shadow := false;
+  spectrogrambtn.statenormal .fontex.shadow := false;
+  spectrogrambtn.statehover  .fontex.shadow := false;
+  spectrogrambtn.stateclicked.fontex.shadow := false;
   spectrumbtn.statenormal .fontex.shadow := false;
   spectrumbtn.statehover  .fontex.shadow := false;
   spectrumbtn.stateclicked.fontex.shadow := false;
-  spectranalisysbtn.statenormal .fontex.shadow := false;
-  spectranalisysbtn.statehover  .fontex.shadow := false;
-  spectranalisysbtn.stateclicked.fontex.shadow := false;
   wavebtn.statenormal .fontex.shadow := false;
   wavebtn.statehover  .fontex.shadow := false;
   wavebtn.stateclicked.fontex.shadow := false;
-  // initialize pageindex
-  pageindex := 0;
-  // inizialize
-  working := false;
+  // initialize
   clear;
+  drawer := nil;
+  working := false;
+
+  blocksbtnclick(blocksbtn);
 end;
 
 procedure taudiofrm.formdestroy(sender: tobject);
 begin
-  rms.clear;
-  peak.clear;
   tracklist.destroy;
   screenimage.destroy;
 end;
@@ -239,12 +235,7 @@ end;
 
 procedure taudiofrm.onstop;
 var
-  i: longint;
-  j: longint;
 //mycapture: tbitmap;
-  norm: longint;
-  rmsi: double;
-  peaki: double;
   track: ttrack;
 begin
   freeandnil(buffer);
@@ -269,26 +260,7 @@ begin
     progresspanel.visible := false;
   end else
   begin
-    rms.clear;
-    peak.clear;
-    // load rms and peak
     track := tracklist.tracks[trackindex];
-    if track.channelcount > 0 then
-    begin
-      norm := 1 shl (track.bitspersample -1);
-      for i := 0 to track.channels[0].count -1 do
-      begin
-        rmsi := 0;
-        for j := 0 to track.channelcount -1 do
-          rmsi := rmsi + sqrt(track.channels[j].rms2[i]);
-        rms.add(i, max(0, db(rmsi/track.channelcount*norm)));
-
-        peaki := 0;
-        for j := 0 to track.channelcount -1 do
-          peaki := peaki + track.channels[j].peak[i];
-        peak.add(i, max(0, db(peaki/track.channelcount*norm)));
-      end;
-    end;
 
     bit8  .font.color := clgray; if track.bitspersample = 8      then bit8  .font.color := clwhite;
     bit16 .font.color := clgray; if track.bitspersample = 16     then bit16 .font.color := clwhite;
@@ -366,6 +338,7 @@ begin
     report.clear;
     *)
     working := false;
+    timer.enabled:= true;
   end else
   begin
     tracklist[trackindex -1].channelcount := 0;
@@ -506,14 +479,10 @@ begin
   mono  .font.color := clgray;
   stereo.font.color := clgray;
 
-  rms.clear;
-  peak.clear;
   audio.caption      := 'Audio';
   audio.font.color   := clwhite;
   drvalue.caption    := '--';
   drvalue.font.color := clwhite;
-
-  blocksbtnclick(blocksbtn);
 end;
 
 // timer
@@ -553,61 +522,13 @@ end;
 
 procedure taudiofrm.onredraw;
 begin
-  screen.invalidate;
+  screen.redrawbitmap;
   drawer := nil;
 end;
 
 procedure taudiofrm.screenredraw(sender: tobject; bitmap: tbgrabitmap);
 begin
   bitmap.putimage(0, 0, screenimage, dmset);
-end;
-
-procedure taudiofrm.updatespectrumchart(atrack: ttrack);
-var
-  i, j, k: longint;
-  maxamp: double;
-  windowsize: longint;
-  windowcount: longint;
-  arr: array of double = nil;
-begin
-  freq.clear;
-  if atrack.channelcount > 0 then
-  begin
-    maxamp := minfloat;
-    for i := 0 to atrack.channelcount -1 do
-      for j := 0 to length(atrack.channels[i].spectrum) -1 do
-      begin
-        maxamp := max(maxamp, atrack.channels[i].spectrum[j]);
-      end;
-
-    setlength(arr, atrack.spectrumws div 2);
-    for i := 0 to length(arr) -1 do arr[i] := 0;
-
-    windowsize := atrack.spectrumws div 2;
-    for i := 0 to atrack.channelcount -1 do
-    begin
-      windowcount := length(atrack.channels[i].spectrum) div windowsize;
-
-      for j := 0 to length(arr) -1 do
-      begin
-        arr[j] := 0;
-        if j mod windowsize <> 0 then
-        begin
-          for k := 0 to windowcount -1 do
-          begin
-            arr[j] := max(arr[j], atrack.channels[i].spectrum[k*windowsize + j]/maxamp);
-          end;
-        end;
-      end;
-    end;
-
-    for i := 0 to length(arr) -1 do
-      if i mod windowsize <> 0 then
-      begin
-        freq.add(i*atrack.samplerate/atrack.spectrumws, db(atrack.maxamp*arr[i]/atrack.channelcount), '', clYellow);
-      end;
-    arr := nil;
-  end;
 end;
 
 procedure taudiofrm.btnfileclick(sender: tobject);
@@ -672,34 +593,34 @@ var
 begin
   btn1 := sender as tbcbutton;
 
-  if btn1 = blocksbtn         then pageindex := 0 else
-  if btn1 = spectrumbtn       then pageindex := 1 else
-  if btn1 = spectranalisysbtn then pageindex := 2 else
-  if btn1 = wavebtn           then pageindex := 3;
+  if btn1 = blocksbtn      then pageindex := 0 else
+  if btn1 = spectrumbtn    then pageindex := 1 else
+  if btn1 = spectrogrambtn then pageindex := 2 else
+  if btn1 = wavebtn        then pageindex := 3;
 
   case pageindex of
     0: begin
          btn1 := blocksbtn;
          btn2 := spectrumbtn;
-         btn3 := spectranalisysbtn;
+         btn3 := spectrogrambtn;
          btn4 := wavebtn;
        end;
     1: begin
          btn2 := blocksbtn;
          btn1 := spectrumbtn;
-         btn3 := spectranalisysbtn;
+         btn3 := spectrogrambtn;
          btn4 := wavebtn;
        end;
     2: begin
          btn2 := blocksbtn;
          btn3 := spectrumbtn;
-         btn1 := spectranalisysbtn;
+         btn1 := spectrogrambtn;
          btn4 := wavebtn;
        end;
     3: begin
          btn2 := blocksbtn;
          btn3 := spectrumbtn;
-         btn4 := spectranalisysbtn;
+         btn4 := spectrogrambtn;
          btn1 := wavebtn;
        end;
   end;

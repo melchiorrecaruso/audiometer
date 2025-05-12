@@ -100,27 +100,15 @@ begin
 end;
 
 procedure tdrawer.drawblocks;
-begin
-
-end;
-
-procedure tdrawer.drawspectrogram;
-begin
-
-end;
-
-procedure tdrawer.drawwave;
 var
-  i, j, k: longint;
-  windowxsize: longint;
-  windowysize: longint;
-  windowxcount: longint;
-  windowycount: longint;
-  zmax, zmin, zdelta: double;
-
-  p1,p2: tpointf;
   chart: basegraphics.tchart;
+  i, j: longint;
+  norm: double;
+  rmsi: double;
+  peaki: double;
+  points: arrayoftpointf;
 begin
+  setlength(points, 4);
   chart := basegraphics.tchart.create;
   chart.legendenabled := false;
   chart.title := '';
@@ -134,11 +122,174 @@ begin
   chart.yaxislinecolor := clwhite;
   chart.xaxislabelpos := true;
   chart.yaxislabelpos := true;
-  chart.YCount  := 8;
-  chart.YDeltaF := 0.25;
+  //chart.YCount  := 8;
+  //chart.YDeltaF := 0.25;
+  chart.XMinF := 0;
+  chart.TextureHeight := 1;
+  chart.TextureWidth := 1;
+  chart.TextureBackgroundColor := clblack;
+  chart.PenColor := clblack;
 
+  // load rms and peak
   if ftrack.channelcount > 0 then
   begin
+    norm := 1 shl (ftrack.bitspersample -1);
+    for i := 0 to ftrack.channels[0].count -1 do
+    begin
+      rmsi := 0;
+      for j := 0 to ftrack.channelcount -1 do
+        rmsi := rmsi + sqrt(ftrack.channels[j].rms2[i]);
+
+      points[0].X := (i + 1) - 0.4;
+      points[0].Y := 0;
+
+      points[1].X := (i + 1) - 0.4;
+      points[1].Y := db(rmsi/ftrack.channelcount*norm);
+
+      points[2].X := (i + 1) + 0.4;
+      points[2].Y := db(rmsi/ftrack.channelcount*norm);
+
+      points[3].X := (i + 1) + 0.4;
+      points[3].Y := 0;
+
+      chart.texturecolor := clyellow;
+      chart.addpolygon(points, '');
+
+      peaki := 0;
+      for j := 0 to ftrack.channelcount -1 do
+        peaki := peaki + ftrack.channels[j].peak[i];
+
+      points[0].X := (i + 1) - 0.4;
+      points[0].Y := db(rmsi/ftrack.channelcount*norm);
+
+      points[1].X := (i + 1) - 0.4;
+      points[1].Y := db(peaki/ftrack.channelcount*norm);
+
+      points[2].X := (i + 1) + 0.4;
+      points[2].Y := db(peaki/ftrack.channelcount*norm);
+
+      points[3].X := (i + 1) + 0.4;
+      points[3].Y := db(rmsi/ftrack.channelcount*norm);
+
+      chart.texturecolor := clred;
+      chart.addpolygon(points, '');
+    end;
+
+    chart.draw(fbit.canvas, fbit.width, fbit.height);
+    chart.destroy;
+  end;
+  setlength(points, 0);
+end;
+
+procedure tdrawer.drawspectrum;
+var
+  chart: basegraphics.tchart;
+  i, j, k: longint;
+  maxamp: double;
+  windowsize: longint;
+  windowcount: longint;
+  arr: array of double = nil;
+  points: arrayoftpointf;
+begin
+  if ftrack.channelcount > 0 then
+  begin
+    maxamp := minfloat;
+    for i := 0 to ftrack.channelcount -1 do
+      for j := 0 to length(ftrack.channels[i].spectrum) -1 do
+      begin
+        maxamp := max(maxamp, ftrack.channels[i].spectrum[j]);
+      end;
+
+    setlength(arr, ftrack.spectrumws div 2);
+    for i := 0 to length(arr) -1 do arr[i] := 0;
+
+    windowsize := ftrack.spectrumws div 2;
+    for i := 0 to ftrack.channelcount -1 do
+    begin
+      windowcount := length(ftrack.channels[i].spectrum) div windowsize;
+
+      for j := 0 to length(arr) -1 do
+      begin
+        arr[j] := 0;
+        if j mod windowsize <> 0 then
+        begin
+          for k := 0 to windowcount -1 do
+          begin
+            arr[j] := max(arr[j], ftrack.channels[i].spectrum[k*windowsize + j]/maxamp);
+          end;
+        end;
+      end;
+    end;
+
+    chart := basegraphics.tchart.create;
+    chart.legendenabled := false;
+    chart.title := '';
+    chart.xaxislabel := 'blocknum';
+    chart.yaxislabel := '%';
+    chart.scale := 1.0;
+    chart.backgroundcolor := clblack;
+    chart.xaxisfontcolor:= clwhite;
+    chart.yaxisfontcolor:= clwhite;
+    chart.xaxislinecolor := clwhite;
+    chart.yaxislinecolor := clwhite;
+    chart.xaxislabelpos := true;
+    chart.yaxislabelpos := true;
+    //chart.YCount  := 8;
+    //chart.YDeltaF := 0.25;
+    chart.XMinF := 0;
+    chart.TextureHeight := 1;
+    chart.TextureWidth := 1;
+    chart.TextureBackgroundColor := clblack;
+    chart.PenColor := clyellow;
+
+    setlength(points, 4);
+    for i := 0 to length(arr) -1 do
+    begin
+      if i mod windowsize <> 0 then
+      begin
+        points[0].X := (i + 0.75)*ftrack.samplerate/ftrack.spectrumws;
+        points[0].Y := 0;
+
+        points[1].X := (i + 0.75)*ftrack.samplerate/ftrack.spectrumws;
+        points[1].Y := db(ftrack.maxamp*arr[i]/ftrack.channelcount);
+
+        points[2].X := (i + 1.25)*ftrack.samplerate/ftrack.spectrumws;
+        points[2].Y := db(ftrack.maxamp*arr[i]/ftrack.channelcount);
+
+        points[3].X := (i + 1.25)*ftrack.samplerate/ftrack.spectrumws;
+        points[3].Y := 0;
+
+        chart.texturecolor := clyellow;
+        chart.addpolygon(points, '');
+      end;
+    end;
+    chart.draw(fbit.canvas, fbit.width, fbit.height);
+    chart.destroy;
+    points := nil;
+    arr := nil;
+  end;
+end;
+
+procedure tdrawer.drawwave;
+var
+  chart: basegraphics.tchart;
+  i, j, k: longint;
+  windowxsize: longint;
+  windowysize: longint;
+  windowxcount: longint;
+  windowycount: longint;
+  zmax, zmin, zdelta: double;
+
+  p1,p2: tpointf;
+
+  bit: array of tbgrabitmap;
+begin
+  if ftrack.channelcount > 0 then
+  begin
+    setlength(bit, ftrack.channelcount);
+    for i := low(bit) to high(bit) do
+      bit[i] := tbgrabitmap.create;
+
     windowxcount := fbit.width;
     windowycount := ftrack.channelcount;
 
@@ -146,6 +297,25 @@ begin
     begin
       windowxsize  := length(ftrack.channels[i].samples) div windowxcount;
       windowysize  := fbit.height div windowycount;
+
+      bit[i].setsize(fbit.width, fbit.height div ftrack.channelcount);
+      bit[i].filltransparent;
+
+      chart := basegraphics.tchart.create;
+      chart.legendenabled := false;
+      chart.title := '';
+      chart.xaxislabel := 'blocknum';
+      chart.yaxislabel := '%';
+      chart.scale := 1.0;
+      chart.backgroundcolor := clblack;
+      chart.xaxisfontcolor:= clwhite;
+      chart.yaxisfontcolor:= clwhite;
+      chart.xaxislinecolor := clwhite;
+      chart.yaxislinecolor := clwhite;
+      chart.xaxislabelpos := true;
+      chart.yaxislabelpos := true;
+      chart.YCount  := 8;
+      chart.YDeltaF := 0.25;
 
       for j := 0 to windowxcount -1 do
       begin
@@ -166,28 +336,33 @@ begin
 
         chart.addpolyline([p1, p2],false,'');
       end;
+
+      chart.ymaxf := +1.0;
+      chart.yminf := -1.0;
+      chart.xminf := 0;
+      chart.xmaxf := max(1, windowxcount);
+
+      chart.adjustxmin := false;
+      chart.adjustxmax := false;
+      chart.adjustymin := false;
+      chart.adjustymax := false;
+
+      chart.draw(bit[i].canvas, bit[i].width, bit[i].height);
+      chart.destroy;
     end;
+
+    for i := low(bit) to high(bit) do
+    begin
+      fbit.PutImage(0, trunc(i*(fbit.height/ftrack.channelcount)), bit[i], dmset);
+      bit[i].destroy;
+    end;
+    bit := nil;
   end;
-
-  chart.ymaxf := +1.0;
-  chart.yminf := -1.0;
-  chart.xminf := 0;
-  chart.xmaxf := max(1, windowxcount);
-
-  chart.adjustxmin := false;
-  chart.adjustxmax := false;
-  chart.adjustymin := false;
-  chart.adjustymax := false;
-
-  chart.draw(fbit.canvas, fbit.width, fbit.height);
-  chart.destroy;
-
-  if assigned(fonredraw) then
-    synchronize(fonredraw);
 end;
 
-procedure tdrawer.drawspectrum;
+procedure tdrawer.drawspectrogram;
 var
+  chart: basegraphics.tchart;
   index: longint;
   i, j, k: longint;
   amp, maxamp: double;
@@ -222,19 +397,20 @@ begin
         fbit.setpixel(i, j, getcolor(amp));
       end;
   end;
-
-  if assigned(fonredraw) then
-    synchronize(fonredraw);
 end;
 
 procedure tdrawer.execute;
 begin
   case findex of
-    1: drawwave;
-    2: drawwave;
+    0: drawblocks;
+    1: drawspectrum;
+    2: drawspectrogram;
     3: drawwave;
-  else drawwave;
+  else drawblocks;
   end;
+
+  if assigned(fonredraw) then
+    synchronize(fonredraw);
 end;
 
 end.

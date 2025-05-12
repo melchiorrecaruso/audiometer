@@ -134,12 +134,20 @@
     <Parsing>
       <SyntaxOptions>
         <CStyleOperator Value="False"/>
+        <IncludeAssertionCode Value="True"/>
         <AllowLabel Value="False"/>
         <UseAnsiStrings Value="False"/>
         <CPPInline Value="False"/>
       </SyntaxOptions>
     </Parsing>
     <CodeGeneration>
+      <Checks>
+        <IOChecks Value="True"/>
+        <RangeChecks Value="True"/>
+        <OverflowChecks Value="True"/>
+        <StackChecks Value="True"/>
+      </Checks>
+      <VerifyObjMethodCallValidity Value="True"/>
       <TargetCPU Value="x86_64"/>
       <Optimizations>
         <OptimizationLevel Value="0"/>

@@ -163,6 +163,11 @@ type
     fdatachunk: tdatachunk;
     //---
     ftrack: ttrack;
+    ftrackchannels: ttrackchannels;
+    frms2: tfloatlist;
+    fpeak: tfloatlist;
+
+
     fstatus: longint;
     fstream : tstream;
     fpercentage: double;
@@ -607,8 +612,6 @@ begin
   //setlength(samples, ffmt.channels);
   //for i := 0 to length(ftrack.fchannels) -1 do
   //  setlength(samples[i], samplecount);
-
-
 
   // calculate steps
   step  := 1;
