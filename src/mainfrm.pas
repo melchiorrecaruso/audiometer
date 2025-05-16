@@ -189,6 +189,8 @@ end;
 
 procedure taudiofrm.formdestroy(sender: tobject);
 begin
+  if assigned(wave) then
+    freeandnil(wave);
   tracklist.destroy;
   screenimage.destroy;
 end;
@@ -305,7 +307,6 @@ begin
     progresspanel.visible := false;
     progressbar  .value   := 0;
   end;
-  wave := nil;
 
   //mycapture := tbitmap.create;
   //mycapture.setsize(446, 146);
@@ -339,9 +340,6 @@ begin
     *)
     working := false;
     timer.enabled:= true;
-  end else
-  begin
-    tracklist[trackindex -1].channelcount := 0;
   end;
   execute;
 end;
@@ -451,8 +449,9 @@ begin
 
   if assigned(stream) then
   begin
+    if assigned(wave) then freeandnil(wave);
     buffer := treadbufstream.create(stream);
-    wave   := ttrackanalyzer.create(track, buffer, trackindex = tracklist.count -1);
+    wave   := ttrackanalyzer.create(track, buffer);
     wave.onstart    := @onstart;
     wave.onstop     := @onstop;
     wave.onprogress := @onprogress;
@@ -513,7 +512,7 @@ begin
     screenimage.filltransparent;
     if (tracklist.count > 0) then
     begin
-      drawer := tdrawer.create(tracklist[tracklist.count -1], screenimage, pageindex);
+      drawer := tdrawer.create(wave.track, wave.trackdata, screenimage, pageindex);
       drawer.onredraw := @onredraw;
       drawer.start;
     end;
