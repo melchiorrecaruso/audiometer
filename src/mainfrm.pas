@@ -119,6 +119,7 @@ type
     trackkill:   boolean;
     tracklist:   ttracklist;
     trackfile:   string;
+    track:       ttrack;
     tempfile:    string;
     wave:        ttrackanalyzer;
     working:     boolean;
@@ -198,7 +199,7 @@ end;
 procedure taudiofrm.formclosequery(sender: tobject; var canclose: boolean);
 begin
   trackkill := true;
-  canclose  := assigned(wave) = false;
+  canclose  := not working;
 end;
 
 procedure taudiofrm.formresize(sender: tobject);
@@ -215,7 +216,7 @@ begin
   clear;
   working := true;
   audio.font.color := clwhite;
-  audio.caption    := extractfilename(tracklist.tracks[trackindex].name);
+  audio.caption    := extractfilename(tracklist.tracks[trackindex].filename);
   while (audio.left + audio.width) > (btnfolder.left + btnfolder.width) do
   begin
     audio.caption := cutoff(audio.caption);
@@ -236,9 +237,8 @@ begin
 end;
 
 procedure taudiofrm.onstop;
-var
-//mycapture: tbitmap;
-  track: ttrack;
+//var
+//  mycapture: tbitmap;
 begin
   freeandnil(buffer);
   freeandnil(stream);
@@ -307,6 +307,7 @@ begin
     progresspanel.visible := false;
     progressbar  .value   := 0;
   end;
+  wave := nil;
 
   //mycapture := tbitmap.create;
   //mycapture.setsize(446, 146);
@@ -352,14 +353,13 @@ var
   ini: tinifile;
   mem: tmemorystream;
   process: tprocess;
-  track:   ttrack;
 begin
   if trackkill then exit;
   if trackindex >= tracklist.count then exit;
 
   track := tracklist.tracks[trackindex];
   try
-    if extractfileext(track.name) <> '.wav' then
+    if extractfileext(track.filename) <> '.wav' then
     begin
       tempfile := includetrailingbackslash(
         gettempdir(false)) + 'audiometer-tmp.wav';
@@ -368,13 +368,13 @@ begin
       process := tprocess.create(nil);
       try
         process.parameters.clear;
-        process.currentdirectory := extractfiledir(track.name);
+        process.currentdirectory := extractfiledir(track.filename);
         process.executable := 'ffprobe';
         process.parameters.add('-show_streams');
         process.parameters.add('-hide_banner');
         process.parameters.add('-print_format');
         process.parameters.add('ini');
-        process.parameters.add(extractfilename(track.name));
+        process.parameters.add(extractfilename(track.filename));
         process.options := [ponoconsole, pousepipes];
         process.execute;
 
@@ -413,12 +413,12 @@ begin
       process := tprocess.create(nil);
       try
         process.parameters.clear;
-        process.currentdirectory := extractfiledir(track.name);
+        process.currentdirectory := extractfiledir(track.filename);
         process.executable := 'ffmpeg';
         process.parameters.add('-y');
         process.parameters.add('-hide_banner');
         process.parameters.add('-i');
-        process.parameters.add(extractfilename(track.name));
+        process.parameters.add(extractfilename(track.filename));
 
         if bit4sample = 24 then
         begin
@@ -440,7 +440,7 @@ begin
       process.destroy;
 
     end else
-      tempfile := track.name;
+      tempfile := track.filename;
 
     stream := tfilestream.create(tempfile, fmopenread or fmshareexclusive);
   except
@@ -449,7 +449,6 @@ begin
 
   if assigned(stream) then
   begin
-    if assigned(wave) then freeandnil(wave);
     buffer := treadbufstream.create(stream);
     wave   := ttrackanalyzer.create(track, buffer);
     wave.onstart    := @onstart;
@@ -512,7 +511,7 @@ begin
     screenimage.filltransparent;
     if (tracklist.count > 0) then
     begin
-      drawer := tdrawer.create(wave.track, wave.trackdata, screenimage, pageindex);
+      drawer := tdrawer.create(track, screenimage, pageindex);
       drawer.onredraw := @onredraw;
       drawer.start;
     end;

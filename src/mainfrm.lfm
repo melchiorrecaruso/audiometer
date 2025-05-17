@@ -1,11 +1,11 @@
 object audiofrm: Taudiofrm
-  Left = 338
-  Height = 539
-  Top = 310
-  Width = 892
+  Left = 1088
+  Height = 602
+  Top = 255
+  Width = 962
   Caption = 'AudioMeter 0.4.6 - Dynamic Range Meter'
-  ClientHeight = 539
-  ClientWidth = 892
+  ClientHeight = 602
+  ClientWidth = 962
   Color = clGray
   Constraints.MinHeight = 440
   Constraints.MinWidth = 700
@@ -40,7 +40,7 @@ object audiofrm: Taudiofrm
   object btnfile: TImage
     AnchorSideTop.Control = btnfolder
     AnchorSideRight.Control = btnfolder
-    Left = 806
+    Left = 876
     Height = 32
     Top = 34
     Width = 32
@@ -86,7 +86,7 @@ object audiofrm: Taudiofrm
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
-    Left = 848
+    Left = 918
     Height = 32
     Top = 34
     Width = 32
@@ -828,7 +828,7 @@ object audiofrm: Taudiofrm
     AnchorSideRight.Control = btnfile
     AnchorSideBottom.Control = btnfile
     AnchorSideBottom.Side = asrBottom
-    Left = 762
+    Left = 832
     Height = 32
     Top = 34
     Width = 32
@@ -950,9 +950,9 @@ object audiofrm: Taudiofrm
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
     Left = 0
-    Height = 316
+    Height = 379
     Top = 223
-    Width = 892
+    Width = 962
     OnRedraw = screenredraw
     BitmapAutoScale = False
     Alignment = taLeftJustify

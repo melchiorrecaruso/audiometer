@@ -1,6 +1,6 @@
 unit drawers;
 
-{$mode ObjFPC}
+{$mode objfpc}
 
 interface
 
@@ -13,14 +13,13 @@ type
     fbit: tbgrabitmap;
     findex: longint;
     ftrack: ttrack;
-    ftrackdata: ttrackdata;
     fonredraw: tthreadmethod;
     procedure drawblocks;
     procedure drawspectrum;
     procedure drawwave;
     procedure drawspectrogram;
   public
-    constructor create(atrack: ttrack; adata: ttrackdata; abit: tbgrabitmap; aindex: longint);
+    constructor create(atrack: ttrack; abit: tbgrabitmap; aindex: longint);
     procedure execute; override;
   public
     property onredraw: tthreadmethod read fonredraw write fonredraw;
@@ -89,12 +88,11 @@ end;
 
 // drawer
 
-constructor tdrawer.create(atrack: ttrack; adata: ttrackdata; abit: tbgrabitmap; aindex: longint);
+constructor tdrawer.create(atrack: ttrack; abit: tbgrabitmap; aindex: longint);
 begin
   fbit   := abit;
   findex := aindex;
   ftrack := atrack;
-  ftrackdata := adata;
   fonredraw  := nil;
 
   freeonterminate := true;
@@ -105,81 +103,102 @@ procedure tdrawer.drawblocks;
 var
   chart: basegraphics.tchart;
   i, j: longint;
-  norm: double;
   rmsi: double;
   peaki: double;
-  points: arrayoftpointf;
+  points: array of tpointf;
+  blocknum: longint;
 begin
+  // prepare points array for drawing rectangles
+  points := nil;
   setlength(points, 4);
+
+  // create and configure the chart
   chart := basegraphics.tchart.create;
   chart.legendenabled := false;
   chart.title := '';
-  chart.xaxislabel := 'blocknum';
-  chart.yaxislabel := '%';
+  chart.xaxislabel := 'block number';
+  chart.yaxislabel := 'dbfs';
   chart.scale := 1.0;
   chart.backgroundcolor := clblack;
-  chart.xaxisfontcolor:= clwhite;
-  chart.yaxisfontcolor:= clwhite;
+  chart.titlefontcolor := clwhite;
+  chart.xaxisfontcolor := clwhite;
+  chart.yaxisfontcolor := clwhite;
   chart.xaxislinecolor := clwhite;
   chart.yaxislinecolor := clwhite;
-  chart.xaxislabelpos := true;
-  chart.yaxislabelpos := true;
-  //chart.YCount  := 8;
-  //chart.YDeltaF := 0.25;
-  chart.XMinF := 0;
-  chart.TextureHeight := 1;
-  chart.TextureWidth := 1;
-  chart.TextureBackgroundColor := clblack;
-  chart.PenColor := clblack;
+  chart.ycount := 8;
+  chart.ydeltaf := (3 / 4) * ftrack.bitspersample;
+  chart.xminf := 0;
+  chart.ymaxf := 0;
+  chart.textureheight := 1;
+  chart.texturewidth := 1;
+  chart.texturebackgroundcolor := clblack;
+  chart.pencolor := clblack;
 
-  // load rms and peak
+  // ensure we have channels to process
   if ftrack.channelcount > 0 then
   begin
-    norm := 1 shl (ftrack.bitspersample -1);
-    for i := 0 to ftrackdata.blocknum -1 do
+    blocknum := length(ftrack.channels[0].rms2);
+
+    // loop through each block
+    for i := 0 to blocknum - 1 do
     begin
       rmsi := 0;
-      for j := 0 to ftrack.channelcount -1 do
-        rmsi := rmsi + sqrt(ftrackdata.channels[j].rms2[i]);
+      // calculate average rms across channels
+      for j := 0 to ftrack.channelcount - 1 do
+      begin
+        if i < length(ftrack.channels[j].rms2) then
+          rmsi := rmsi + sqrt(max(0, ftrack.channels[j].rms2[i]));
+      end;
+      rmsi := rmsi / ftrack.channelcount;
 
-      points[0].X := (i + 1) - 0.4;
-      points[0].Y := 0;
+      // draw yellow block for rms level
+      points[0].x := (i + 1) - 0.4;
+      points[0].y := -6 * ftrack.bitspersample;
 
-      points[1].X := (i + 1) - 0.4;
-      points[1].Y := db(rmsi/ftrack.channelcount*norm);
+      points[1].x := (i + 1) - 0.4;
+      points[1].y := db(max(rmsi, 1e-12));
 
-      points[2].X := (i + 1) + 0.4;
-      points[2].Y := db(rmsi/ftrack.channelcount*norm);
+      points[2].x := (i + 1) + 0.4;
+      points[2].y := db(max(rmsi, 1e-12));
 
-      points[3].X := (i + 1) + 0.4;
-      points[3].Y := 0;
+      points[3].x := (i + 1) + 0.4;
+      points[3].y := -6 * ftrack.bitspersample;
 
       chart.texturecolor := clyellow;
       chart.addpolygon(points, '');
 
       peaki := 0;
-      for j := 0 to ftrack.channelcount -1 do
-        peaki := peaki + ftrackdata.channels[j].peak[i];
+      // calculate average peak across channels
+      for j := 0 to ftrack.channelcount - 1 do
+      begin
+        if i < length(ftrack.channels[j].peak) then
+          peaki := peaki + ftrack.channels[j].peak[i];
+      end;
+      peaki := peaki / ftrack.channelcount;
 
-      points[0].X := (i + 1) - 0.4;
-      points[0].Y := db(rmsi/ftrack.channelcount*norm);
+      // draw red block from rms to peak
+      points[0].x := (i + 1) - 0.4;
+      points[0].y := db(max(rmsi, 1e-12));
 
-      points[1].X := (i + 1) - 0.4;
-      points[1].Y := db(peaki/ftrack.channelcount*norm);
+      points[1].x := (i + 1) - 0.4;
+      points[1].y := db(max(peaki, 1e-12));
 
-      points[2].X := (i + 1) + 0.4;
-      points[2].Y := db(peaki/ftrack.channelcount*norm);
+      points[2].x := (i + 1) + 0.4;
+      points[2].y := db(max(peaki, 1e-12));
 
-      points[3].X := (i + 1) + 0.4;
-      points[3].Y := db(rmsi/ftrack.channelcount*norm);
+      points[3].x := (i + 1) + 0.4;
+      points[3].y := db(max(rmsi, 1e-12));
 
       chart.texturecolor := clred;
       chart.addpolygon(points, '');
     end;
 
+    // render chart to main output bitmap
     chart.draw(fbit.canvas, fbit.width, fbit.height);
-    chart.destroy;
+    chart.free;
   end;
+
+  // cleanup
   setlength(points, 0);
 end;
 
@@ -187,177 +206,194 @@ procedure tdrawer.drawspectrum;
 var
   chart: basegraphics.tchart;
   i, j, k: longint;
-  maxamp: double;
   windowsize: longint;
   windowcount: longint;
-  arr: array of double = nil;
-  points: arrayoftpointf;
+  arr: array of double;
+  points: array of tpointf;
+  index: longint;
 begin
   if ftrack.channelcount > 0 then
   begin
-    maxamp := minfloat;
-    for i := 0 to ftrack.channelcount -1 do
-      for j := 0 to length(ftrackdata.channels[i].spectrum) -1 do
-      begin
-        maxamp := max(maxamp, ftrackdata.channels[i].spectrum[j]);
-      end;
-
-    setlength(arr, spectrumwindowsize div 2);
-    for i := 0 to length(arr) -1 do arr[i] := 0;
-
+    // initialize frequency bin array (half of fft size)
     windowsize := spectrumwindowsize div 2;
-    for i := 0 to ftrack.channelcount -1 do
-    begin
-      windowcount := length(ftrackdata.channels[i].spectrum) div windowsize;
+    setlength(arr, windowsize);
+    for i := 0 to length(arr) - 1 do
+      arr[i] := 0;
 
-      for j := 0 to length(arr) -1 do
+    // accumulate spectrum over all channels
+    for i := 0 to ftrack.channelcount - 1 do
+    begin
+      windowcount := length(ftrack.channels[i].spectrum) div windowsize;
+
+      for j := 0 to length(arr) - 1 do
       begin
         arr[j] := 0;
+
+        // skip dc component (usually index 0 of each window)
         if j mod windowsize <> 0 then
         begin
-          for k := 0 to windowcount -1 do
+          for k := 0 to windowcount - 1 do
           begin
-            arr[j] := max(arr[j], ftrackdata.channels[i].spectrum[k*windowsize + j]/maxamp);
+            index := k * windowsize + j;
+            if index < length(ftrack.channels[i].spectrum) then
+              arr[j] := max(arr[j], ftrack.channels[i].spectrum[index]);
           end;
         end;
       end;
     end;
 
+    // create and configure the chart
     chart := basegraphics.tchart.create;
     chart.legendenabled := false;
     chart.title := '';
-    chart.xaxislabel := 'blocknum';
-    chart.yaxislabel := '%';
+    chart.xaxislabel := '';
+    chart.yaxislabel := '';
     chart.scale := 1.0;
     chart.backgroundcolor := clblack;
-    chart.xaxisfontcolor:= clwhite;
-    chart.yaxisfontcolor:= clwhite;
+    chart.xaxisfontcolor := clwhite;
+    chart.yaxisfontcolor := clwhite;
     chart.xaxislinecolor := clwhite;
     chart.yaxislinecolor := clwhite;
-    chart.xaxislabelpos := true;
-    chart.yaxislabelpos := true;
-    //chart.YCount  := 8;
-    //chart.YDeltaF := 0.25;
-    chart.XMinF := 0;
-    chart.TextureHeight := 1;
-    chart.TextureWidth := 1;
-    chart.TextureBackgroundColor := clblack;
-    chart.PenColor := clyellow;
+    chart.xminf := 0;
+    chart.textureheight := 1;
+    chart.texturewidth := 1;
+    chart.texturebackgroundcolor := clblack;
+    chart.pencolor := clyellow;
 
+    // allocate space for frequency bar polygon
     setlength(points, 4);
-    for i := 0 to length(arr) -1 do
+
+    for i := 0 to length(arr) - 1 do
     begin
-      if i mod windowsize <> 0 then
+      if (i mod windowsize <> 0) and (ftrack.channelcount > 0) then
       begin
-        points[0].X := (i + 0.75)*ftrack.samplerate/spectrumwindowsize;
-        points[0].Y := 0;
+        // compute horizontal frequency position (in hz)
+        points[0].x := (i + 0.75) * ftrack.samplerate / spectrumwindowsize;
+        points[1].x := points[0].x;
+        points[2].x := (i + 1.25) * ftrack.samplerate / spectrumwindowsize;
+        points[3].x := points[2].x;
 
-        points[1].X := (i + 0.75)*ftrack.samplerate/SPECTRUMWINDOWSIZE;
-        points[1].Y := db(ftrackdata.maxamp*arr[i]/ftrack.channelcount);
+        // draw from 0 up to db magnitude
+        points[0].y := 0;
+        points[3].y := 0;
 
-        points[2].X := (i + 1.25)*ftrack.samplerate/SPECTRUMWINDOWSIZE;
-        points[2].Y := db(ftrackdata.maxamp*arr[i]/ftrack.channelcount);
-
-        points[3].X := (i + 1.25)*ftrack.samplerate/SPECTRUMWINDOWSIZE;
-        points[3].Y := 0;
+        // convert amplitude to dbfs
+        points[1].y := db(max(arr[i] / ftrack.channelcount, 1e-12));
+        points[2].y := points[1].y;
 
         chart.texturecolor := clyellow;
         chart.addpolygon(points, '');
       end;
     end;
+
+    // render chart to output bitmap
     chart.draw(fbit.canvas, fbit.width, fbit.height);
-    chart.destroy;
-    points := nil;
-    arr := nil;
+    chart.free;
+
+    // cleanup
+    setlength(points, 0);
+    setlength(arr, 0);
   end;
 end;
 
 procedure tdrawer.drawwave;
 var
+  i, j, k, sampleindex: longint;
+  windowxsize, windowysize: longint;
+  windowxcount, windowycount: longint;
+  zmax, zmin: double;
+  p1, p2: tpointf;
+  bit: array of tbgrabitmap = nil;
   chart: basegraphics.tchart;
-  i, j, k: longint;
-  windowxsize: longint;
-  windowysize: longint;
-  windowxcount: longint;
-  windowycount: longint;
-  zmax, zmin, zdelta: double;
-
-  p1,p2: tpointf;
-
-  bit: array of tbgrabitmap;
 begin
   if ftrack.channelcount > 0 then
   begin
+    // create a bitmap for each audio channel
     setlength(bit, ftrack.channelcount);
     for i := low(bit) to high(bit) do
       bit[i] := tbgrabitmap.create;
 
-    windowxcount := fbit.width;
-    windowycount := ftrack.channelcount;
+    windowxcount := fbit.width;                  // horizontal resolution (pixels)
+    windowycount := ftrack.channelcount;         // one row per channel
 
-    for i := 0 to windowycount -1 do
+    // loop through each channel
+    for i := 0 to windowycount - 1 do
     begin
-      windowxsize  := length(ftrackdata.channels[i].samples) div windowxcount;
-      windowysize  := fbit.height div windowycount;
+      // calculate number of samples per horizontal pixel
+      windowxsize := length(ftrack.channels[i].samples) div windowxcount;
+      // calculate vertical size per channel section
+      windowysize := fbit.height div windowycount;
 
-      bit[i].setsize(fbit.width, fbit.height div ftrack.channelcount);
+      // prepare per-channel bitmap
+      bit[i].setsize(fbit.width, windowysize);
       bit[i].filltransparent;
 
+      // create chart for waveform drawing
       chart := basegraphics.tchart.create;
       chart.legendenabled := false;
       chart.title := '';
-      chart.xaxislabel := 'blocknum';
-      chart.yaxislabel := '%';
+      chart.xaxislabel := 'time [s]';
+      chart.yaxislabel := 'signal';
       chart.scale := 1.0;
       chart.backgroundcolor := clblack;
-      chart.xaxisfontcolor:= clwhite;
-      chart.yaxisfontcolor:= clwhite;
+      chart.xaxisfontcolor := clwhite;
+      chart.yaxisfontcolor := clwhite;
       chart.xaxislinecolor := clwhite;
       chart.yaxislinecolor := clwhite;
-      chart.xaxislabelpos := true;
-      chart.yaxislabelpos := true;
-      chart.YCount  := 8;
-      chart.YDeltaF := 0.25;
 
-      for j := 0 to windowxcount -1 do
+      chart.ycount := 8;      // number of vertical grid lines
+      chart.ydeltaf := 0.25;  // distance between grid lines
+
+      // loop through horizontal pixels (time segments)
+      for j := 0 to windowxcount - 1 do
       begin
-        zmin :=  maxint;
-        zmax := -maxint;
-        for k := 0 to windowxsize -1 do
+        zmin := infinity;
+        zmax := -infinity;
+
+        // find min and max sample values in this time segment
+        for k := 0 to windowxsize - 1 do
         begin
-          zmin :=  min(zmin, ftrackdata.channels[i].samples[j * windowxsize + k]);
-          zmax :=  max(zmax, ftrackdata.channels[i].samples[j * windowxsize + k]);
+          sampleindex := j * windowxsize + k;
+          if sampleindex < length(ftrack.channels[i].samples) then
+          begin
+            zmin := min(zmin, ftrack.channels[i].samples[sampleindex]);
+            zmax := max(zmax, ftrack.channels[i].samples[sampleindex]);
+          end;
         end;
 
-        zdelta := (zmax-zmin)/(1 shl ftrack.bitspersample);
+        // create a vertical line for waveform range at this segment
+        p1.x := (j + 1) / windowxcount * ftrack.duration;
+        p1.y := zmin;
+        p2.x := (j + 1) / windowxcount * ftrack.duration;
+        p2.y := zmax;
 
-        p1.x := j;
-        p1.y := -zdelta;
-        p2.x := j;
-        p2.y := +zdelta;
-
-        chart.addpolyline([p1, p2],false,'');
+        chart.addpolyline([p1, p2], false, '');
       end;
 
+      // set visible bounds for chart
       chart.ymaxf := +1.0;
       chart.yminf := -1.0;
       chart.xminf := 0;
-      chart.xmaxf := max(1, windowxcount);
+      chart.xmaxf := max(1, ftrack.duration);
 
+      // fix the axes (do not auto-scale)
       chart.adjustxmin := false;
       chart.adjustxmax := false;
       chart.adjustymin := false;
       chart.adjustymax := false;
 
+      // draw chart on bitmap
       chart.draw(bit[i].canvas, bit[i].width, bit[i].height);
-      chart.destroy;
+      chart.free;
     end;
 
+    // composite each channel's bitmap into the final output
     for i := low(bit) to high(bit) do
     begin
-      fbit.PutImage(0, trunc(i*(fbit.height/ftrack.channelcount)), bit[i], dmset);
-      bit[i].destroy;
+      fbit.putimage(0, trunc(i * (fbit.height / ftrack.channelcount)), bit[i], dmset);
+      bit[i].free;
     end;
+
     bit := nil;
   end;
 end;
@@ -368,36 +404,82 @@ var
   index: longint;
   i, j, k: longint;
   amp, maxamp: double;
+  scale: double;
   windowsize: longint;
   windowcount: longint;
+  pixelxratio, pixelyratio: double;
 begin
+  // create chart
+  chart := basegraphics.tchart.create;
+  chart.legendenabled := false;
+  chart.title := '';
+  chart.xaxislabel := '';
+  chart.yaxislabel := '';
+  chart.scale := 1.0;
+  chart.backgroundcolor := clblack;
+  chart.xaxisfontcolor := clwhite;
+  chart.yaxisfontcolor := clwhite;
+  chart.xaxislinecolor := clwhite;
+  chart.yaxislinecolor := clwhite;
+
+  //chart.ycount  := 8;     // number of vertical grid lines
+  //chart.ydeltaf := 0.25;  // distance between grid lines
+
   if ftrack.channelcount > 0 then
   begin
+    // find the maximum amplitude in all spectrum data
     maxamp := 0;
-    for i := 0 to ftrack.channelcount -1 do
-      for j := 0 to length(ftrackdata.channels[i].spectrum) -1 do
-      begin
-        maxamp := max(maxamp, ftrackdata.channels[i].spectrum[j]);
-      end;
+    for i := 0 to ftrack.channelcount - 1 do
+      for j := 0 to length(ftrack.channels[i].spectrum) - 1 do
+        maxamp := max(maxamp, ftrack.channels[i].spectrum[j]);
 
-    windowsize  := spectrumwindowsize div 2;
-    for i := 0 to fbit.width -1 do
-      for j := 0 to fbit.height -1 do
+    // find the maximum raw sample value (for normalization)
+    scale := 0;
+    for i := 0 to ftrack.channelcount - 1 do
+      for j := 0 to length(ftrack.channels[i].samples) - 1 do
+        scale := max(scale, ftrack.channels[i].samples[j]);
+
+    // prevent division by zero
+    if (maxamp = 0) or (scale = 0) or (ftrack.bitspersample = 0) then
+      exit;
+
+    // set fft analysis window size (half of total window size)
+    windowsize := spectrumwindowsize div 2;
+
+    // precompute ratios for coordinate scaling
+    pixelxratio := windowsize / fbit.width;
+    pixelyratio := (length(ftrack.channels[0].spectrum) / windowsize) / fbit.height;
+
+    // loop over output bitmap pixels
+    for i := 0 to fbit.width - 1 do
+      for j := 0 to fbit.height - 1 do
       begin
         amp := 0;
-        for k := 0 to ftrack.channelcount -1 do
-        begin
-          windowcount := length(ftrackdata.channels[k].spectrum) div windowsize;
 
-          index := trunc(j/fbit.height*windowcount)*windowsize + trunc(i/fbit.width*windowsize);
-          // skip DC component
-          if index mod windowsize <> 0 then
+        // compute fft bin index for this pixel
+        for k := 0 to ftrack.channelcount - 1 do
+        begin
+          windowcount := length(ftrack.channels[k].spectrum) div windowsize;
+
+          index := trunc(j * pixelyratio) * windowsize + trunc(i * pixelxratio);
+
+          // skip dc component (first index of each window)
+          if (index mod windowsize <> 0) then
           begin
-            amp := max(amp, db(ftrackdata.maxamp*ftrackdata.channels[k].spectrum[index]/maxamp)/db(1 shl ftrack.bitspersample));
+            // convert amplitude to db scale and normalize
+            amp := max(amp, 1 + db((scale * ftrack.channels[k].spectrum[index]) / maxamp) / (6 * ftrack.bitspersample));
           end;
         end;
-        fbit.setpixel(i, j, getcolor(amp));
+
+        // map amplitude to color and set pixel
+        // fbit.setpixel(i, j, getcolor(amp));
+        chart.AddPixel(i, j, getcolor(amp));
       end;
+
+
+    // draw chart on bitmap
+    chart.draw(fbit.canvas, fbit.width, fbit.height);
+    chart.free;
   end;
 end;
 
