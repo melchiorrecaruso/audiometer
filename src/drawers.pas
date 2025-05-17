@@ -107,17 +107,19 @@ var
   peaki: double;
   points: array of tpointf;
   blocknum: longint;
+  maxdB: double;
 begin
   // prepare points array for drawing rectangles
   points := nil;
   setlength(points, 4);
-
   // create and configure the chart
   chart := basegraphics.tchart.create;
   chart.legendenabled := false;
   chart.title := '';
   chart.xaxislabel := 'block number';
-  chart.yaxislabel := 'dbfs';
+  chart.yaxislabel := 'audio [dB]';
+  //chart.xgridlinewidth :=0;
+  //chart.ygridlinewidth :=0;
   chart.scale := 1.0;
   chart.backgroundcolor := clblack;
   chart.titlefontcolor := clwhite;
@@ -125,10 +127,11 @@ begin
   chart.yaxisfontcolor := clwhite;
   chart.xaxislinecolor := clwhite;
   chart.yaxislinecolor := clwhite;
-  chart.ycount := 8;
-  chart.ydeltaf := (3 / 4) * ftrack.bitspersample;
+
   chart.xminf := 0;
-  chart.ymaxf := 0;
+  chart.yminf := 0;
+  chart.ydeltaf := 0.75*ftrack.bitspersample;
+  chart.ycount := 8;
   chart.textureheight := 1;
   chart.texturewidth := 1;
   chart.texturebackgroundcolor := clblack;
@@ -137,6 +140,7 @@ begin
   // ensure we have channels to process
   if ftrack.channelcount > 0 then
   begin
+    maxdB    := 6*ftrack.bitspersample;
     blocknum := length(ftrack.channels[0].rms2);
 
     // loop through each block
@@ -152,17 +156,17 @@ begin
       rmsi := rmsi / ftrack.channelcount;
 
       // draw yellow block for rms level
-      points[0].x := (i + 1) - 0.4;
-      points[0].y := -6 * ftrack.bitspersample;
+      points[0].x := (i + 1) - 0.35;
+      points[0].y := 0;
 
-      points[1].x := (i + 1) - 0.4;
-      points[1].y := db(max(rmsi, 1e-12));
+      points[1].x := (i + 1) - 0.35;
+      points[1].y := maxdB + db(rmsi);
 
-      points[2].x := (i + 1) + 0.4;
-      points[2].y := db(max(rmsi, 1e-12));
+      points[2].x := (i + 1) + 0.35;
+      points[2].y := maxdB + db(rmsi);
 
-      points[3].x := (i + 1) + 0.4;
-      points[3].y := -6 * ftrack.bitspersample;
+      points[3].x := (i + 1) + 0.35;
+      points[3].y := 0;
 
       chart.texturecolor := clyellow;
       chart.addpolygon(points, '');
@@ -177,17 +181,17 @@ begin
       peaki := peaki / ftrack.channelcount;
 
       // draw red block from rms to peak
-      points[0].x := (i + 1) - 0.4;
-      points[0].y := db(max(rmsi, 1e-12));
+      points[0].x := (i + 1) - 0.35;
+      points[0].y := maxdB + db(rmsi);
 
-      points[1].x := (i + 1) - 0.4;
-      points[1].y := db(max(peaki, 1e-12));
+      points[1].x := (i + 1) - 0.35;
+      points[1].y := maxdB + db(peaki);
 
-      points[2].x := (i + 1) + 0.4;
-      points[2].y := db(max(peaki, 1e-12));
+      points[2].x := (i + 1) + 0.35;
+      points[2].y := maxdB + db(peaki);
 
-      points[3].x := (i + 1) + 0.4;
-      points[3].y := db(max(rmsi, 1e-12));
+      points[3].x := (i + 1) + 0.35;
+      points[3].y := maxdB + db(rmsi);
 
       chart.texturecolor := clred;
       chart.addpolygon(points, '');
@@ -246,8 +250,10 @@ begin
     chart := basegraphics.tchart.create;
     chart.legendenabled := false;
     chart.title := '';
-    chart.xaxislabel := '';
-    chart.yaxislabel := '';
+    chart.xaxislabel := 'Freq [Hz]';
+    chart.yaxislabel := 'audio [dB]';
+    //chart.xgridlinewidth :=0;
+    //chart.ygridlinewidth :=0;
     chart.scale := 1.0;
     chart.backgroundcolor := clblack;
     chart.xaxisfontcolor := clwhite;
@@ -333,7 +339,7 @@ begin
       chart.legendenabled := false;
       chart.title := '';
       chart.xaxislabel := 'time [s]';
-      chart.yaxislabel := 'signal';
+      chart.yaxislabel := '1';
       chart.scale := 1.0;
       chart.backgroundcolor := clblack;
       chart.xaxisfontcolor := clwhite;
@@ -413,8 +419,10 @@ begin
   chart := basegraphics.tchart.create;
   chart.legendenabled := false;
   chart.title := '';
-  chart.xaxislabel := '';
-  chart.yaxislabel := '';
+  chart.xaxislabel := 'Freq [Hz]';
+  chart.yaxislabel := 'time [s]';
+  chart.xgridlinewidth := 0;
+  chart.ygridlinewidth := 0;
   chart.scale := 1.0;
   chart.backgroundcolor := clblack;
   chart.xaxisfontcolor := clwhite;
@@ -472,7 +480,7 @@ begin
         end;
 
         // map amplitude to color and set pixel
-        // fbit.setpixel(i, j, getcolor(amp));
+        //fbit.setpixel(i, j, getcolor(amp));
         chart.AddPixel(i, j, getcolor(amp));
       end;
 
