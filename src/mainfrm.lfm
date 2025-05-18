@@ -1,7 +1,7 @@
 object audiofrm: Taudiofrm
-  Left = 683
+  Left = 709
   Height = 612
-  Top = 399
+  Top = 396
   Width = 984
   Caption = 'AudioMeter 0.4.8 - Dynamic Range Meter'
   ClientHeight = 612
@@ -36,32 +36,9 @@ object audiofrm: Taudiofrm
     Alignment = taLeftJustify
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Top = 6
-    ClientHeight = 389
-    ClientWidth = 984
     Color = clBlack
     ParentColor = False
     TabOrder = 2
-    object panelprogressbar: TBCRadialProgressBar
-      Left = 0
-      Height = 389
-      Top = 0
-      Width = 984
-      Align = alClient
-      Anchors = []
-      DrawText = False
-      Value = 100
-      Color = clBlack
-      LineColor = clGray
-      LineBkgColor = clBlack
-      LineWidth = 6
-      FontShadowOffsetX = 0
-      FontShadowOffsetY = 0
-      FontShadowRadius = 1
-      Font.Color = clBlack
-      Font.Height = 20
-      Size = 100
-      Visible = False
-    end
   end
   object audio: TLabel
     AnchorSideLeft.Control = Owner
@@ -987,6 +964,25 @@ object audiofrm: Taudiofrm
     TextApplyGlobalOpacity = False
     MemoryUsage = bmuHigh
   end
+  object panelprogressbar: TBCRadialProgressBar
+    Left = 854
+    Height = 115
+    Top = 96
+    Width = 115
+    Anchors = []
+    DrawText = False
+    Value = 100
+    Color = clBlack
+    LineColor = clYellow
+    LineBkgColor = clBlack
+    LineWidth = 6
+    FontShadowOffsetX = 0
+    FontShadowOffsetY = 0
+    FontShadowRadius = 1
+    Font.Color = clBlack
+    Font.Height = 20
+    Size = 100
+  end
   object filedialog: TOpenDialog
     Left = 544
     Top = 48
@@ -1128,7 +1124,7 @@ object audiofrm: Taudiofrm
   end
   object timer: TTimer
     Enabled = False
-    Interval = 250
+    Interval = 100
     OnTimer = timerTimer
     OnStartTimer = timerStartTimer
     OnStopTimer = timerStopTimer
