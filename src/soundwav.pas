@@ -151,7 +151,7 @@ type
     fpercentage: double;
     fonstart: tthreadmethod;
     fonstop: tthreadmethod;
-    fonprogress: tthreadmethod;
+    fontick: tthreadmethod;
     frmson: boolean;
     fpeakon: boolean;
     fspectrumon: boolean;
@@ -173,7 +173,7 @@ type
   public
     property onstart:    tthreadmethod write fonstart;
     property onstop:     tthreadmethod write fonstop;
-    property ontick:     tthreadmethod write fonprogress;
+    property ontick:     tthreadmethod write fontick;
     property percentage: longint read getpercentage;
     property status:     longint read fstatus;
   end;
@@ -299,7 +299,7 @@ constructor ttrackanalyzer.create(atrack: ttrack; astream: tstream);
 begin
   ftrack := atrack;
   fstream := astream;
-  freeonterminate := True;
+  freeonterminate := true;
   inherited create(true);
 end;
 
@@ -434,11 +434,12 @@ var
   i: longint;
   dr: double;
 begin
+  writeln('ttrackanalyzer.starting ...');
   fpercentage := 0;
   if assigned(fonstart) then
     synchronize(fonstart);
-  if assigned(fonprogress) then
-    synchronize(fonprogress);
+  if assigned(fontick) then
+    queue(fontick);
 
   readfromstream(fstream);
   if fstatus = 0 then
@@ -470,8 +471,10 @@ begin
       {$endif}
     end;
 
+  writeln('ttrackanalyzer.executing...');
   if assigned(fonstop) then
     synchronize(fonstop);
+  writeln('ttrackanalyzer.stop');
 end;
 
 procedure ttrackanalyzer.readfromstream(astream:tstream);
@@ -534,8 +537,8 @@ begin
     for i := 0 to fblocknum -1  do
     begin
       fpercentage := 100*step/steps;
-      if assigned(fonprogress) then
-        queue(fonprogress);
+      if assigned(fontick) then
+        queue(fontick);
       inc(step);
 
       ftrack.fchannels[j].rms2[i] := getrms2(ftrack.fchannels[j].samples, i * fblocksize, fblocksize);
@@ -548,8 +551,8 @@ begin
       for j := 0 to (fsamplecount div spectrumwindowsize) -1 do
       begin
         fpercentage := 100*step/steps;
-        if assigned(fonprogress) then
-          queue(fonprogress);
+        if assigned(fontick) then
+          queue(fontick);
         inc(step);
 
         k := j * spectrumwindowsize;
@@ -562,8 +565,8 @@ begin
   //setlength(samples, 0);
 
   fpercentage := 100;
-  if assigned(fonprogress) then
-    queue(fonprogress);
+  if assigned(fontick) then
+    queue(fontick);
 end;
 
 procedure ttrackanalyzer.readheader(astream: tstream);
