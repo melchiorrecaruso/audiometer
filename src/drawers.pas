@@ -8,25 +8,30 @@ uses
   bgrabitmap, bgrabitmaptypes, basegraphics, classes, soundwav, sysutils;
 
 type
+  tscreens = array[0..3] of tbgrabitmap;
+
   tdrawer = class(tthread)
   private
-    fbit: tbgrabitmap;
-    findex: longint;
     ftrack: ttrack;
-    fonredraw: tthreadmethod;
-    procedure drawblocks;
-    procedure drawspectrum;
-    procedure drawwave;
-    procedure drawspectrogram;
+    fscreens: tscreens;
+    fonstart: tthreadmethod;
+    fonprogress: tthreadmethod;
+    fonstop: tthreadmethod;
+    procedure drawblocks(ascreen: tbgrabitmap);
+    procedure drawspectrum(ascreen: tbgrabitmap);
+    procedure drawspectrogram(ascreen: tbgrabitmap);
+    procedure drawwave(ascreen: tbgrabitmap);
   public
-    constructor create(atrack: ttrack; abit: tbgrabitmap; aindex: longint);
+    constructor create(atrack: ttrack; ascreens: tscreens);
     procedure execute; override;
   public
-    property onredraw: tthreadmethod read fonredraw write fonredraw;
+    property onstart: tthreadmethod read fonstart write fonstart;
+    property ontick: tthreadmethod read fonprogress write fonprogress;
+    property onstop: tthreadmethod read fonstop write fonstop;
   end;
 
 var
- drawer: tdrawer = nil;
+  drawer: tdrawer = nil;
 
 implementation
 
@@ -86,40 +91,39 @@ begin
   result.alpha := 255;
 end;
 
-// drawer
+// tdrawer
 
-constructor tdrawer.create(atrack: ttrack; abit: tbgrabitmap; aindex: longint);
+constructor tdrawer.create(atrack: ttrack; ascreens: tscreens);
 begin
-  fbit   := abit;
-  findex := aindex;
-  ftrack := atrack;
-  fonredraw  := nil;
+  ftrack   := atrack;
+  fscreens := ascreens;
+  fonstart    := nil;
+  fonprogress := nil;
+  fonstop     := nil;
 
   freeonterminate := true;
   inherited create(true);
 end;
 
-procedure tdrawer.drawblocks;
+procedure tdrawer.drawblocks(ascreen: tbgrabitmap);
 var
   chart: basegraphics.tchart;
   i, j: longint;
   rmsi: double;
   peaki: double;
-  points: array of tpointf;
+  points: array[0..3] of tpointf;
   blocknum: longint;
   maxdB: double;
 begin
-  // prepare points array for drawing rectangles
-  points := nil;
-  setlength(points, 4);
+  if ftrack.channelcount = 0 then Exit;
   // create and configure the chart
   chart := basegraphics.tchart.create;
   chart.legendenabled := false;
   chart.title := '';
-  chart.xaxislabel := 'block number';
+  chart.xaxislabel := 'blocknum';
   chart.yaxislabel := 'audio [dB]';
-  //chart.xgridlinewidth :=0;
-  //chart.ygridlinewidth :=0;
+  chart.xgridlinewidth :=0;
+  chart.ygridlinewidth :=0;
   chart.scale := 1.0;
   chart.backgroundcolor := clblack;
   chart.titlefontcolor := clwhite;
@@ -127,18 +131,17 @@ begin
   chart.yaxisfontcolor := clwhite;
   chart.xaxislinecolor := clwhite;
   chart.yaxislinecolor := clwhite;
-
-  chart.xminf := 0;
-  chart.yminf := 0;
-  chart.ydeltaf := 0.75*ftrack.bitspersample;
-  chart.ycount := 8;
   chart.textureheight := 1;
   chart.texturewidth := 1;
   chart.texturebackgroundcolor := clblack;
   chart.pencolor := clblack;
+  chart.xminf := 0;
+  chart.yminf := 0;
+  chart.ydeltaf := 12;
+  chart.ycount := 8;
 
   // ensure we have channels to process
-  if ftrack.channelcount > 0 then
+  if (ftrack.channelcount > 0) then
   begin
     maxdB    := 6*ftrack.bitspersample;
     blocknum := length(ftrack.channels[0].rms2);
@@ -197,214 +200,106 @@ begin
       chart.addpolygon(points, '');
     end;
 
-    // render chart to main output bitmap
-    chart.draw(fbit.canvas, fbit.width, fbit.height);
-    chart.free;
+    chart.ydeltaf := 0.75*ftrack.bitspersample;
   end;
 
-  // cleanup
-  setlength(points, 0);
+  // render chart to main output bitmap
+  chart.draw(ascreen.canvas, ascreen.width, ascreen.height);
+  chart.free;
 end;
 
-procedure tdrawer.drawspectrum;
+procedure tdrawer.drawspectrum(ascreen: tbgrabitmap);
 var
   chart: basegraphics.tchart;
   i, j, k: longint;
   windowsize: longint;
   windowcount: longint;
   arr: array of double;
-  points: array of tpointf;
+  points: array[0..3] of tpointf;
   index: longint;
 begin
-  if ftrack.channelcount > 0 then
+  if ftrack.channelcount = 0 then Exit;
+  // create and configure the chart
+  chart := basegraphics.tchart.create;
+  chart.legendenabled := false;
+  chart.title := '';
+  chart.xaxislabel := 'freq [Hz]';
+  chart.yaxislabel := 'audio [dB]';
+  chart.xgridlinewidth := 0;
+  chart.ygridlinewidth := 0;
+  chart.scale := 1.0;
+  chart.backgroundcolor := clblack;
+  chart.xaxisfontcolor := clwhite;
+  chart.yaxisfontcolor := clwhite;
+  chart.xaxislinecolor := clwhite;
+  chart.yaxislinecolor := clwhite;
+  chart.xminf := 0;
+  chart.textureheight := 1;
+  chart.texturewidth := 1;
+  chart.texturebackgroundcolor := clblack;
+  chart.pencolor := clyellow;
+
+
+  // initialize frequency bin array (half of fft size)
+  windowsize := spectrumwindowsize div 2;
+  setlength(arr, windowsize);
+  for i := 0 to length(arr) - 1 do
+    arr[i] := 0;
+
+  // accumulate spectrum over all channels
+  for i := 0 to ftrack.channelcount - 1 do
   begin
-    // initialize frequency bin array (half of fft size)
-    windowsize := spectrumwindowsize div 2;
-    setlength(arr, windowsize);
-    for i := 0 to length(arr) - 1 do
-      arr[i] := 0;
+    windowcount := length(ftrack.channels[i].spectrum) div windowsize;
 
-    // accumulate spectrum over all channels
-    for i := 0 to ftrack.channelcount - 1 do
+    for j := 0 to length(arr) - 1 do
     begin
-      windowcount := length(ftrack.channels[i].spectrum) div windowsize;
+      arr[j] := 0;
 
-      for j := 0 to length(arr) - 1 do
+      // skip dc component (usually index 0 of each window)
+      if j mod windowsize <> 0 then
       begin
-        arr[j] := 0;
-
-        // skip dc component (usually index 0 of each window)
-        if j mod windowsize <> 0 then
+        for k := 0 to windowcount - 1 do
         begin
-          for k := 0 to windowcount - 1 do
-          begin
-            index := k * windowsize + j;
-            if index < length(ftrack.channels[i].spectrum) then
-              arr[j] := max(arr[j], ftrack.channels[i].spectrum[index]);
-          end;
+          index := k * windowsize + j;
+          if index < length(ftrack.channels[i].spectrum) then
+            arr[j] := max(arr[j], ftrack.channels[i].spectrum[index]);
         end;
       end;
     end;
-
-    // create and configure the chart
-    chart := basegraphics.tchart.create;
-    chart.legendenabled := false;
-    chart.title := '';
-    chart.xaxislabel := 'Freq [Hz]';
-    chart.yaxislabel := 'audio [dB]';
-    //chart.xgridlinewidth :=0;
-    //chart.ygridlinewidth :=0;
-    chart.scale := 1.0;
-    chart.backgroundcolor := clblack;
-    chart.xaxisfontcolor := clwhite;
-    chart.yaxisfontcolor := clwhite;
-    chart.xaxislinecolor := clwhite;
-    chart.yaxislinecolor := clwhite;
-    chart.xminf := 0;
-    chart.textureheight := 1;
-    chart.texturewidth := 1;
-    chart.texturebackgroundcolor := clblack;
-    chart.pencolor := clyellow;
-
-    // allocate space for frequency bar polygon
-    setlength(points, 4);
-
-    for i := 0 to length(arr) - 1 do
-    begin
-      if (i mod windowsize <> 0) and (ftrack.channelcount > 0) then
-      begin
-        // compute horizontal frequency position (in hz)
-        points[0].x := (i + 0.75) * ftrack.samplerate / spectrumwindowsize;
-        points[1].x := points[0].x;
-        points[2].x := (i + 1.25) * ftrack.samplerate / spectrumwindowsize;
-        points[3].x := points[2].x;
-
-        // draw from 0 up to db magnitude
-        points[0].y := 0;
-        points[3].y := 0;
-
-        // convert amplitude to dbfs
-        points[1].y := db(max(arr[i] / ftrack.channelcount, 1e-12));
-        points[2].y := points[1].y;
-
-        chart.texturecolor := clyellow;
-        chart.addpolygon(points, '');
-      end;
-    end;
-
-    // render chart to output bitmap
-    chart.draw(fbit.canvas, fbit.width, fbit.height);
-    chart.free;
-
-    // cleanup
-    setlength(points, 0);
-    setlength(arr, 0);
   end;
-end;
 
-procedure tdrawer.drawwave;
-var
-  i, j, k, sampleindex: longint;
-  windowxsize, windowysize: longint;
-  windowxcount, windowycount: longint;
-  zmax, zmin: double;
-  p1, p2: tpointf;
-  bit: array of tbgrabitmap = nil;
-  chart: basegraphics.tchart;
-begin
-  if ftrack.channelcount > 0 then
+  // allocate space for frequency bar polygon
+  for i := 0 to length(arr) - 1 do
   begin
-    // create a bitmap for each audio channel
-    setlength(bit, ftrack.channelcount);
-    for i := low(bit) to high(bit) do
-      bit[i] := tbgrabitmap.create;
-
-    windowxcount := fbit.width;                  // horizontal resolution (pixels)
-    windowycount := ftrack.channelcount;         // one row per channel
-
-    // loop through each channel
-    for i := 0 to windowycount - 1 do
+    if (i mod windowsize <> 0) and (ftrack.channelcount > 0) then
     begin
-      // calculate number of samples per horizontal pixel
-      windowxsize := length(ftrack.channels[i].samples) div windowxcount;
-      // calculate vertical size per channel section
-      windowysize := fbit.height div windowycount;
+      // compute horizontal frequency position (in hz)
+      points[0].x := (i + 0.75) * ftrack.samplerate / spectrumwindowsize;
+      points[1].x := points[0].x;
+      points[2].x := (i + 1.25) * ftrack.samplerate / spectrumwindowsize;
+      points[3].x := points[2].x;
 
-      // prepare per-channel bitmap
-      bit[i].setsize(fbit.width, windowysize);
-      bit[i].filltransparent;
+      // draw from 0 up to db magnitude
+      points[0].y := 0;
+      points[3].y := 0;
 
-      // create chart for waveform drawing
-      chart := basegraphics.tchart.create;
-      chart.legendenabled := false;
-      chart.title := '';
-      chart.xaxislabel := 'time [s]';
-      chart.yaxislabel := '1';
-      chart.scale := 1.0;
-      chart.backgroundcolor := clblack;
-      chart.xaxisfontcolor := clwhite;
-      chart.yaxisfontcolor := clwhite;
-      chart.xaxislinecolor := clwhite;
-      chart.yaxislinecolor := clwhite;
+      // convert amplitude to dbfs
+      points[1].y := db(arr[i] / ftrack.channelcount);
+      points[2].y := points[1].y;
 
-      chart.ycount := 8;      // number of vertical grid lines
-      chart.ydeltaf := 0.25;  // distance between grid lines
-
-      // loop through horizontal pixels (time segments)
-      for j := 0 to windowxcount - 1 do
-      begin
-        zmin := infinity;
-        zmax := -infinity;
-
-        // find min and max sample values in this time segment
-        for k := 0 to windowxsize - 1 do
-        begin
-          sampleindex := j * windowxsize + k;
-          if sampleindex < length(ftrack.channels[i].samples) then
-          begin
-            zmin := min(zmin, ftrack.channels[i].samples[sampleindex]);
-            zmax := max(zmax, ftrack.channels[i].samples[sampleindex]);
-          end;
-        end;
-
-        // create a vertical line for waveform range at this segment
-        p1.x := (j + 1) / windowxcount * ftrack.duration;
-        p1.y := zmin;
-        p2.x := (j + 1) / windowxcount * ftrack.duration;
-        p2.y := zmax;
-
-        chart.addpolyline([p1, p2], false, '');
-      end;
-
-      // set visible bounds for chart
-      chart.ymaxf := +1.0;
-      chart.yminf := -1.0;
-      chart.xminf := 0;
-      chart.xmaxf := max(1, ftrack.duration);
-
-      // fix the axes (do not auto-scale)
-      chart.adjustxmin := false;
-      chart.adjustxmax := false;
-      chart.adjustymin := false;
-      chart.adjustymax := false;
-
-      // draw chart on bitmap
-      chart.draw(bit[i].canvas, bit[i].width, bit[i].height);
-      chart.free;
+      chart.texturecolor := clyellow;
+      chart.addpolygon(points, '');
     end;
-
-    // composite each channel's bitmap into the final output
-    for i := low(bit) to high(bit) do
-    begin
-      fbit.putimage(0, trunc(i * (fbit.height / ftrack.channelcount)), bit[i], dmset);
-      bit[i].free;
-    end;
-
-    bit := nil;
   end;
+  // cleanup
+  arr := nil;
+
+  // render chart to output bitmap
+  chart.draw(ascreen.canvas, ascreen.width, ascreen.height);
+  chart.free;
 end;
 
-procedure tdrawer.drawspectrogram;
+procedure tdrawer.drawspectrogram(ascreen: tbgrabitmap);
 var
   chart: basegraphics.tchart;
   index: longint;
@@ -415,11 +310,12 @@ var
   windowcount: longint;
   pixelxratio, pixelyratio: double;
 begin
+  if ftrack.channelcount = 0 then Exit;
   // create chart
   chart := basegraphics.tchart.create;
   chart.legendenabled := false;
   chart.title := '';
-  chart.xaxislabel := 'Freq [Hz]';
+  chart.xaxislabel := 'freq [Hz]';
   chart.yaxislabel := 'time [s]';
   chart.xgridlinewidth := 0;
   chart.ygridlinewidth := 0;
@@ -429,80 +325,180 @@ begin
   chart.yaxisfontcolor := clwhite;
   chart.xaxislinecolor := clwhite;
   chart.yaxislinecolor := clwhite;
-
   //chart.ycount  := 8;     // number of vertical grid lines
   //chart.ydeltaf := 0.25;  // distance between grid lines
 
-  if ftrack.channelcount > 0 then
-  begin
-    // find the maximum amplitude in all spectrum data
-    maxamp := 0;
-    for i := 0 to ftrack.channelcount - 1 do
-      for j := 0 to length(ftrack.channels[i].spectrum) - 1 do
-        maxamp := max(maxamp, ftrack.channels[i].spectrum[j]);
+  // find the maximum amplitude in all spectrum data
+  maxamp := 0;
+  for i := 0 to ftrack.channelcount - 1 do
+    for j := 0 to length(ftrack.channels[i].spectrum) - 1 do
+      maxamp := max(maxamp, ftrack.channels[i].spectrum[j]);
 
-    // find the maximum raw sample value (for normalization)
-    scale := 0;
-    for i := 0 to ftrack.channelcount - 1 do
-      for j := 0 to length(ftrack.channels[i].samples) - 1 do
-        scale := max(scale, ftrack.channels[i].samples[j]);
+  // find the maximum raw sample value (for normalization)
+  scale := 0;
+  for i := 0 to ftrack.channelcount - 1 do
+    for j := 0 to length(ftrack.channels[i].samples) - 1 do
+      scale := max(scale, ftrack.channels[i].samples[j]);
 
-    // prevent division by zero
-    if (maxamp = 0) or (scale = 0) or (ftrack.bitspersample = 0) then
-      exit;
+  // prevent division by zero
+  if (maxamp = 0) or (scale = 0) or (ftrack.bitspersample = 0) then Exit;
 
-    // set fft analysis window size (half of total window size)
-    windowsize := spectrumwindowsize div 2;
+  // set fft analysis window size (half of total window size)
+  windowsize := spectrumwindowsize div 2;
 
-    // precompute ratios for coordinate scaling
-    pixelxratio := windowsize / fbit.width;
-    pixelyratio := (length(ftrack.channels[0].spectrum) / windowsize) / fbit.height;
+  // precompute ratios for coordinate scaling
+  pixelxratio := windowsize / ascreen.width;
+  pixelyratio := (length(ftrack.channels[0].spectrum) / windowsize) / ascreen.height;
 
-    // loop over output bitmap pixels
-    for i := 0 to fbit.width - 1 do
-      for j := 0 to fbit.height - 1 do
+  // loop over output bitmap pixels
+  for i := 0 to ascreen.width - 1 do
+    for j := 0 to ascreen.height - 1 do
+    begin
+      amp := 0;
+
+      // compute fft bin index for this pixel
+      for k := 0 to ftrack.channelcount - 1 do
       begin
-        amp := 0;
+        windowcount := length(ftrack.channels[k].spectrum) div windowsize;
 
-        // compute fft bin index for this pixel
-        for k := 0 to ftrack.channelcount - 1 do
+        index := trunc(j * pixelyratio) * windowsize + trunc(i * pixelxratio);
+
+        // skip dc component (first index of each window)
+        if (index mod windowsize <> 0) then
         begin
-          windowcount := length(ftrack.channels[k].spectrum) div windowsize;
-
-          index := trunc(j * pixelyratio) * windowsize + trunc(i * pixelxratio);
-
-          // skip dc component (first index of each window)
-          if (index mod windowsize <> 0) then
-          begin
-            // convert amplitude to db scale and normalize
-            amp := max(amp, 1 + db((scale * ftrack.channels[k].spectrum[index]) / maxamp) / (6 * ftrack.bitspersample));
-          end;
+          // convert amplitude to db scale and normalize
+          amp := max(amp, 1 + db((scale * ftrack.channels[k].spectrum[index]) / maxamp) / (6 * ftrack.bitspersample));
         end;
-
-        // map amplitude to color and set pixel
-        //fbit.setpixel(i, j, getcolor(amp));
-        chart.AddPixel(i, j, getcolor(amp));
       end;
 
+      // map amplitude to color and set pixel
+      chart.AddPixel(i, j, getcolor(amp));
+    end;
+
+  // draw chart on bitmap
+  chart.draw(ascreen.canvas, ascreen.width, ascreen.height);
+  chart.destroy;
+end;
+
+procedure tdrawer.drawwave(ascreen: tbgrabitmap);
+var
+  i, j, k, sampleindex: longint;
+  windowxsize, windowysize: longint;
+  windowxcount, windowycount: longint;
+  zmax, zmin: double;
+  p1, p2: tpointf;
+  bit: array of tbgrabitmap = nil;
+  chart: basegraphics.tchart;
+begin
+  if ftrack.channelcount = 0 then Exit;
+  // create chart for waveform drawing
+  chart := basegraphics.tchart.create;
+  chart.legendenabled := false;
+  chart.title := '';
+  chart.xaxislabel := 'time [s]';
+  chart.yaxislabel := '1';
+  chart.scale := 1.0;
+  chart.backgroundcolor := clblack;
+  chart.xaxisfontcolor := clwhite;
+  chart.yaxisfontcolor := clwhite;
+  chart.xaxislinecolor := clwhite;
+  chart.yaxislinecolor := clwhite;
+  chart.xgridlinewidth := 0;
+  chart.ygridlinewidth := 0;
+
+  chart.ycount  := 8;     // number of vertical grid lines
+  chart.ydeltaf := 0.25;  // distance between grid lines
+
+
+  // create a bitmap for each audio channel
+  setlength(bit, ftrack.channelcount);
+  for i := low(bit) to high(bit) do
+    bit[i] := tbgrabitmap.create;
+
+  windowxcount := ascreen.width;               // horizontal resolution (pixels)
+  windowycount := ftrack.channelcount;         // one row per channel
+
+  // loop through each channel
+  for i := 0 to windowycount - 1 do
+  begin
+    // calculate number of samples per horizontal pixel
+    windowxsize := length(ftrack.channels[i].samples) div windowxcount;
+    // calculate vertical size per channel section
+    windowysize := ascreen.height div windowycount;
+
+    // prepare per-channel bitmap
+    bit[i].setsize(ascreen.width, windowysize);
+    bit[i].filltransparent;
+
+    // loop through horizontal pixels (time segments)
+    for j := 0 to windowxcount - 1 do
+    begin
+      zmin := infinity;
+      zmax := -infinity;
+
+      // find min and max sample values in this time segment
+      for k := 0 to windowxsize - 1 do
+      begin
+        sampleindex := j * windowxsize + k;
+       if sampleindex < length(ftrack.channels[i].samples) then
+        begin
+          zmin := min(zmin, ftrack.channels[i].samples[sampleindex]);
+          zmax := max(zmax, ftrack.channels[i].samples[sampleindex]);
+        end;
+      end;
+
+      // create a vertical line for waveform range at this segment
+      p1.x := (j + 1) / windowxcount * ftrack.duration;
+      p1.y := zmin;
+      p2.x := (j + 1) / windowxcount * ftrack.duration;
+      p2.y := zmax;
+
+      chart.addpolyline([p1, p2], false, '');
+    end;
+
+    // set visible bounds for chart
+    chart.ymaxf := +1.0;
+    chart.yminf := -1.0;
+    chart.xminf := 0;
+    chart.xmaxf := max(1, ftrack.duration);
 
     // draw chart on bitmap
-    chart.draw(fbit.canvas, fbit.width, fbit.height);
+    chart.draw(bit[i].canvas, bit[i].width, bit[i].height);
     chart.free;
   end;
+
+  // composite each channel's bitmap into the final output
+  for i := low(bit) to high(bit) do
+  begin
+    ascreen.putimage(0, trunc(i * (ascreen.height / ftrack.channelcount)), bit[i], dmset);
+    bit[i].free;
+  end;
+  bit := nil;
 end;
 
 procedure tdrawer.execute;
 begin
-  case findex of
-    0: drawblocks;
-    1: drawspectrum;
-    2: drawspectrogram;
-    3: drawwave;
-  else drawblocks;
-  end;
+  if assigned(fonstart) then
+    synchronize(fonstart);
 
-  if assigned(fonredraw) then
-    synchronize(fonredraw);
+  drawblocks(fscreens[0]);
+  if assigned(fonprogress) then
+    synchronize(fonprogress);
+
+  drawspectrum(fscreens[1]);
+  if assigned(fonprogress) then
+    synchronize(fonprogress);
+
+  drawspectrogram(fscreens[2]);
+  if assigned(fonprogress) then
+    synchronize(fonprogress);
+
+  drawwave(fscreens[3]);
+  if assigned(fonprogress) then
+    synchronize(fonprogress);
+
+  if assigned(fonstop) then
+    synchronize(fonstop);
 end;
 
 end.
