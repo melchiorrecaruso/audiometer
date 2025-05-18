@@ -133,8 +133,6 @@ type
     property channels: ttrackchannels read fchannels;
   end;
 
-
-
   { ttrackanalyzer }
   
   ttrackanalyzer = class(tthread)
@@ -175,7 +173,7 @@ type
   public
     property onstart:    tthreadmethod write fonstart;
     property onstop:     tthreadmethod write fonstop;
-    property onprogress: tthreadmethod write fonprogress;
+    property ontick:     tthreadmethod write fonprogress;
     property percentage: longint read getpercentage;
     property status:     longint read fstatus;
   end;
@@ -471,6 +469,7 @@ begin
       writeln;
       {$endif}
     end;
+
   if assigned(fonstop) then
     synchronize(fonstop);
 end;
@@ -564,7 +563,7 @@ begin
 
   fpercentage := 100;
   if assigned(fonprogress) then
-    Queue(fonprogress);
+    queue(fonprogress);
 end;
 
 procedure ttrackanalyzer.readheader(astream: tstream);
@@ -752,12 +751,12 @@ begin
 end;
 
 procedure ttracklist.clear;
+var
+  i: longint;
 begin
-  while flist.count > 0 do
-  begin
-    ttrack(flist[0]).destroy;
-    flist.delete(0);
-  end;
+  for i := 0 to flist.count -1 do
+    ttrack(flist[i]).destroy;
+  flist.clear;
 end;
 
 procedure ttracklist.sort;
