@@ -404,7 +404,7 @@ begin
             mem.write(buf, process.output.read(buf, sizeof(buf)));
           while process.stderr.numbytesavailable > 0 do
             process.stderr.read(buf, sizeof(buf));
-          //application.processmessages;
+          application.processmessages;
         end;
         mem.seek(0, sofrombeginning);
 
