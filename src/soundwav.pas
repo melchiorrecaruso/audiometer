@@ -439,7 +439,7 @@ begin
   if assigned(fonstart) then
     synchronize(fonstart);
   if assigned(fontick) then
-    queue(fontick);
+    synchronize(fontick);
 
   readfromstream(fstream);
   if fstatus = 0 then
@@ -538,7 +538,7 @@ begin
     begin
       fpercentage := 100*step/steps;
       if assigned(fontick) then
-        queue(fontick);
+        synchronize(fontick);
       inc(step);
 
       ftrack.fchannels[j].rms2[i] := getrms2(ftrack.fchannels[j].samples, i * fblocksize, fblocksize);
@@ -552,7 +552,7 @@ begin
       begin
         fpercentage := 100*step/steps;
         if assigned(fontick) then
-          queue(fontick);
+          synchronize(fontick);
         inc(step);
 
         k := j * spectrumwindowsize;
@@ -566,7 +566,7 @@ begin
 
   fpercentage := 100;
   if assigned(fontick) then
-    queue(fontick);
+    synchronize(fontick);
 end;
 
 procedure ttrackanalyzer.readheader(astream: tstream);
