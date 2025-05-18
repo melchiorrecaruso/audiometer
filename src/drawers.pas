@@ -115,7 +115,9 @@ var
   blocknum: longint;
   maxdB: double;
 begin
-  if ftrack.channelcount = 0 then Exit;
+  if not assigned(ftrack) then exit;
+  if ftrack.channelcount = 0 then exit;
+
   // create and configure the chart
   chart := basegraphics.tchart.create;
   chart.legendenabled := false;
@@ -218,7 +220,9 @@ var
   points: array[0..3] of tpointf;
   index: longint;
 begin
-  if ftrack.channelcount = 0 then Exit;
+  if not assigned(ftrack) then exit;
+  if ftrack.channelcount = 0 then exit;
+
   // create and configure the chart
   chart := basegraphics.tchart.create;
   chart.legendenabled := false;
@@ -310,7 +314,9 @@ var
   windowcount: longint;
   pixelxratio, pixelyratio: double;
 begin
+  if not assigned(ftrack) then exit;
   if ftrack.channelcount = 0 then Exit;
+
   // create chart
   chart := basegraphics.tchart.create;
   chart.legendenabled := false;
@@ -377,7 +383,7 @@ begin
 
   // draw chart on bitmap
   chart.draw(ascreen.canvas, ascreen.width, ascreen.height);
-  chart.destroy;
+  chart.free;
 end;
 
 procedure tdrawer.drawwave(ascreen: tbgrabitmap);
@@ -390,7 +396,9 @@ var
   bit: array of tbgrabitmap = nil;
   chart: basegraphics.tchart;
 begin
+  if not assigned(ftrack) then exit;
   if ftrack.channelcount = 0 then Exit;
+
   // create chart for waveform drawing
   chart := basegraphics.tchart.create;
   chart.legendenabled := false;
@@ -409,14 +417,13 @@ begin
   chart.ycount  := 8;     // number of vertical grid lines
   chart.ydeltaf := 0.25;  // distance between grid lines
 
-
   // create a bitmap for each audio channel
   setlength(bit, ftrack.channelcount);
   for i := low(bit) to high(bit) do
     bit[i] := tbgrabitmap.create;
 
-  windowxcount := ascreen.width;               // horizontal resolution (pixels)
-  windowycount := ftrack.channelcount;         // one row per channel
+  windowxcount := ascreen.width;       // horizontal resolution (pixels)
+  windowycount := ftrack.channelcount; // one row per channel
 
   // loop through each channel
   for i := 0 to windowycount - 1 do
@@ -433,18 +440,15 @@ begin
     // loop through horizontal pixels (time segments)
     for j := 0 to windowxcount - 1 do
     begin
-      zmin := infinity;
+      zmin :=  infinity;
       zmax := -infinity;
 
       // find min and max sample values in this time segment
-      for k := 0 to windowxsize - 1 do
+      for k := 0 to windowxsize -1 do
       begin
         sampleindex := j * windowxsize + k;
-       if sampleindex < length(ftrack.channels[i].samples) then
-        begin
-          zmin := min(zmin, ftrack.channels[i].samples[sampleindex]);
-          zmax := max(zmax, ftrack.channels[i].samples[sampleindex]);
-        end;
+        zmin := min(zmin, ftrack.channels[i].samples[sampleindex]);
+        zmax := max(zmax, ftrack.channels[i].samples[sampleindex]);
       end;
 
       // create a vertical line for waveform range at this segment
@@ -452,7 +456,6 @@ begin
       p1.y := zmin;
       p2.x := (j + 1) / windowxcount * ftrack.duration;
       p2.y := zmax;
-
       chart.addpolyline([p1, p2], false, '');
     end;
 
@@ -464,8 +467,8 @@ begin
 
     // draw chart on bitmap
     chart.draw(bit[i].canvas, bit[i].width, bit[i].height);
-    chart.free;
   end;
+  chart.free;
 
   // composite each channel's bitmap into the final output
   for i := low(bit) to high(bit) do
@@ -492,6 +495,7 @@ begin
   drawspectrogram(fscreens[2]);
   if assigned(fonprogress) then
     synchronize(fonprogress);
+
 
   drawwave(fscreens[3]);
   if assigned(fonprogress) then
