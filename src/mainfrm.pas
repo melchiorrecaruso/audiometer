@@ -134,8 +134,8 @@ type
     trackfile:   string;
     track:       ttrack;
     tempfile:    string;
-    audioanalyzer:        ttrackanalyzer;
-    applicationisworking:     boolean;
+    audioanalyzer: ttrackanalyzer;
+    applicationisworking: boolean;
 
     lastheight:  longint;
     lastwidth:   longint;
@@ -234,6 +234,7 @@ end;
 
 procedure taudiofrm.onstartanalyzer;
 begin
+  writeln('taudiofrm.onstartanalyzer');
   applicationisworking := true;
 
   clear;
@@ -244,18 +245,20 @@ begin
     audio.caption := cutoff(audio.caption);
   end;
   disablebuttons;
-
-  application.processmessages;
+  //application.processmessages;
 end;
 
 procedure taudiofrm.ontickanalyzer;
 begin
+  //writeln('taudiofrm.ontickanalyzer');
+
   progressbar.value := audioanalyzer.percentage;
-  application.processmessages;
+  //application.processmessages;
 end;
 
 procedure taudiofrm.onstopanalyzer;
 begin
+  writeln('taudiofrm.onstopanalyzer.start');
   freeandnil(buffer);
   freeandnil(stream);
 
@@ -311,8 +314,8 @@ begin
     end;
     enablebuttons;
   end;
+  //application.processmessages;
   applicationisworking := false;
-  application.processmessages;
   audioanalyzer := nil;
 
   inc(trackindex);
@@ -321,12 +324,13 @@ begin
     // save text report
     tracklist.savetofile(trackfile);
     // updating screens
-    timer.enabled := true;
+    timerstoptimer(nil);
   end else
   begin
     tracklist.tracks[trackindex-1].clearchannels;
   end;
   execute;
+  writeln('taudiofrm.onstopanalyzer.stop');
 end;
 
 // drawer events
@@ -334,18 +338,24 @@ end;
 procedure taudiofrm.onstartdrawer;
 begin
   disablepanel;
+  applicationisworking := true;
+  //application.processmessages;
 end;
 
 procedure taudiofrm.ontickdrawer;
 begin
   panelprogressbar.value := panelprogressbar.value + 20;
+  //application.processmessages;
 end;
 
 procedure taudiofrm.onstopdrawer;
 begin
+  applicationisworking := false;
   screen.redrawbitmap;
-  drawer := nil;
   enablepanel;
+
+  drawer := nil;
+  //application.processmessages;
 end;
 
 //
@@ -359,6 +369,8 @@ var
   mem: tmemorystream;
   process: tprocess;
 begin
+  writeln('taudiofrm.execute');
+
   if isneededkillanalyzer then exit;
   if trackindex >= tracklist.count then exit;
 
@@ -392,7 +404,7 @@ begin
             mem.write(buf, process.output.read(buf, sizeof(buf)));
           while process.stderr.numbytesavailable > 0 do
             process.stderr.read(buf, sizeof(buf));
-          application.processmessages;
+          //application.processmessages;
         end;
         mem.seek(0, sofrombeginning);
 
@@ -492,12 +504,14 @@ end;
 
 procedure taudiofrm.timerstarttimer(Sender: TObject);
 begin
+  writeln('timer.start');
   lastheight := screen.height;
   lastwidth  := screen.width;
 end;
 
 procedure taudiofrm.timertimer(Sender: TObject);
 begin
+  writeln('timer.ontime');
   timer.enabled := (lastheight <> screen.height) or
                    (lastwidth  <> screen.width);
 
@@ -509,8 +523,9 @@ procedure taudiofrm.timerstoptimer(sender: tobject);
 var
   i: longint;
 begin
-  if assigned(drawer) = true then exit;
-  if assigned(track) = false then exit;
+  writeln('timer.stop');
+  if assigned(drawer) then exit;
+  if not assigned(track) then exit;
 
   lastheight := screen.height;
   lastwidth  := screen.width;
@@ -519,11 +534,13 @@ begin
     screens[i].setsize(lastwidth, lastheight);
     screens[i].filltransparent;
   end;
+  writeln('timer.launcher.start');
   drawer := tdrawer.create(track, screens);
   drawer.onstart := @onstartdrawer;
   drawer.ontick  := @ontickdrawer;
   drawer.onstop  := @onstopdrawer;
   drawer.start;
+  writeln('timer.launcher.stop');
 end;
 
 procedure taudiofrm.screenredraw(sender: tobject; bitmap: tbgrabitmap);
