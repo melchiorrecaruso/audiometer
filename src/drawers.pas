@@ -481,6 +481,8 @@ end;
 
 procedure tdrawer.execute;
 begin
+  writeln('tdrawer.start');
+
   if assigned(fonstart) then
     synchronize(fonstart);
 
@@ -496,13 +498,13 @@ begin
   if assigned(fonprogress) then
     synchronize(fonprogress);
 
-
   drawwave(fscreens[3]);
   if assigned(fonprogress) then
     synchronize(fonprogress);
 
+  writeln('tdrawer.stop');
   if assigned(fonstop) then
-    synchronize(fonstop);
+    Synchronize(fonstop);
 end;
 
 end.

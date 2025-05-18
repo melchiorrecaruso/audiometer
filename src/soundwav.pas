@@ -537,8 +537,9 @@ begin
     for i := 0 to fblocknum -1  do
     begin
       fpercentage := 100*step/steps;
-      if assigned(fontick) then
-        synchronize(fontick);
+      if (step mod 512) = 0 then
+        if assigned(fontick) then
+          synchronize(fontick);
       inc(step);
 
       ftrack.fchannels[j].rms2[i] := getrms2(ftrack.fchannels[j].samples, i * fblocksize, fblocksize);
@@ -551,8 +552,9 @@ begin
       for j := 0 to (fsamplecount div spectrumwindowsize) -1 do
       begin
         fpercentage := 100*step/steps;
-        if assigned(fontick) then
-          synchronize(fontick);
+        if (step mod 512) = 0 then
+          if assigned(fontick) then
+            synchronize(fontick);
         inc(step);
 
         k := j * spectrumwindowsize;

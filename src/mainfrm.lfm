@@ -970,7 +970,6 @@ object audiofrm: Taudiofrm
     Top = 96
     Width = 115
     Anchors = []
-    DrawText = False
     Value = 100
     Color = clBlack
     LineColor = clYellow
@@ -981,7 +980,6 @@ object audiofrm: Taudiofrm
     FontShadowRadius = 1
     Font.Color = clBlack
     Font.Height = 20
-    Size = 100
   end
   object filedialog: TOpenDialog
     Left = 544

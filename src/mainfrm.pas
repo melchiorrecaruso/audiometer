@@ -324,7 +324,7 @@ begin
     // save text report
     tracklist.savetofile(trackfile);
     // updating screens
-    timerstoptimer(nil);
+    timer.enabled := true;
   end else
   begin
     tracklist.tracks[trackindex-1].clearchannels;
@@ -350,12 +350,14 @@ end;
 
 procedure taudiofrm.onstopdrawer;
 begin
+  writeln('onstopdrawer.begin');
   applicationisworking := false;
   screen.redrawbitmap;
   enablepanel;
 
   drawer := nil;
   //application.processmessages;
+  writeln('onstopdrawer.end');
 end;
 
 //
