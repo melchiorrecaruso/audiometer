@@ -1,7 +1,7 @@
 object audiofrm: Taudiofrm
-  Left = 709
+  Left = 441
   Height = 612
-  Top = 396
+  Top = 305
   Width = 984
   Caption = 'AudioMeter 0.4.8 - Dynamic Range Meter'
   ClientHeight = 612
@@ -537,7 +537,6 @@ object audiofrm: Taudiofrm
         Top = 0
         Width = 100
         Align = alClient
-        MinValue = 50
         Value = 50
         Color = clBlack
         LineColor = clLime
@@ -965,11 +964,18 @@ object audiofrm: Taudiofrm
     MemoryUsage = bmuHigh
   end
   object panelprogressbar: TBCRadialProgressBar
-    Left = 854
-    Height = 115
-    Top = 96
-    Width = 115
-    Anchors = []
+    AnchorSideLeft.Control = drpanel
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = drpanel
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = drpanel
+    AnchorSideBottom.Side = asrBottom
+    Left = 427
+    Height = 131
+    Top = 29
+    Width = 136
+    Anchors = [akTop, akLeft, akBottom]
     Value = 100
     Color = clBlack
     LineColor = clYellow
@@ -980,6 +986,7 @@ object audiofrm: Taudiofrm
     FontShadowRadius = 1
     Font.Color = clBlack
     Font.Height = 20
+    Size = 100
   end
   object filedialog: TOpenDialog
     Left = 544
@@ -1120,12 +1127,9 @@ object audiofrm: Taudiofrm
     Left = 712
     Top = 48
   end
-  object timer: TTimer
-    Enabled = False
-    Interval = 100
+  object timer: TIdleTimer
+    Interval = 500
     OnTimer = timerTimer
-    OnStartTimer = timerStartTimer
-    OnStopTimer = timerStopTimer
     Left = 528
     Top = 112
   end

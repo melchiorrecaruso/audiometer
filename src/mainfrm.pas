@@ -41,7 +41,7 @@ type
 
     btnplay: TImage;
     playsound: Tplaysound;
-    timer: TTimer;
+    timer: TIdleTimer;
     wavebtn: TBCButton;
     spectrumbtn: tbcbutton;
     spectrogrambtn: tbcbutton;
@@ -116,8 +116,6 @@ type
     procedure ontickdrawer;
     procedure onstopdrawer;
 
-    procedure timerstarttimer(sender: tobject);
-    procedure timerstoptimer(sender: tobject);
     procedure timertimer(sender: tobject);
 
     procedure disablebuttons;
@@ -125,7 +123,7 @@ type
     procedure disablepanel;
     procedure enablepanel;
   private
-    screens:     array[0..3] of tbgrabitmap;
+    screens:     tscreens;
     buffer:      treadbufstream;
     stream:      tfilestream;
     trackindex:  longint;
@@ -137,6 +135,9 @@ type
     audioanalyzer: ttrackanalyzer;
     applicationisworking: boolean;
 
+    isneededupdatescreen: boolean;
+    currheight:  longint;
+    currwidth:   longint;
     lastheight:  longint;
     lastwidth:   longint;
     pageindex:   longint;
@@ -168,6 +169,8 @@ var
 begin
   applicationisworking := false;
   isneededkillanalyzer := false;
+  isneededupdatescreen := false;
+
   for i := low(screens) to high(screens) do
     screens[i] := tbgrabitmap.create;
   // ---
@@ -208,6 +211,7 @@ procedure taudiofrm.formdestroy(sender: tobject);
 var
   i: longint;
 begin
+  timer.enabled := false;
   tracklist.destroy;
   for i := low(screens) to high(screens) do
   begin
@@ -223,11 +227,13 @@ end;
 
 procedure taudiofrm.formresize(sender: tobject);
 begin
-  while (audio.left + audio.width) > (btnfolder.left + btnfolder.width) do
-  begin
-    audio.caption := cutoff(audio.caption);
-  end;
-  timer.enabled := true;
+  currwidth  := screen.width;
+  currheight := screen.height;
+  isneededupdatescreen := true;
+  //while (audio.left + audio.width) > (btnfolder.left + btnfolder.width) do
+  //begin
+  //  audio.caption := cutoff(audio.caption);
+  //end;
 end;
 
 // track analyzer events
@@ -235,7 +241,6 @@ end;
 procedure taudiofrm.onstartanalyzer;
 begin
   writeln('taudiofrm.onstartanalyzer');
-  applicationisworking := true;
 
   clear;
   audio.font.color := clwhite;
@@ -245,15 +250,11 @@ begin
     audio.caption := cutoff(audio.caption);
   end;
   disablebuttons;
-  //application.processmessages;
 end;
 
 procedure taudiofrm.ontickanalyzer;
 begin
-  //writeln('taudiofrm.ontickanalyzer');
-
   progressbar.value := audioanalyzer.percentage;
-  //application.processmessages;
 end;
 
 procedure taudiofrm.onstopanalyzer;
@@ -314,9 +315,6 @@ begin
     end;
     enablebuttons;
   end;
-  //application.processmessages;
-  applicationisworking := false;
-  audioanalyzer := nil;
 
   inc(trackindex);
   if trackindex = tracklist.count then
@@ -324,7 +322,8 @@ begin
     // save text report
     tracklist.savetofile(trackfile);
     // updating screens
-    timer.enabled := true;
+    isneededupdatescreen := true;
+    applicationisworking := false;
   end else
   begin
     tracklist.tracks[trackindex-1].clearchannels;
@@ -338,26 +337,18 @@ end;
 procedure taudiofrm.onstartdrawer;
 begin
   disablepanel;
-  applicationisworking := true;
-  //application.processmessages;
 end;
 
 procedure taudiofrm.ontickdrawer;
 begin
   panelprogressbar.value := panelprogressbar.value + 20;
-  //application.processmessages;
 end;
 
 procedure taudiofrm.onstopdrawer;
 begin
-  writeln('onstopdrawer.begin');
-  applicationisworking := false;
-  screen.redrawbitmap;
   enablepanel;
-
-  drawer := nil;
-  //application.processmessages;
-  writeln('onstopdrawer.end');
+  screen.redrawbitmap;
+  applicationisworking := false;
 end;
 
 //
@@ -468,6 +459,7 @@ begin
 
   if assigned(stream) then
   begin
+    applicationisworking := true;
     buffer := treadbufstream.create(stream);
     audioanalyzer := ttrackanalyzer.create(track, buffer);
     audioanalyzer.onstart := @onstartanalyzer;
@@ -504,45 +496,43 @@ end;
 
 // timer events
 
-procedure taudiofrm.timerstarttimer(Sender: TObject);
-begin
-  writeln('timer.start');
-  lastheight := screen.height;
-  lastwidth  := screen.width;
-end;
-
 procedure taudiofrm.timertimer(Sender: TObject);
-begin
-  writeln('timer.ontime');
-  timer.enabled := (lastheight <> screen.height) or
-                   (lastwidth  <> screen.width);
-
-  lastheight := screen.height;
-  lastwidth  := screen.width;
-end;
-                    
-procedure taudiofrm.timerstoptimer(sender: tobject);
 var
   i: longint;
 begin
-  writeln('timer.stop');
-  if assigned(drawer) then exit;
-  if not assigned(track) then exit;
+  writeln('timer.ontime');
+  writeln('applicationisworking = ', applicationisworking);
+  writeln('isneededupdatescreen = ', isneededupdatescreen);
 
-  lastheight := screen.height;
-  lastwidth  := screen.width;
-  for i := low(screens) to high(screens) do
+  if applicationisworking then exit;
+
+  if (lastwidth  = currwidth ) or
+     (lastheight = currheight) then
   begin
-    screens[i].setsize(lastwidth, lastheight);
-    screens[i].filltransparent;
+
+    if isneededupdatescreen then
+    begin
+      applicationisworking := true;
+      isneededupdatescreen := false;
+      for i := low(screens) to high(screens) do
+      begin
+        screens[i].setsize(lastwidth, lastheight);
+        screens[i].filltransparent;
+      end;
+      writeln('timer.launcher.start');
+      drawer := tdrawer.create(track, screens);
+      drawer.onstart := @onstartdrawer;
+      drawer.ontick  := @ontickdrawer;
+      drawer.onstop  := @onstopdrawer;
+      drawer.start;
+      writeln('timer.launcher.stop');
+    end;
+
+  end else
+  begin
+    lastwidth  := currwidth;
+    lastheight := currheight;
   end;
-  writeln('timer.launcher.start');
-  drawer := tdrawer.create(track, screens);
-  drawer.onstart := @onstartdrawer;
-  drawer.ontick  := @ontickdrawer;
-  drawer.onstop  := @onstopdrawer;
-  drawer.start;
-  writeln('timer.launcher.stop');
 end;
 
 procedure taudiofrm.screenredraw(sender: tobject; bitmap: tbgrabitmap);
@@ -639,6 +629,7 @@ var
   btn3: tbcbutton;
   btn4: tbcbutton;
 begin
+  if applicationisworking then exit;
   btn1 := sender as tbcbutton;
 
   if btn1 = blocksbtn      then pageindex := 0 else
@@ -839,7 +830,7 @@ begin
   wavebtn        .enabled := false;
   // ---
   panelprogressbar.value   := 0;
-  panelprogressbar.visible := true;
+  //panelprogressbar.visible := true;
 end;
 
 procedure taudiofrm.enablepanel;
@@ -849,8 +840,8 @@ begin
   spectrumbtn    .enabled := true;
   wavebtn        .enabled := true;
   // ---
-  panelprogressbar.visible := false;
-  panelprogressbar.value   := 0;
+  //panelprogressbar.visible := false;
+  panelprogressbar.value   := 100;
 end;
 
 end.

@@ -5,7 +5,7 @@ unit drawers;
 interface
 
 uses
-  bgrabitmap, bgrabitmaptypes, basegraphics, classes, soundwav, sysutils;
+  bgrabitmap, bgrabitmaptypes, basegraphics, classes, graphics, soundwav, sysutils;
 
 type
   tscreens = array[0..3] of tbgrabitmap;
@@ -15,7 +15,7 @@ type
     ftrack: ttrack;
     fscreens: tscreens;
     fonstart: tthreadmethod;
-    fonprogress: tthreadmethod;
+    fontick: tthreadmethod;
     fonstop: tthreadmethod;
     procedure drawblocks(ascreen: tbgrabitmap);
     procedure drawspectrum(ascreen: tbgrabitmap);
@@ -26,7 +26,7 @@ type
     procedure execute; override;
   public
     property onstart: tthreadmethod read fonstart write fonstart;
-    property ontick: tthreadmethod read fonprogress write fonprogress;
+    property ontick: tthreadmethod read fontick write fontick;
     property onstop: tthreadmethod read fonstop write fonstop;
   end;
 
@@ -36,7 +36,7 @@ var
 implementation
 
 uses
-  graphics, math;
+  math;
 
 function getcolor(factor: double): tbgrapixel;
 var
@@ -97,12 +97,13 @@ constructor tdrawer.create(atrack: ttrack; ascreens: tscreens);
 begin
   ftrack   := atrack;
   fscreens := ascreens;
-  fonstart    := nil;
-  fonprogress := nil;
-  fonstop     := nil;
+  fonstart := nil;
+  fontick  := nil;
+  fonstop  := nil;
 
   freeonterminate := true;
   inherited create(true);
+  //inherited create;
 end;
 
 procedure tdrawer.drawblocks(ascreen: tbgrabitmap);
@@ -242,7 +243,6 @@ begin
   chart.texturewidth := 1;
   chart.texturebackgroundcolor := clblack;
   chart.pencolor := clyellow;
-
 
   // initialize frequency bin array (half of fft size)
   windowsize := spectrumwindowsize div 2;
@@ -398,24 +398,11 @@ var
 begin
   if not assigned(ftrack) then exit;
   if ftrack.channelcount = 0 then Exit;
+  if ascreen.width < 100 then exit;
+  if ascreen.height < 100 then exit;
 
   // create chart for waveform drawing
   chart := basegraphics.tchart.create;
-  chart.legendenabled := false;
-  chart.title := '';
-  chart.xaxislabel := 'time [s]';
-  chart.yaxislabel := '1';
-  chart.scale := 1.0;
-  chart.backgroundcolor := clblack;
-  chart.xaxisfontcolor := clwhite;
-  chart.yaxisfontcolor := clwhite;
-  chart.xaxislinecolor := clwhite;
-  chart.yaxislinecolor := clwhite;
-  chart.xgridlinewidth := 0;
-  chart.ygridlinewidth := 0;
-
-  chart.ycount  := 8;     // number of vertical grid lines
-  chart.ydeltaf := 0.25;  // distance between grid lines
 
   // create a bitmap for each audio channel
   setlength(bit, ftrack.channelcount);
@@ -428,6 +415,22 @@ begin
   // loop through each channel
   for i := 0 to windowycount - 1 do
   begin
+    chart.clear;
+    chart.legendenabled := false;
+    chart.title := '';
+    chart.xaxislabel := 'time [s]';
+    chart.yaxislabel := '1';
+    chart.scale := 1.0;
+    chart.backgroundcolor := clblack;
+    chart.xaxisfontcolor := clwhite;
+    chart.yaxisfontcolor := clwhite;
+    chart.xaxislinecolor := clwhite;
+    chart.yaxislinecolor := clwhite;
+    chart.xgridlinewidth := 0;
+    chart.ygridlinewidth := 0;
+    chart.ycount  := 8;
+    chart.ydeltaf := 0.25;
+
     // calculate number of samples per horizontal pixel
     windowxsize := length(ftrack.channels[i].samples) div windowxcount;
     // calculate vertical size per channel section
@@ -456,15 +459,14 @@ begin
       p1.y := zmin;
       p2.x := (j + 1) / windowxcount * ftrack.duration;
       p2.y := zmax;
+
       chart.addpolyline([p1, p2], false, '');
     end;
-
     // set visible bounds for chart
     chart.ymaxf := +1.0;
     chart.yminf := -1.0;
     chart.xminf := 0;
     chart.xmaxf := max(1, ftrack.duration);
-
     // draw chart on bitmap
     chart.draw(bit[i].canvas, bit[i].width, bit[i].height);
   end;
@@ -473,38 +475,37 @@ begin
   // composite each channel's bitmap into the final output
   for i := low(bit) to high(bit) do
   begin
-    ascreen.putimage(0, trunc(i * (ascreen.height / ftrack.channelcount)), bit[i], dmset);
+    bit[i].draw(ascreen.canvas, 0, trunc(i * (ascreen.height / ftrack.channelcount)));
     bit[i].free;
   end;
-  bit := nil;
+  setlength(bit, 0);
 end;
 
 procedure tdrawer.execute;
 begin
   writeln('tdrawer.start');
-
-  if assigned(fonstart) then
-    synchronize(fonstart);
+  if assigned(fonstart) then fonstart;
+  //  synchronize();
 
   drawblocks(fscreens[0]);
-  if assigned(fonprogress) then
-    synchronize(fonprogress);
+  if assigned(fontick) then fontick;
+  //  synchronize();
 
   drawspectrum(fscreens[1]);
-  if assigned(fonprogress) then
-    synchronize(fonprogress);
+  if assigned(fontick) then fontick;
+  //  synchronize();
 
   drawspectrogram(fscreens[2]);
-  if assigned(fonprogress) then
-    synchronize(fonprogress);
+  if assigned(fontick) then fontick;
+  //  synchronize();
 
   drawwave(fscreens[3]);
-  if assigned(fonprogress) then
-    synchronize(fonprogress);
+  if assigned(fontick) then fontick;
+  //  synchronize();
 
+  if assigned(fonstop) then fonstop;
+  //  synchronize();
   writeln('tdrawer.stop');
-  if assigned(fonstop) then
-    Synchronize(fonstop);
 end;
 
 end.

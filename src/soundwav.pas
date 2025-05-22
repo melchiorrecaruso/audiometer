@@ -472,6 +472,9 @@ begin
     end;
 
   writeln('ttrackanalyzer.executing...');
+  //fpercentage := 100;
+  //if assigned(fontick) then
+  //  synchronize(fontick);
   if assigned(fonstop) then
     synchronize(fonstop);
   writeln('ttrackanalyzer.stop');
@@ -536,10 +539,12 @@ begin
   for j := 0 to ftrack.fchannelcount -1 do
     for i := 0 to fblocknum -1  do
     begin
-      fpercentage := 100*step/steps;
       if (step mod 512) = 0 then
+      begin
+        fpercentage := 100*step/steps;
         if assigned(fontick) then
           synchronize(fontick);
+      end;
       inc(step);
 
       ftrack.fchannels[j].rms2[i] := getrms2(ftrack.fchannels[j].samples, i * fblocksize, fblocksize);
@@ -547,28 +552,26 @@ begin
     end;
 
   // calculate spectrum
-  //if fspectrumon then
-    for i := 0 to ftrack.fchannelcount -1 do
-      for j := 0 to (fsamplecount div spectrumwindowsize) -1 do
+  // if fspectrumon then
+  for i := 0 to ftrack.fchannelcount -1 do
+    for j := 0 to (fsamplecount div spectrumwindowsize) -1 do
+    begin
+      if (step mod 512) = 0 then
       begin
         fpercentage := 100*step/steps;
-        if (step mod 512) = 0 then
-          if assigned(fontick) then
-            synchronize(fontick);
-        inc(step);
-
-        k := j * spectrumwindowsize;
-
-        getspectrum(@ftrack.fchannels[i].samples[k], spectrumwindowsize, @ftrack.fchannels[i].spectrum[k div 2]);
+        if assigned(fontick) then
+          synchronize(fontick);
       end;
+      inc(step);
+
+      k := j * spectrumwindowsize;
+
+      getspectrum(@ftrack.fchannels[i].samples[k], spectrumwindowsize, @ftrack.fchannels[i].spectrum[k div 2]);
+    end;
   // de-allocate samples buffer
   //for i := 0 to length(ftrack.fchannels) -1 do
   //  setlength(samples[i], 0);
   //setlength(samples, 0);
-
-  fpercentage := 100;
-  if assigned(fontick) then
-    synchronize(fontick);
 end;
 
 procedure ttrackanalyzer.readheader(astream: tstream);
