@@ -10,7 +10,7 @@ uses
 type
   tscreens = array[0..3] of tbgrabitmap;
 
-  tdrawer = class(tthread)
+  tdrawer = class//(tthread)
   private
     ftrack: ttrack;
     fscreens: tscreens;
@@ -23,7 +23,7 @@ type
     procedure drawwave(ascreen: tbgrabitmap);
   public
     constructor create(atrack: ttrack; ascreens: tscreens);
-    procedure execute; override;
+    procedure execute; //override;
   public
     property onstart: tthreadmethod read fonstart write fonstart;
     property ontick: tthreadmethod read fontick write fontick;
@@ -101,9 +101,9 @@ begin
   fontick  := nil;
   fonstop  := nil;
 
-  freeonterminate := true;
-  inherited create(true);
-  //inherited create;
+  //freeonterminate := true;
+  //inherited create(true);
+  inherited create;
 end;
 
 procedure tdrawer.drawblocks(ascreen: tbgrabitmap);
@@ -396,10 +396,9 @@ var
   bit: array of tbgrabitmap = nil;
   chart: basegraphics.tchart;
 begin
+  writeln('drawwave.start');
   if not assigned(ftrack) then exit;
   if ftrack.channelcount = 0 then Exit;
-  if ascreen.width < 100 then exit;
-  if ascreen.height < 100 then exit;
 
   // create chart for waveform drawing
   chart := basegraphics.tchart.create;
@@ -479,6 +478,7 @@ begin
     bit[i].free;
   end;
   setlength(bit, 0);
+  writeln('drawwave.end');
 end;
 
 procedure tdrawer.execute;
@@ -487,21 +487,24 @@ begin
   if assigned(fonstart) then fonstart;
   //  synchronize();
 
-  drawblocks(fscreens[0]);
-  if assigned(fontick) then fontick;
-  //  synchronize();
+  if assigned(ftrack) then
+  begin
+    drawblocks(fscreens[0]);
+    if assigned(fontick) then fontick;
+    //  synchronize();
 
-  drawspectrum(fscreens[1]);
-  if assigned(fontick) then fontick;
-  //  synchronize();
+    drawspectrum(fscreens[1]);
+    if assigned(fontick) then fontick;
+   //  synchronize();
 
-  drawspectrogram(fscreens[2]);
-  if assigned(fontick) then fontick;
-  //  synchronize();
+    drawspectrogram(fscreens[2]);
+    if assigned(fontick) then fontick;
+    //  synchronize();
 
-  drawwave(fscreens[3]);
-  if assigned(fontick) then fontick;
-  //  synchronize();
+    drawwave(fscreens[3]);
+    if assigned(fontick) then fontick;
+    //  synchronize();
+  end;
 
   if assigned(fonstop) then fonstop;
   //  synchronize();

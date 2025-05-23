@@ -126,11 +126,11 @@ type
     screens:     tscreens;
     buffer:      treadbufstream;
     stream:      tfilestream;
-    trackindex:  longint;
+    trackindex:  longword;
     isneededkillanalyzer:   boolean;
+    track:       ttrack;
     tracklist:   ttracklist;
     trackfile:   string;
-    track:       ttrack;
     tempfile:    string;
     audioanalyzer: ttrackanalyzer;
     applicationisworking: boolean;
@@ -212,6 +212,7 @@ var
   i: longint;
 begin
   timer.enabled := false;
+  track := nil;
   tracklist.destroy;
   for i := low(screens) to high(screens) do
   begin
@@ -230,10 +231,10 @@ begin
   currwidth  := screen.width;
   currheight := screen.height;
   isneededupdatescreen := true;
-  //while (audio.left + audio.width) > (btnfolder.left + btnfolder.width) do
-  //begin
-  //  audio.caption := cutoff(audio.caption);
-  //end;
+  while (audio.left + audio.width) > (btnfolder.left + btnfolder.width) do
+  begin
+    audio.caption := cutoff(audio.caption);
+  end;
 end;
 
 // track analyzer events
@@ -243,11 +244,14 @@ begin
   writeln('taudiofrm.onstartanalyzer');
 
   clear;
-  audio.font.color := clwhite;
-  audio.caption    := extractfilename(tracklist.tracks[trackindex].filename);
-  while (audio.left + audio.width) > (btnfolder.left + btnfolder.width) do
+  if assigned(track) then
   begin
-    audio.caption := cutoff(audio.caption);
+    audio.font.color := clwhite;
+    audio.caption    := extractfilename(track.filename);
+    while (audio.left + audio.width) > (btnfolder.left + btnfolder.width) do
+    begin
+      audio.caption := cutoff(audio.caption);
+    end;
   end;
   disablebuttons;
 end;
@@ -276,8 +280,6 @@ begin
     enablebuttons;
   end else
   begin
-    track := tracklist.tracks[trackindex];
-
     bit8  .font.color := clgray; if track.bitspersample = 8      then bit8  .font.color := clwhite;
     bit16 .font.color := clgray; if track.bitspersample = 16     then bit16 .font.color := clwhite;
     bit24 .font.color := clgray; if track.bitspersample = 24     then bit24 .font.color := clwhite;
@@ -325,9 +327,10 @@ begin
     isneededupdatescreen := true;
     applicationisworking := false;
   end else
-  begin
-    tracklist.tracks[trackindex-1].clearchannels;
-  end;
+    if assigned(track) then
+    begin
+      track.clearchannels;
+    end;
   execute;
   writeln('taudiofrm.onstopanalyzer.stop');
 end;
@@ -346,9 +349,9 @@ end;
 
 procedure taudiofrm.onstopdrawer;
 begin
-  enablepanel;
-  screen.redrawbitmap;
   applicationisworking := false;
+  screen.redrawbitmap;
+  enablepanel;
 end;
 
 //
@@ -365,7 +368,7 @@ begin
   writeln('taudiofrm.execute');
 
   if isneededkillanalyzer then exit;
-  if trackindex >= tracklist.count then exit;
+  if not (trackindex < tracklist.count) then exit;
 
   track := tracklist.tracks[trackindex];
   try
@@ -505,11 +508,10 @@ begin
   writeln('isneededupdatescreen = ', isneededupdatescreen);
 
   if applicationisworking then exit;
-
-  if (lastwidth  = currwidth ) or
+  if (lastwidth  = currwidth ) and
      (lastheight = currheight) then
   begin
-
+    if not assigned(track) then exit;
     if isneededupdatescreen then
     begin
       applicationisworking := true;
@@ -524,7 +526,7 @@ begin
       drawer.onstart := @onstartdrawer;
       drawer.ontick  := @ontickdrawer;
       drawer.onstop  := @onstopdrawer;
-      drawer.start;
+      drawer.execute;
       writeln('timer.launcher.stop');
     end;
 
@@ -537,6 +539,7 @@ end;
 
 procedure taudiofrm.screenredraw(sender: tobject; bitmap: tbgrabitmap);
 begin
+  if applicationisworking then exit;
   bitmap.putimage(0, 0, screens[pageindex], dmset);
 end;
 
@@ -830,7 +833,7 @@ begin
   wavebtn        .enabled := false;
   // ---
   panelprogressbar.value   := 0;
-  //panelprogressbar.visible := true;
+  panelprogressbar.visible := true;
 end;
 
 procedure taudiofrm.enablepanel;
@@ -840,7 +843,7 @@ begin
   spectrumbtn    .enabled := true;
   wavebtn        .enabled := true;
   // ---
-  //panelprogressbar.visible := false;
+  panelprogressbar.visible := false;
   panelprogressbar.value   := 100;
 end;
 

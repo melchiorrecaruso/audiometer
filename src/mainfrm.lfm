@@ -1,7 +1,7 @@
 object audiofrm: Taudiofrm
-  Left = 441
+  Left = 691
   Height = 612
-  Top = 305
+  Top = 331
   Width = 984
   Caption = 'AudioMeter 0.4.8 - Dynamic Range Meter'
   ClientHeight = 612
@@ -36,9 +36,30 @@ object audiofrm: Taudiofrm
     Alignment = taLeftJustify
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Top = 6
+    ClientHeight = 389
+    ClientWidth = 984
     Color = clBlack
     ParentColor = False
     TabOrder = 2
+    object panelprogressbar: TBCRadialProgressBar
+      Left = 0
+      Height = 389
+      Top = 0
+      Width = 984
+      Align = alClient
+      Anchors = []
+      Value = 100
+      Color = clBlack
+      LineColor = clYellow
+      LineBkgColor = clBlack
+      LineWidth = 6
+      FontShadowOffsetX = 0
+      FontShadowOffsetY = 0
+      FontShadowRadius = 1
+      Font.Color = clBlack
+      Font.Height = 20
+      Size = 100
+    end
   end
   object audio: TLabel
     AnchorSideLeft.Control = Owner
@@ -962,31 +983,6 @@ object audiofrm: Taudiofrm
     RoundingDropDown.RoundY = 1
     TextApplyGlobalOpacity = False
     MemoryUsage = bmuHigh
-  end
-  object panelprogressbar: TBCRadialProgressBar
-    AnchorSideLeft.Control = drpanel
-    AnchorSideLeft.Side = asrBottom
-    AnchorSideTop.Control = drpanel
-    AnchorSideRight.Control = Owner
-    AnchorSideRight.Side = asrBottom
-    AnchorSideBottom.Control = drpanel
-    AnchorSideBottom.Side = asrBottom
-    Left = 427
-    Height = 131
-    Top = 29
-    Width = 136
-    Anchors = [akTop, akLeft, akBottom]
-    Value = 100
-    Color = clBlack
-    LineColor = clYellow
-    LineBkgColor = clBlack
-    LineWidth = 6
-    FontShadowOffsetX = 0
-    FontShadowOffsetY = 0
-    FontShadowRadius = 1
-    Font.Color = clBlack
-    Font.Height = 20
-    Size = 100
   end
   object filedialog: TOpenDialog
     Left = 544
