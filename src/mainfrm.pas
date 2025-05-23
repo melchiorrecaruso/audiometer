@@ -35,8 +35,7 @@ type
   { taudiofrm }
 
   taudiofrm = class(tform)
-    panelprogressbar: TBCRadialProgressBar;
-    screen: TBGRAVirtualScreen;
+    virtualscreen: TBGRAVirtualScreen;
     blocksbtn: TBCButton;
 
     btnplay: TImage;
@@ -103,7 +102,7 @@ type
 
 
     procedure loadbuttonicon(btn: timage; index: longint; x, y: longint);
-    procedure screenredraw(Sender: TObject; Bitmap: TBGRABitmap);
+
 
     procedure clear;
     procedure execute;
@@ -112,18 +111,15 @@ type
     procedure ontickanalyzer;
     procedure onstopanalyzer;
 
-    procedure onstartdrawer;
-    procedure ontickdrawer;
-    procedure onstopdrawer;
-
     procedure timertimer(sender: tobject);
 
     procedure disablebuttons;
     procedure enablebuttons;
     procedure disablepanel;
     procedure enablepanel;
+    procedure virtualscreenRedraw(Sender: TObject; Bitmap: TBGRABitmap);
   private
-    screens:     tscreens;
+    virtualscreens:  array[0..3] of tbgrabitmap;
     buffer:      treadbufstream;
     stream:      tfilestream;
     trackindex:  longword;
@@ -168,11 +164,11 @@ var
   i: longint;
 begin
   applicationisworking := false;
-  isneededkillanalyzer := false;
   isneededupdatescreen := false;
+  isneededkillanalyzer := false;
 
-  for i := low(screens) to high(screens) do
-    screens[i] := tbgrabitmap.create;
+  for i := low(virtualscreens) to high(virtualscreens) do
+    virtualscreens[i] := tbgrabitmap.create;
   // ---
   track := nil;
   trackindex := 0;
@@ -214,9 +210,9 @@ begin
   timer.enabled := false;
   track := nil;
   tracklist.destroy;
-  for i := low(screens) to high(screens) do
+  for i := low(virtualscreens) to high(virtualscreens) do
   begin
-    screens[i].destroy;
+    virtualscreens[i].destroy;
   end;
 end;
 
@@ -228,9 +224,9 @@ end;
 
 procedure taudiofrm.formresize(sender: tobject);
 begin
-  currwidth  := screen.width;
-  currheight := screen.height;
   isneededupdatescreen := true;
+  currwidth  := virtualscreen.width;
+  currheight := virtualscreen.height;
   while (audio.left + audio.width) > (btnfolder.left + btnfolder.width) do
   begin
     audio.caption := cutoff(audio.caption);
@@ -333,25 +329,6 @@ begin
     end;
   execute;
   writeln('taudiofrm.onstopanalyzer.stop');
-end;
-
-// drawer events
-
-procedure taudiofrm.onstartdrawer;
-begin
-  disablepanel;
-end;
-
-procedure taudiofrm.ontickdrawer;
-begin
-  panelprogressbar.value := panelprogressbar.value + 20;
-end;
-
-procedure taudiofrm.onstopdrawer;
-begin
-  applicationisworking := false;
-  screen.redrawbitmap;
-  enablepanel;
 end;
 
 //
@@ -514,19 +491,26 @@ begin
     if not assigned(track) then exit;
     if isneededupdatescreen then
     begin
-      applicationisworking := true;
       isneededupdatescreen := false;
-      for i := low(screens) to high(screens) do
+      applicationisworking := true;
+      for i := low(virtualscreens) to high(virtualscreens) do
       begin
-        screens[i].setsize(lastwidth, lastheight);
-        screens[i].filltransparent;
+        virtualscreens[i].setsize(lastwidth, lastheight);
+        virtualscreens[i].filltransparent;
       end;
       writeln('timer.launcher.start');
-      drawer := tdrawer.create(track, screens);
-      drawer.onstart := @onstartdrawer;
-      drawer.ontick  := @ontickdrawer;
-      drawer.onstop  := @onstopdrawer;
-      drawer.execute;
+      disablebuttons;
+      application.processmessages;
+      drawblocks     (track, virtualscreens[0]);
+      application.processmessages;
+      drawspectrum   (track, virtualscreens[1]);
+      application.processmessages;
+      drawspectrogram(track, virtualscreens[2]);
+      application.processmessages;
+      drawwave       (track, virtualscreens[3]);
+      virtualscreen.redrawbitmap;
+      enablebuttons;
+      applicationisworking := false;
       writeln('timer.launcher.stop');
     end;
 
@@ -535,12 +519,6 @@ begin
     lastwidth  := currwidth;
     lastheight := currheight;
   end;
-end;
-
-procedure taudiofrm.screenredraw(sender: tobject; bitmap: tbgrabitmap);
-begin
-  if applicationisworking then exit;
-  bitmap.putimage(0, 0, screens[pageindex], dmset);
 end;
 
 // button events
@@ -699,7 +677,7 @@ begin
   btn4.statehover  .fontex    .color  := clwhite;
   btn4.stateclicked.fontex    .color  := clblack;
 
-  screen.redrawbitmap;
+  virtualscreen.redrawbitmap;
 end;
 
 // mouse events
@@ -832,8 +810,8 @@ begin
   spectrumbtn    .enabled := false;
   wavebtn        .enabled := false;
   // ---
-  panelprogressbar.value   := 0;
-  panelprogressbar.visible := true;
+  //panelprogressbar.value   := 0;
+  //panelprogressbar.visible := true;
 end;
 
 procedure taudiofrm.enablepanel;
@@ -843,8 +821,13 @@ begin
   spectrumbtn    .enabled := true;
   wavebtn        .enabled := true;
   // ---
-  panelprogressbar.visible := false;
-  panelprogressbar.value   := 100;
+  //panelprogressbar.visible := false;
+  //panelprogressbar.value   := 100;
+end;
+
+procedure taudiofrm.virtualscreenredraw(sender: tobject; bitmap: tbgrabitmap);
+begin
+  virtualscreens[pageindex].draw(bitmap.canvas, 0, 0, true);
 end;
 
 end.

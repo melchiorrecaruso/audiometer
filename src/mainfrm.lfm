@@ -1,11 +1,12 @@
 object audiofrm: Taudiofrm
-  Left = 691
-  Height = 612
-  Top = 331
-  Width = 984
+  Left = 683
+  Height = 600
+  Top = 376
+  Width = 800
+  BorderStyle = bsDialog
   Caption = 'AudioMeter 0.4.8 - Dynamic Range Meter'
-  ClientHeight = 612
-  ClientWidth = 984
+  ClientHeight = 600
+  ClientWidth = 800
   Color = clGray
   Constraints.MinHeight = 440
   Constraints.MinWidth = 700
@@ -19,48 +20,6 @@ object audiofrm: Taudiofrm
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnResize = FormResize
-  object screen: TBGRAVirtualScreen
-    AnchorSideLeft.Control = Owner
-    AnchorSideTop.Control = blocksbtn
-    AnchorSideTop.Side = asrBottom
-    AnchorSideRight.Control = Owner
-    AnchorSideRight.Side = asrBottom
-    AnchorSideBottom.Control = Owner
-    AnchorSideBottom.Side = asrBottom
-    Left = 0
-    Height = 389
-    Top = 223
-    Width = 984
-    OnRedraw = screenredraw
-    BitmapAutoScale = False
-    Alignment = taLeftJustify
-    Anchors = [akTop, akLeft, akRight, akBottom]
-    BorderSpacing.Top = 6
-    ClientHeight = 389
-    ClientWidth = 984
-    Color = clBlack
-    ParentColor = False
-    TabOrder = 2
-    object panelprogressbar: TBCRadialProgressBar
-      Left = 0
-      Height = 389
-      Top = 0
-      Width = 984
-      Align = alClient
-      Anchors = []
-      Value = 100
-      Color = clBlack
-      LineColor = clYellow
-      LineBkgColor = clBlack
-      LineWidth = 6
-      FontShadowOffsetX = 0
-      FontShadowOffsetY = 0
-      FontShadowRadius = 1
-      Font.Color = clBlack
-      Font.Height = 20
-      Size = 100
-    end
-  end
   object audio: TLabel
     AnchorSideLeft.Control = Owner
     AnchorSideTop.Control = Owner
@@ -82,7 +41,7 @@ object audiofrm: Taudiofrm
   object btnfile: TImage
     AnchorSideTop.Control = btnfolder
     AnchorSideRight.Control = btnfolder
-    Left = 898
+    Left = 714
     Height = 32
     Top = 34
     Width = 32
@@ -128,7 +87,7 @@ object audiofrm: Taudiofrm
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
-    Left = 940
+    Left = 756
     Height = 32
     Top = 34
     Width = 32
@@ -871,7 +830,7 @@ object audiofrm: Taudiofrm
     AnchorSideRight.Control = btnfile
     AnchorSideBottom.Control = btnfile
     AnchorSideBottom.Side = asrBottom
-    Left = 854
+    Left = 670
     Height = 32
     Top = 34
     Width = 32
@@ -983,6 +942,26 @@ object audiofrm: Taudiofrm
     RoundingDropDown.RoundY = 1
     TextApplyGlobalOpacity = False
     MemoryUsage = bmuHigh
+  end
+  object virtualscreen: TBGRAVirtualScreen
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = blocksbtn
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 0
+    Height = 377
+    Top = 223
+    Width = 800
+    OnRedraw = virtualscreenRedraw
+    Alignment = taLeftJustify
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderSpacing.Top = 6
+    Color = clBlack
+    ParentColor = False
+    TabOrder = 2
   end
   object filedialog: TOpenDialog
     Left = 544
