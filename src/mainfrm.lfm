@@ -1,9 +1,8 @@
 object audiofrm: Taudiofrm
-  Left = 683
+  Left = 639
   Height = 600
-  Top = 376
+  Top = 387
   Width = 800
-  BorderStyle = bsDialog
   Caption = 'AudioMeter 0.4.8 - Dynamic Range Meter'
   ClientHeight = 600
   ClientWidth = 800
@@ -955,13 +954,40 @@ object audiofrm: Taudiofrm
     Height = 377
     Top = 223
     Width = 800
-    OnRedraw = virtualscreenRedraw
+    OnRedraw = virtualscreenredraw
     Alignment = taLeftJustify
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Top = 6
     Color = clBlack
     ParentColor = False
     TabOrder = 2
+    OnResize = virtualscreenresize
+  end
+  object panelprogressbar: TBCRadialProgressBar
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = blocksbtn
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 0
+    Height = 377
+    Top = 223
+    Width = 800
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderSpacing.Top = 6
+    DrawText = False
+    Color = clBlack
+    LineColor = clSilver
+    LineBkgColor = clBlack
+    LineWidth = 6
+    FontShadowOffsetX = 0
+    FontShadowOffsetY = 0
+    FontShadowRadius = 1
+    Font.Color = clBlack
+    Font.Height = 20
+    Size = 100
   end
   object filedialog: TOpenDialog
     Left = 544
@@ -1099,11 +1125,11 @@ object audiofrm: Taudiofrm
     About.ComponentName = 'PlaySound'
     About.LicenseType = abModifiedGPL
     PlayCommand = 'aplay -q'
-    Left = 712
-    Top = 48
+    Left = 624
+    Top = 112
   end
   object timer: TIdleTimer
-    Interval = 500
+    Interval = 2000
     OnTimer = timerTimer
     Left = 528
     Top = 112
