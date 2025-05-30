@@ -41,7 +41,6 @@ type
 
     btnplay: TImage;
     playsound: Tplaysound;
-    timer: TIdleTimer;
     wavebtn: TBCButton;
     spectrumbtn: tbcbutton;
     spectrogrambtn: tbcbutton;
@@ -115,8 +114,7 @@ type
     procedure onstartdrawer;
     procedure ontickdrawer;
     procedure onstopdrawer;
-
-    procedure timertimer(sender: tobject);
+    procedure onwaitdrawer;
 
     procedure disablebuttons;
     procedure enablebuttons;
@@ -126,9 +124,9 @@ type
 
 
     procedure virtualscreenredraw(Sender: TObject; Bitmap: TBGRABitmap);
-    procedure virtualscreenresize(Sender: TObject);
+
   private
-    virtualscreens:  array[0..3] of tbgrabitmap;
+    virtualscreens:  array[0..3] of tbitmap;
     buffer:      treadbufstream;
     stream:      tfilestream;
     trackindex:  longword;
@@ -142,11 +140,7 @@ type
     isneededupdatescreens: boolean;
     isneededkillanalyzer:  boolean;
 
-    currheight:  longint;
-    currwidth:   longint;
-    lastheight:  longint;
-    lastwidth:   longint;
-    pageindex:   longint;
+    pageindex:  integer;
   public
   end;
 
@@ -170,18 +164,13 @@ end;
 { taudiofrm }
 
 procedure taudiofrm.formcreate(sender: tobject);
-var
-  i: longint;
 begin
+  virtualscreens[0] := tbitmap.create;
+  virtualscreens[1] := tbitmap.create;
+  virtualscreens[2] := tbitmap.create;
+  virtualscreens[3] := tbitmap.create;
   isneededupdatescreens := false;
   isneededkillanalyzer  := false;
-
-  for i := low(virtualscreens) to high(virtualscreens) do
-  begin
-    virtualscreens[i] := tbgrabitmap.create;
-    virtualscreens[i].setsize(800, 600);
-    virtualscreens[i].filltransparent;
-  end;
   // ---
   track := nil;
   trackindex := 0;
@@ -212,27 +201,25 @@ begin
   wavebtn.stateclicked.fontex.shadow := false;
   // initialize
   clear;
-  //
+  // ---
   panelbtnclick(blocksbtn);
 end;
 
 procedure taudiofrm.formdestroy(sender: tobject);
-var
-  i: longint;
 begin
-  timer.enabled := false;
-  track := nil;
+  freeandnil(virtualscreens[0]);
+  freeandnil(virtualscreens[1]);
+  freeandnil(virtualscreens[2]);
+  freeandnil(virtualscreens[3]);
   tracklist.destroy;
-  for i := low(virtualscreens) to high(virtualscreens) do
-  begin
-    virtualscreens[i].free;
-  end;
+  track := nil;
 end;
 
 procedure taudiofrm.formclosequery(sender: tobject; var canclose: boolean);
 begin
   isneededkillanalyzer := true;
-  canclose := (audioanalyzer = nil) and (screendrawer = nil);
+  canclose := (audioanalyzer = nil) and
+              (screendrawer  = nil);
 end;
 
 procedure taudiofrm.formresize(sender: tobject);
@@ -241,6 +228,16 @@ begin
   begin
     audio.caption := cutoff(audio.caption);
   end;
+
+  isneededupdatescreens := true;
+  if audioanalyzer <> nil then exit;
+  if screendrawer  <> nil then exit;
+  screendrawer := tscreendrawer.create(track);
+  screendrawer.onstart := @onstartdrawer;
+  screendrawer.ontick  := @ontickdrawer;
+  screendrawer.onstop  := @onstopdrawer;
+  screendrawer.onwait  := @onwaitdrawer;
+  screendrawer.start;
 end;
 
 // track analyzer events
@@ -320,7 +317,7 @@ begin
       end;
     end;
   except
-
+    writeln('ramengo');
   end;
 
   inc(trackindex);
@@ -330,7 +327,12 @@ begin
     tracklist.savetofile(trackfile);
     // ---
     audioanalyzer := nil;
-    isneededupdatescreens := true;
+    screendrawer := tscreendrawer.create(track);
+    screendrawer.onstart := @onstartdrawer;
+    screendrawer.ontick  := @ontickdrawer;
+    screendrawer.onstop  := @onstopdrawer;
+    screendrawer.onwait  := @onwaitdrawer;
+    screendrawer.start;
   end else
     if assigned(track) then
     begin
@@ -343,7 +345,6 @@ end;
 
 procedure taudiofrm.onstartdrawer;
 begin
-  writeln('timer.launcher.start');
   enablebuttons;
   disablepanel;
 end;
@@ -355,12 +356,35 @@ end;
 
 procedure taudiofrm.onstopdrawer;
 begin
+  if not isneededupdatescreens then
+  begin
+    virtualscreens[0].setsize(screendrawer.screens[0].width, screendrawer.screens[0].height);
+    virtualscreens[1].setsize(screendrawer.screens[1].width, screendrawer.screens[1].height);
+    virtualscreens[2].setsize(screendrawer.screens[2].width, screendrawer.screens[2].height);
+    virtualscreens[3].setsize(screendrawer.screens[3].width, screendrawer.screens[3].height);
+
+    virtualscreens[0].canvas.draw(0, 0, screendrawer.screens[0]);
+    virtualscreens[1].canvas.draw(0, 0, screendrawer.screens[1]);
+    virtualscreens[2].canvas.draw(0, 0, screendrawer.screens[2]);
+    virtualscreens[3].canvas.draw(0, 0, screendrawer.screens[3]);
+  end;
   screendrawer := nil;
+
   enablebuttons;
   enablepanel;
 
   virtualscreen.redrawbitmap;
-  writeln('timer.launcher.stop');
+end;
+
+procedure taudiofrm.onwaitdrawer;
+begin
+  screendrawer.screenwidth  := panelprogressbar.width;
+  screendrawer.screenheight := panelprogressbar.height;
+  if not isneededupdatescreens then
+  begin
+    screendrawer.waiting := false;
+  end;
+  isneededupdatescreens := false;
 end;
 
 //
@@ -407,7 +431,7 @@ begin
             mem.write(buf, process.output.read(buf, sizeof(buf)));
           while process.stderr.numbytesavailable > 0 do
             process.stderr.read(buf, sizeof(buf));
-          application.processmessages;
+        //application.processmessages;
         end;
         mem.seek(0, sofrombeginning);
 
@@ -503,40 +527,6 @@ begin
   drvalue.font.color := clwhite;
 end;
 
-// timer events
-
-procedure taudiofrm.timertimer(Sender: TObject);
-var
-  i: longint;
-begin
-  if (lastwidth  = currwidth ) and
-     (lastheight = currheight) then
-  begin
-    if audioanalyzer <> nil then exit;
-    if screendrawer <> nil then exit;
-
-    if isneededupdatescreens then
-    begin
-      isneededupdatescreens := false;
-      screendrawer := tscreendrawer.create(track, virtualscreens);
-      for i := low(virtualscreens) to high(virtualscreens) do
-      begin
-        virtualscreens[i].setsize(lastwidth, lastheight);
-        virtualscreens[i].filltransparent;
-      end;
-      screendrawer.onstart := @onstartdrawer;
-      screendrawer.ontick  := @ontickdrawer;
-      screendrawer.onstop  := @onstopdrawer;
-      screendrawer.start;
-    end;
-
-  end else
-  begin
-    lastwidth  := currwidth;
-    lastheight := currheight;
-  end;
-end;
-
 // button events
 
 procedure taudiofrm.btnfileclick(sender: tobject);
@@ -627,7 +617,7 @@ var
   btn4: tbcbutton;
 begin
   if (audioanalyzer <> nil) then exit;
-  if (screendrawer <> nil) then exit;
+  if (screendrawer  <> nil) then exit;
 
   btn1 := sender as tbcbutton;
 
@@ -859,23 +849,11 @@ end;
 
 procedure taudiofrm.virtualscreenredraw(sender: tobject; bitmap: tbgrabitmap);
 begin
-  bitmap.filltransparent;
   if (audioanalyzer <> nil) then exit;
-  if (screendrawer <> nil) then exit;
-  if isneededupdatescreens then exit;
+  if (screendrawer  <> nil) then exit;
+  if isneededupdatescreens  then exit;
 
-  try
-    bitmap.putimage(0, 0, virtualscreens[pageindex], dmset);
-  except
-    writeln('cazzi-main');
-  end;
-end;
-
-procedure taudiofrm.virtualscreenresize(Sender: TObject);
-begin
-  isneededupdatescreens := true;
-  currwidth  := virtualscreen.width;
-  currheight := virtualscreen.height;
+  bitmap.putimage(0, 0, virtualscreens[pageindex], dmset);
 end;
 
 end.

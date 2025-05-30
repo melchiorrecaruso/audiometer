@@ -1,7 +1,7 @@
 object audiofrm: Taudiofrm
-  Left = 639
+  Left = 1239
   Height = 600
-  Top = 387
+  Top = 255
   Width = 800
   Caption = 'AudioMeter 0.4.8 - Dynamic Range Meter'
   ClientHeight = 600
@@ -951,17 +951,16 @@ object audiofrm: Taudiofrm
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
     Left = 0
-    Height = 377
-    Top = 223
+    Height = 373
+    Top = 227
     Width = 800
     OnRedraw = virtualscreenredraw
     Alignment = taLeftJustify
     Anchors = [akTop, akLeft, akRight, akBottom]
-    BorderSpacing.Top = 6
+    BorderSpacing.Top = 10
     Color = clBlack
     ParentColor = False
     TabOrder = 2
-    OnResize = virtualscreenresize
   end
   object panelprogressbar: TBCRadialProgressBar
     AnchorSideLeft.Control = Owner
@@ -972,11 +971,11 @@ object audiofrm: Taudiofrm
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
     Left = 0
-    Height = 377
-    Top = 223
+    Height = 373
+    Top = 227
     Width = 800
     Anchors = [akTop, akLeft, akRight, akBottom]
-    BorderSpacing.Top = 6
+    BorderSpacing.Top = 10
     DrawText = False
     Color = clBlack
     LineColor = clSilver
@@ -1126,12 +1125,6 @@ object audiofrm: Taudiofrm
     About.LicenseType = abModifiedGPL
     PlayCommand = 'aplay -q'
     Left = 624
-    Top = 112
-  end
-  object timer: TIdleTimer
-    Interval = 2000
-    OnTimer = timerTimer
-    Left = 528
     Top = 112
   end
 end

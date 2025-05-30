@@ -200,7 +200,7 @@ type
 
 
   function filesupported(const fileext: string): boolean;
-  function db(const value: double): double;
+  function dB(const value: double): double;
 
 
 implementation
@@ -434,12 +434,9 @@ var
   i: longint;
   dr: double;
 begin
-  writeln('ttrackanalyzer.starting ...');
   fpercentage := 0;
   if assigned(fonstart) then
     synchronize(fonstart);
-  if assigned(fontick) then
-    synchronize(fontick);
 
   readfromstream(fstream);
   if fstatus = 0 then
@@ -471,13 +468,9 @@ begin
       {$endif}
     end;
 
-  writeln('ttrackanalyzer.executing...');
-  //fpercentage := 100;
-  //if assigned(fontick) then
-  //  synchronize(fontick);
+  fpercentage := 100;
   if assigned(fonstop) then
     synchronize(fonstop);
-  writeln('ttrackanalyzer.stop');
 end;
 
 procedure ttrackanalyzer.readfromstream(astream:tstream);
@@ -543,7 +536,7 @@ begin
       begin
         fpercentage := 100*step/steps;
         if assigned(fontick) then
-          synchronize(fontick);
+          queue(fontick);
       end;
       inc(step);
 
@@ -560,7 +553,7 @@ begin
       begin
         fpercentage := 100*step/steps;
         if assigned(fontick) then
-          synchronize(fontick);
+          queue(fontick);
       end;
       inc(step);
 
