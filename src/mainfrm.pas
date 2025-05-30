@@ -356,7 +356,15 @@ end;
 
 procedure taudiofrm.onstopdrawer;
 begin
-  if not isneededupdatescreens then
+  if isneededupdatescreens then
+  begin
+    screendrawer := tscreendrawer.create(track);
+    screendrawer.onstart := @onstartdrawer;
+    screendrawer.ontick  := @ontickdrawer;
+    screendrawer.onstop  := @onstopdrawer;
+    screendrawer.onwait  := @onwaitdrawer;
+    screendrawer.start;
+  end else
   begin
     virtualscreens[0].setsize(screendrawer.screens[0].width, screendrawer.screens[0].height);
     virtualscreens[1].setsize(screendrawer.screens[1].width, screendrawer.screens[1].height);
@@ -367,13 +375,12 @@ begin
     virtualscreens[1].canvas.draw(0, 0, screendrawer.screens[1]);
     virtualscreens[2].canvas.draw(0, 0, screendrawer.screens[2]);
     virtualscreens[3].canvas.draw(0, 0, screendrawer.screens[3]);
+    enablebuttons;
+    enablepanel;
+
+    screendrawer := nil;
+    virtualscreen.redrawbitmap;
   end;
-  screendrawer := nil;
-
-  enablebuttons;
-  enablepanel;
-
-  virtualscreen.redrawbitmap;
 end;
 
 procedure taudiofrm.onwaitdrawer;
