@@ -237,7 +237,7 @@ begin
   screendrawer.ontick  := @ontickdrawer;
   screendrawer.onstop  := @onstopdrawer;
   screendrawer.onwait  := @onwaitdrawer;
-  screendrawer.execute;
+  screendrawer.start;
 end;
 
 // track analyzer events
@@ -332,7 +332,7 @@ begin
     screendrawer.ontick  := @ontickdrawer;
     screendrawer.onstop  := @onstopdrawer;
     screendrawer.onwait  := @onwaitdrawer;
-    screendrawer.execute;
+    screendrawer.start;
   end else
     if assigned(track) then
     begin
@@ -365,7 +365,7 @@ begin
     screendrawer.ontick  := @ontickdrawer;
     screendrawer.onstop  := @onstopdrawer;
     screendrawer.onwait  := @onwaitdrawer;
-    screendrawer.execute;
+    screendrawer.start;
   end else
   begin
     virtualscreens[0].setsize(screendrawer.screenwidth, screendrawer.screenheight);

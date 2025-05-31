@@ -11,7 +11,7 @@ uses
 type
   tvirtualscreens = array[0..3] of tbitmap;
 
-  tscreendrawer = class // (tthread)
+  tscreendrawer = class(tthread)
   private
     fonstart: tthreadmethod;
     fontick: tthreadmethod;
@@ -25,7 +25,7 @@ type
   public
     constructor create(atrack: ttrack);
     destructor destroy; override;
-    procedure execute; // override;
+    procedure execute; override;
   public
     property onstart: tthreadmethod read fonstart write fonstart;
     property ontick: tthreadmethod read fontick write fontick;
@@ -119,8 +119,8 @@ begin
   fscreenheight := 0;
   ftrack := atrack;
 
-  //freeonterminate := true;
-  inherited create;//(true);
+  freeonterminate := true;
+  inherited create(true);
 end;
 
 destructor tscreendrawer.destroy;
@@ -137,8 +137,8 @@ var
   starttime: tdatetime;
 begin
   writeln('tscreendrawer.start');
-  if assigned(fonstart) then fonstart;
-  //  queue(fonstart);
+  if assigned(fonstart) then
+    synchronize(fonstart);
 
   starttime := now;
   if assigned(fonwait) then
@@ -147,7 +147,7 @@ begin
       if millisecondsbetween(now, starttime) > 500 then
       begin
         starttime := now;
-        //queue(fonwait);
+        queue(fonwait);
         fonwait
       end;
     end;
@@ -159,12 +159,12 @@ begin
     fscreens[2].setsize(fscreenwidth, fscreenheight);
     fscreens[3].setsize(fscreenwidth, fscreenheight);
 
-    //drawblocks(ftrack, fscreens[0]);
-    //if assigned(fontick) then
-    //  queue(fontick);
-    //drawspectrum(ftrack, fscreens[1]);
-    //if assigned(fontick) then
-    //  queue(fontick);
+    drawblocks(ftrack, fscreens[0]);
+    if assigned(fontick) then
+      queue(fontick);
+    drawspectrum(ftrack, fscreens[1]);
+    if assigned(fontick) then
+      queue(fontick);
     //drawspectrogram(ftrack, fscreens[2]);
     //if assigned(fontick) then
     //  queue(fontick);
@@ -173,8 +173,8 @@ begin
     //  queue(fontick);
   end;
 
-  if assigned(fonstop) then fonstop;
-  //  queue(fonstop);
+  if assigned(fonstop) then
+    synchronize(fonstop);
   writeln('tscreendrawer.stop');
 end;
 
