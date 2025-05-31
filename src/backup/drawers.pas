@@ -222,7 +222,7 @@ begin
   maxdB    := 6*atrack.bitspersample;
   blocknum := length(atrack.channels[0].rms2);
 
-  setlength(points, 4);
+
   try
     // loop through each block
     for i := 0 to blocknum - 1 do
@@ -277,7 +277,6 @@ begin
   except
     writeln('cazzi-0.2');
   end;
-  points := nil;
 
   try
     chart.draw(ascreen, ascreen.width, ascreen.height, true);

@@ -30,8 +30,8 @@ uses
 
 begin
   requirederivedformresource:=true;
-  application.title:='AudioMeter';
-  application.scaled:=true;
+  Application.Title:='AudioMeter';
+  Application.Scaled:=True;
   application.initialize;
   application.createform(taudiofrm, audiofrm);
   application.run;

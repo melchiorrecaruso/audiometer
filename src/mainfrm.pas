@@ -126,7 +126,7 @@ type
     procedure virtualscreenredraw(Sender: TObject; Bitmap: TBGRABitmap);
 
   private
-    virtualscreens:  array[0..3] of tbitmap;
+    virtualscreens: tvirtualscreens;
     buffer:      treadbufstream;
     stream:      tfilestream;
     trackindex:  longword;
@@ -135,7 +135,7 @@ type
     tracklist:   ttracklist;
     trackfile:   string;
     tempfile:    string;
-    audioanalyzer: ttrackanalyzer;
+
 
     isneededupdatescreens: boolean;
     isneededkillanalyzer:  boolean;
@@ -237,7 +237,7 @@ begin
   screendrawer.ontick  := @ontickdrawer;
   screendrawer.onstop  := @onstopdrawer;
   screendrawer.onwait  := @onwaitdrawer;
-  screendrawer.start;
+  screendrawer.execute;
 end;
 
 // track analyzer events
@@ -332,7 +332,7 @@ begin
     screendrawer.ontick  := @ontickdrawer;
     screendrawer.onstop  := @onstopdrawer;
     screendrawer.onwait  := @onwaitdrawer;
-    screendrawer.start;
+    screendrawer.execute;
   end else
     if assigned(track) then
     begin
@@ -347,11 +347,13 @@ procedure taudiofrm.onstartdrawer;
 begin
   enablebuttons;
   disablepanel;
+  application.processmessages;
 end;
 
 procedure taudiofrm.ontickdrawer;
 begin
   panelprogressbar.value := panelprogressbar.value + 20;
+  application.processmessages;
 end;
 
 procedure taudiofrm.onstopdrawer;
@@ -363,33 +365,37 @@ begin
     screendrawer.ontick  := @ontickdrawer;
     screendrawer.onstop  := @onstopdrawer;
     screendrawer.onwait  := @onwaitdrawer;
-    screendrawer.start;
+    screendrawer.execute;
   end else
   begin
-    virtualscreens[0].setsize(screendrawer.screens[0].width, screendrawer.screens[0].height);
-    virtualscreens[1].setsize(screendrawer.screens[1].width, screendrawer.screens[1].height);
-    virtualscreens[2].setsize(screendrawer.screens[2].width, screendrawer.screens[2].height);
-    virtualscreens[3].setsize(screendrawer.screens[3].width, screendrawer.screens[3].height);
+    virtualscreens[0].setsize(screendrawer.screenwidth, screendrawer.screenheight);
+    virtualscreens[1].setsize(screendrawer.screenwidth, screendrawer.screenheight);
+    virtualscreens[2].setsize(screendrawer.screenwidth, screendrawer.screenheight);
+    virtualscreens[3].setsize(screendrawer.screenwidth, screendrawer.screenheight);
 
-    virtualscreens[0].canvas.draw(0, 0, screendrawer.screens[0]);
-    virtualscreens[1].canvas.draw(0, 0, screendrawer.screens[1]);
-    virtualscreens[2].canvas.draw(0, 0, screendrawer.screens[2]);
-    virtualscreens[3].canvas.draw(0, 0, screendrawer.screens[3]);
+    if (screendrawer.screenwidth  > 0) and
+       (screendrawer.screenheight > 0) then
+    begin
+      virtualscreens[0].canvas.draw(0, 0, screendrawer.screens[0]);
+      virtualscreens[1].canvas.draw(0, 0, screendrawer.screens[1]);
+      virtualscreens[2].canvas.draw(0, 0, screendrawer.screens[2]);
+      virtualscreens[3].canvas.draw(0, 0, screendrawer.screens[3]);
+    end;
+    screendrawer := nil;
     enablebuttons;
     enablepanel;
 
-    screendrawer := nil;
     virtualscreen.redrawbitmap;
   end;
+  application.processmessages;
 end;
 
 procedure taudiofrm.onwaitdrawer;
 begin
-  screendrawer.screenwidth  := panelprogressbar.width;
-  screendrawer.screenheight := panelprogressbar.height;
   if not isneededupdatescreens then
   begin
-    screendrawer.waiting := false;
+    screendrawer.screenwidth  := panelprogressbar.width;
+    screendrawer.screenheight := panelprogressbar.height;
   end;
   isneededupdatescreens := false;
 end;
@@ -860,7 +866,12 @@ begin
   if (screendrawer  <> nil) then exit;
   if isneededupdatescreens  then exit;
 
-  bitmap.putimage(0, 0, virtualscreens[pageindex], dmset);
+  bitmap.filltransparent;
+  if (virtualscreens[pageindex].width  > 0) and
+     (virtualscreens[pageindex].height > 0) then
+  begin
+    bitmap.putimage(0, 0, virtualscreens[pageindex], dmset);
+  end;
 end;
 
 end.

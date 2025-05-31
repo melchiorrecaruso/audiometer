@@ -202,6 +202,9 @@ type
   function filesupported(const fileext: string): boolean;
   function dB(const value: double): double;
 
+var
+  audioanalyzer: ttrackanalyzer = nil;
+
 
 implementation
 
