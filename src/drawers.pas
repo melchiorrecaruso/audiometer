@@ -5,7 +5,7 @@ unit drawers;
 interface
 
 uses
-  bgrabitmap, bgrabitmaptypes, basegraphics, classes, graphics, soundwav, sysutils;
+  BGRABitmap, BGRABitmapTypes, basegraphics, classes, fpimage, graphics, soundwav, sysutils;
 
 
 type
@@ -14,13 +14,19 @@ type
   tscreendrawer = class(tthread)
   private
     fonstart: tthreadmethod;
-    fontick: tthreadmethod;
     fonstop: tthreadmethod;
+    fontick: tthreadmethod;
     fonwait: tthreadmethod;
     fscreens: tvirtualscreens;
     fscreenheight: integer;
     fscreenwidth: integer;
+    fticktime: tdatetime;
     ftrack: ttrack;
+    procedure dotick;
+    procedure drawblocks(atrack: ttrack; ascreen: tbitmap);
+    procedure drawspectrum(atrack: ttrack; ascreen: tbitmap);
+    procedure drawspectrogram(atrack: ttrack; ascreen: tbitmap);
+    procedure drawwave(atrack: ttrack; ascreen: tbitmap);
     function getscreen(aindex: longint):tbitmap;
   public
     constructor create(atrack: ttrack);
@@ -28,18 +34,14 @@ type
     procedure execute; override;
   public
     property onstart: tthreadmethod read fonstart write fonstart;
-    property ontick: tthreadmethod read fontick write fontick;
     property onstop: tthreadmethod read fonstop write fonstop;
+    property ontick: tthreadmethod read fontick write fontick;
     property onwait: tthreadmethod read fonwait write fonwait;
     property screens[index: longint]: tbitmap read getscreen;
     property screenwidth: integer read fscreenwidth write fscreenwidth;
     property screenheight: integer read fscreenheight write fscreenheight;
   end;
 
-procedure drawblocks(atrack: ttrack; ascreen: tbitmap);
-procedure drawspectrum(atrack: ttrack; ascreen: tbitmap);
-procedure drawspectrogram(atrack: ttrack; ascreen: tbitmap);
-procedure drawwave(atrack: ttrack; ascreen: tbitmap);
 
 var
   screendrawer: tscreendrawer = nil;
@@ -49,11 +51,12 @@ implementation
 uses
   math, dateutils;
 
-function getcolor(factor: double): tbgrapixel;
+function getcolor(factor: double): tcolor;
 var
-  r1, g1, b1, r2, g2, b2: byte;
-  color1: tbgrapixel;
-  color2: tbgrapixel;
+  r1, g1, b1, r2, g2, b2: word;
+  color1: tcolor;
+  color2: tcolor;
+  color3: tfpcolor;
 begin
   if factor < 0 then exit(clblack);
   if factor > 1 then exit(clwhite);
@@ -88,18 +91,18 @@ begin
     factor := (factor - 4/5) / (1/5);
   end;
 
-  r1 := color1.red;
-  g1 := color1.green;
-  b1 := color1.blue;
+  r1 := TColorToFPColor(color1).red;
+  g1 := TColorToFPColor(color1).green;
+  b1 := TColorToFPColor(color1).blue;
 
-  r2 := color2.red;
-  g2 := color2.green;
-  b2 := color2.blue;
+  r2 := TColorToFPColor(color2).red;
+  g2 := TColorToFPColor(color2).green;
+  b2 := TColorToFPColor(color2).blue;
 
-  result.red   := trunc(r1 + (r2 - r1) * factor);
-  result.green := trunc(g1 + (g2 - g1) * factor);
-  result.blue  := trunc(b1 + (b2 - b1) * factor);
-  result.alpha := 255;
+  color3.red   := trunc(r1 + (r2 - r1) * factor);
+  color3.green := trunc(g1 + (g2 - g1) * factor);
+  color3.blue  := trunc(b1 + (b2 - b1) * factor);
+  result := FPColorToTColor(color3);
 end;
 
 // tscreendrawer
@@ -109,9 +112,9 @@ var
   i: longint;
 begin
   fonstart := nil;
-  fontick  := nil;
   fonstop  := nil;
   fonwait  := nil;
+  fontick  := nil;
 
   for i := low(fscreens)to high(fscreens) do
     fscreens[i] := tbitmap.create;
@@ -133,22 +136,18 @@ begin
 end;
 
 procedure tscreendrawer.execute;
-var
-  starttime: tdatetime;
 begin
-  writeln('tscreendrawer.start');
   if assigned(fonstart) then
     synchronize(fonstart);
 
-  starttime := now;
+  fticktime := now;
   if assigned(fonwait) then
     while (fscreenwidth = 0) or (fscreenheight = 0) do
     begin
-      if millisecondsbetween(now, starttime) > 500 then
+      if millisecondsbetween(now, fticktime) > 500 then
       begin
-        starttime := now;
         queue(fonwait);
-        fonwait
+        fticktime := now;
       end;
     end;
 
@@ -159,42 +158,35 @@ begin
     fscreens[2].setsize(fscreenwidth, fscreenheight);
     fscreens[3].setsize(fscreenwidth, fscreenheight);
 
-    drawblocks(ftrack, fscreens[0]);
-    if assigned(fontick) then
-      queue(fontick);
-    drawspectrum(ftrack, fscreens[1]);
-    if assigned(fontick) then
-      queue(fontick);
-    //drawspectrogram(ftrack, fscreens[2]);
-    //if assigned(fontick) then
-    //  queue(fontick);
-    //drawwave(ftrack, fscreens[3]);
-    //if assigned(fontick) then
-    //  queue(fontick);
-  end;
+    if assigned(ftrack) then
+    begin
+      drawblocks     (ftrack, fscreens[0]);
+      drawspectrum   (ftrack, fscreens[1]);
+      drawspectrogram(ftrack, fscreens[2]);
+      drawwave       (ftrack, fscreens[3]);
+    end;
+ end;
 
   if assigned(fonstop) then
     synchronize(fonstop);
-  writeln('tscreendrawer.stop');
 end;
 
-function tscreendrawer.getscreen(aindex: longint):tbitmap;
+procedure tscreendrawer.dotick;
 begin
-  result := fscreens[aindex];
+  if millisecondsbetween(now, fticktime) > 250 then
+  begin
+    queue(fontick);
+    fticktime := now;
+  end;
 end;
 
-// ---
-
-procedure drawblocks(atrack: ttrack; ascreen: tbitmap);
+procedure tscreendrawer.drawblocks(atrack: ttrack; ascreen: tbitmap);
 var
   i, j, blocknum: longint;
   rmsi, peaki, maxdB: double;
-  points: arrayoftpointf;
+  points: arrayoftpointf = nil;
   chart: tchart;
 begin
-  if not assigned(atrack) then exit;
-  if atrack.channelcount = 0 then exit;
-
   // create and configure the chart
   chart := tchart.create;
   chart.legendenabled := false;
@@ -222,84 +214,75 @@ begin
   maxdB    := 6*atrack.bitspersample;
   blocknum := length(atrack.channels[0].rms2);
 
+  // loop through each block
   setlength(points, 4);
-  try
-    // loop through each block
-    for i := 0 to blocknum - 1 do
+  for i := 0 to blocknum - 1 do
+  begin
+    rmsi := 0;
+    // calculate average rms across channels
+    for j := 0 to atrack.channelcount - 1 do
     begin
-      rmsi := 0;
-      // calculate average rms across channels
-      for j := 0 to atrack.channelcount - 1 do
-      begin
-        if i < length(atrack.channels[j].rms2) then
-          rmsi := rmsi + sqrt(max(0, atrack.channels[j].rms2[i]));
-      end;
-      rmsi := rmsi / atrack.channelcount;
-
-      // draw yellow block for rms level
-      points[0].x := (i + 1) - 0.35;
-      points[0].y := 0;
-      points[1].x := (i + 1) - 0.35;
-      points[1].y := maxdB + db(rmsi);
-      points[2].x := (i + 1) + 0.35;
-      points[2].y := maxdB + db(rmsi);
-      points[3].x := (i + 1) + 0.35;
-      points[3].y := 0;
-
-      chart.texturecolor := clyellow;
-      chart.pencolor := clblack;
-      chart.addpolygon(points, '');
-
-      peaki := 0;
-      // calculate average peak across channels
-      for j := 0 to atrack.channelcount - 1 do
-      begin
-        if i < length(atrack.channels[j].peak) then
-          peaki := peaki + atrack.channels[j].peak[i];
-      end;
-      peaki := peaki / atrack.channelcount;
-
-      // draw red block from rms to peak
-      points[0].x := (i + 1) - 0.35;
-      points[0].y := maxdB + db(rmsi);
-      points[1].x := (i + 1) - 0.35;
-      points[1].y := maxdB + db(peaki);
-      points[2].x := (i + 1) + 0.35;
-      points[2].y := maxdB + db(peaki);
-      points[3].x := (i + 1) + 0.35;
-      points[3].y := maxdB + db(rmsi);
-
-      chart.texturecolor := clred;
-      chart.pencolor := clblack;
-      chart.addpolygon(points, '');
+      if i < length(atrack.channels[j].rms2) then
+        rmsi := rmsi + sqrt(max(0, atrack.channels[j].rms2[i]));
     end;
+    rmsi := rmsi / atrack.channelcount;
 
-  except
-    writeln('cazzi-0.2');
+    // draw yellow block for rms level
+    points[0].x := (i + 1) - 0.35;
+    points[0].y := 0;
+    points[1].x := (i + 1) - 0.35;
+    points[1].y := maxdB + db(rmsi);
+    points[2].x := (i + 1) + 0.35;
+    points[2].y := maxdB + db(rmsi);
+    points[3].x := (i + 1) + 0.35;
+    points[3].y := 0;
+
+    chart.texturecolor := clyellow;
+    chart.pencolor := clblack;
+    chart.addpolygon(points, '');
+
+    peaki := 0;
+    // calculate average peak across channels
+    for j := 0 to atrack.channelcount - 1 do
+    begin
+      if i < length(atrack.channels[j].peak) then
+        peaki := peaki + atrack.channels[j].peak[i];
+    end;
+    peaki := peaki / atrack.channelcount;
+
+    // draw red block from rms to peak
+    points[0].x := (i + 1) - 0.35;
+    points[0].y := maxdB + db(rmsi);
+    points[1].x := (i + 1) - 0.35;
+    points[1].y := maxdB + db(peaki);
+    points[2].x := (i + 1) + 0.35;
+    points[2].y := maxdB + db(peaki);
+    points[3].x := (i + 1) + 0.35;
+    points[3].y := maxdB + db(rmsi);
+
+    chart.texturecolor := clred;
+    chart.pencolor := clblack;
+    chart.addpolygon(points, '');
+    dotick;
   end;
   points := nil;
 
-  try
-    chart.draw(ascreen, ascreen.width, ascreen.height, true);
-   except
-    writeln('cazzi-0.3');
-  end;
+  chart.draw(ascreen, ascreen.width, ascreen.height, true);
   chart.free;
 end;
 
-procedure drawspectrum(atrack: ttrack; ascreen: tbitmap);
+procedure tscreendrawer.drawspectrum(atrack: ttrack; ascreen: tbitmap);
 var
   chart: tchart;
   i, j, k: longint;
   windowsize: longint;
   windowcount: longint;
-  points: array of tpointf = nil;
+  points: arrayoftpointf = nil;
   index: longint;
   maxdB: double;
+  x, y: single;
+  factor: single;
 begin
-  if not assigned(atrack) then exit;
-  if atrack.channelcount = 0 then exit;
-
   // create and configure the chart
   chart := tchart.create;
   chart.legendenabled := false;
@@ -324,144 +307,118 @@ begin
   maxdB := 6*atrack.bitspersample;
 
   // initialize frequency bin array (half of fft size)
-  windowsize := spectrumwindowsize div 2;
-  setlength(points, windowsize);
-  for i := 0 to length(points) - 1 do
-  begin
-    points[i].x := (i + 1) * atrack.samplerate / spectrumwindowsize;
-    points[i].y := 0;
-  end;
+  windowsize  := spectrumwindowsize div 2;
+  windowcount := length(atrack.channels[0].spectrum) div windowsize;
+  factor      := 0.5 * atrack.samplerate / (windowsize -1);
 
-  // accumulate spectrum over all channels
-  for i := 0 to atrack.channelcount - 1 do
+  setlength(points, 4);
+  for i := 1 to windowsize -1 do
   begin
-    windowcount := length(atrack.channels[i].spectrum) div windowsize;
+    x := i * factor;
+    y := 0;
 
-    for j := 0 to length(points) - 1 do
+    for j := 0 to windowcount -1 do
     begin
-      // skip dc component (usually index 0 of each window)
-      if (j mod windowsize) <> 0 then
+      index := j * windowsize + i;
+      for k := 0 to ftrack.channelcount -1 do
       begin
-        for k := 0 to windowcount - 1 do
-        begin
-          index := k * windowsize + j;
-          if index < length(atrack.channels[i].spectrum) then
-            points[j].y := max(points[j].y, maxdB + dB(atrack.channels[i].spectrum[index]));
-        end;
+        y := max(y, maxdB + dB(atrack.channels[k].spectrum[index]));
       end;
     end;
+
+    points[0].x := x -0.25 * factor;
+    points[0].y := 0;
+    points[1].x := x -0.25 * factor;
+    points[1].y := y;
+    points[2].x := x +0.25 * factor;
+    points[2].y := y;
+    points[3].x := x +0.25 * factor;
+    points[3].y := 0;
+    chart.addpolygon(points, '');
+    dotick;
   end;
-  chart.addpolygon(points, '');
   points := nil;
 
   chart.draw(ascreen, ascreen.width, ascreen.height, true);
   chart.free;
 end;
 
-procedure drawspectrogram(atrack: ttrack; ascreen: tbitmap);
+procedure tscreendrawer.drawspectrogram(atrack: ttrack; ascreen: tbitmap);
 var
   chart: tchart;
   index: longint;
-  i, j, k: longint;
-  amp, maxamp: double;
-  scale: double;
+  x, y, ch: longint;
+  amp, maxdB: double;
   windowsize: longint;
   windowcount: longint;
-  pixelxratio, pixelyratio: double;
+  xfactor, yfactor: single;
+  bit: tbitmap;
 begin
-  if not assigned(atrack) then exit;
-  if atrack.channelcount = 0 then Exit;
-
   // create chart
   chart := tchart.create;
-  try
-    chart.legendenabled := false;
-    chart.title := '';
-    chart.xaxislabel := 'freq [Hz]';
-    chart.yaxislabel := 'time [s]';
-    chart.xgridlinewidth := 0;
-    chart.ygridlinewidth := 0;
-    chart.scale := 1.0;
-    chart.backgroundcolor := clblack;
-    chart.xaxisfontcolor := clwhite;
-    chart.yaxisfontcolor := clwhite;
-    chart.xaxislinecolor := clwhite;
-    chart.yaxislinecolor := clwhite;
-    //chart.ycount  := 8;     // number of vertical grid lines
-    //chart.ydeltaf := 0.25;  // distance between grid lines
+  chart.legendenabled := false;
+  chart.title := '';
+  chart.xaxislabel := 'freq [Hz]';
+  chart.yaxislabel := 'time [s]';
+  chart.xgridlinewidth := 0;
+  chart.ygridlinewidth := 0;
+  chart.scale := 1.0;
+  chart.backgroundcolor := clblack;
+  chart.xaxisfontcolor := clwhite;
+  chart.yaxisfontcolor := clwhite;
+  chart.xaxislinecolor := clwhite;
+  chart.yaxislinecolor := clwhite;
+  chart.xminf   := 0;
+  chart.yminf   := 0;
+  chart.addpixel(atrack.samplerate div 2, atrack.duration, clblack);
+  chart.draw(ascreen, ascreen.width, ascreen.height, true);
 
-    // find the maximum amplitude in all spectrum data
-    maxamp := 0;
-    for i := 0 to atrack.channelcount - 1 do
-      for j := 0 to length(atrack.channels[i].spectrum) - 1 do
-        maxamp := max(maxamp, atrack.channels[i].spectrum[j]);
+  bit := tbitmap.create;
+  bit.setsize(
+    trunc(chart.getdrawingrect.width *((atrack.samplerate div 2) / (chart.xmaxf - chart.xminf))),
+    trunc(chart.getdrawingrect.height*((atrack.duration        ) / (chart.ymaxf - chart.yminf))));
 
-    // find the maximum raw sample value (for normalization)
-    scale := 0;
-    for i := 0 to atrack.channelcount - 1 do
-      for j := 0 to length(atrack.channels[i].samples) - 1 do
-        scale := max(scale, atrack.channels[i].samples[j]);
+  maxdB := 6*atrack.bitspersample;
 
-    // prevent division by zero
-    if (maxamp = 0) or (scale = 0) or (atrack.bitspersample = 0) then Exit;
+  // set fft analysis window size (half of total window size)
+  windowsize  := spectrumwindowsize div 2;
+  windowcount := length(atrack.channels[0].spectrum) div windowsize;
+  xfactor := (windowsize  -1) / (bit.width  -1);
+  yfactor := (windowcount -1) / (bit.height -1);
 
-    // set fft analysis window size (half of total window size)
-    windowsize := spectrumwindowsize div 2;
-
-    // precompute ratios for coordinate scaling
-    pixelxratio := windowsize / ascreen.width;
-    pixelyratio := (length(atrack.channels[0].spectrum) / windowsize) / ascreen.height;
-
-  except
-    writeln('cazzi-2.0');
-  end;
-
-    // loop over output bitmap pixels
-    for i := 0 to ascreen.width - 1 do
-      for j := 0 to ascreen.height - 1 do
+  // loop over output bitmap pixels
+  for x := 0 to bit.width -1 do
+    for y := 0 to bit.height -1 do
+    begin
+      amp := 0;
+      // compute fft bin index for this pixel
+      for ch := 0 to atrack.channelcount - 1 do
       begin
-
-        try
-          amp := 0;
-          // compute fft bin index for this pixel
-          for k := 0 to atrack.channelcount - 1 do
-          begin
-            windowcount := length(atrack.channels[k].spectrum) div windowsize;
-
-            index := trunc(j * pixelyratio) * windowsize + trunc(i * pixelxratio);
-
-            // skip dc component (first index of each window)
-            if (index mod windowsize <> 0) then
-            begin
-              // convert amplitude to db scale and normalize
-              amp := max(amp, 1 + db((scale * atrack.channels[k].spectrum[index]) / maxamp) / (6 * atrack.bitspersample));
-            end;
-          end;
-
-        except
-          writeln('cazzi-2.1');
+        index := trunc(y * yfactor) * windowsize + trunc(x * xfactor);
+        // convert amplitude to dB scale and normalize
+        if (index mod windowsize) <> 0 then
+        begin
+          amp := max(amp, 1 + dB(atrack.channels[ch].spectrum[index]) / maxdB);
         end;
-
-        try
-          // map amplitude to color and set pixel
-          chart.AddPixel(i, j, getcolor(amp));
-        except
-          writeln('cazzi-2.2');
-        end;
-
       end;
+      // map amplitude to color and set pixel
+      if amp <> 0 then
+      begin
+        bit.canvas.pixels[x, bit.height - y] := getcolor(amp);
+      end;
+      dotick;
+    end;
+  ascreen.canvas.draw(
+    chart.getdrawingrect.left,
+    chart.getdrawingrect.top + (chart.GetDrawingRect.Height - bit.Height), bit);
 
-  try
-    chart.draw(ascreen, ascreen.width, ascreen.height, true);
-  except
-    writeln('cazzi-2.3');
-  end;
+  bit.free;
   chart.free;
 end;
 
-procedure drawwave(atrack: ttrack; ascreen: tbitmap);
+procedure tscreendrawer.drawwave(atrack: ttrack; ascreen: tbitmap);
 var
-  i, j, k, sampleindex: longint;
+  ch, i, x, sampleindex: longint;
   windowxsize, windowysize: longint;
   windowxcount, windowycount: longint;
   zmax, zmin: double;
@@ -469,118 +426,88 @@ var
   bit: array of tbitmap = nil;
   chart: tchart;
 begin
-  if not assigned(atrack) then exit;
-  if atrack.channelcount = 0 then Exit;
+  // create a bitmap for each audio channel
+  setlength(bit, atrack.channelcount);
+  for ch := low(bit) to high(bit) do
+    bit[ch] := tbitmap.create;
 
-  // create chart for waveform drawing
-  try
-    // create a bitmap for each audio channel
-    setlength(bit, atrack.channelcount);
-    for i := low(bit) to high(bit) do
-      bit[i] := tbitmap.create;
+  windowxcount := ascreen.width;       // horizontal resolution (pixels)
+  windowycount := atrack.channelcount; // one row per channel
 
-    windowxcount := ascreen.width;       // horizontal resolution (pixels)
-    windowycount := atrack.channelcount; // one row per channel
-  except
-    writeln('cazzi-3.0');
-  end;
+  // loop through each channel
+  for ch := low(bit) to high(bit) do
+  begin
+    chart := tchart.create;
+    chart.legendenabled := false;
+    chart.title := '';
+    chart.xaxislabel := 'time [s]';
+    chart.yaxislabel := '1';
+    chart.scale := 1.0;
+    chart.backgroundcolor := clblack;
+    chart.xaxisfontcolor := clwhite;
+    chart.yaxisfontcolor := clwhite;
+    chart.xaxislinecolor := clwhite;
+    chart.yaxislinecolor := clwhite;
+    chart.xgridlinewidth := 0;
+    chart.ygridlinewidth := 0;
+    chart.ycount  := 8;
+    chart.ydeltaf := 0.25;
+    chart.penwidth := 1;
+    chart.pencolor := clred;
+    chart.texturecolor := clred;
 
-  try
-    // loop through each channel
-    for i := 0 to windowycount - 1 do
+    // calculate number of samples per horizontal pixel
+    windowxsize := length(atrack.channels[ch].samples) div windowxcount;
+    // calculate vertical size per channel section
+    windowysize := ascreen.height div windowycount;
+
+    // prepare per-channel bitmap
+    bit[ch].setsize(ascreen.width, windowysize);
+    // loop through horizontal pixels (time segments)
+    for x := 0 to windowxcount - 1 do
     begin
+      zmin :=  infinity;
+      zmax := -infinity;
 
-      chart := tchart.create;
-      try
-        chart.legendenabled := false;
-        chart.title := '';
-        chart.xaxislabel := 'time [s]';
-        chart.yaxislabel := '1';
-        chart.scale := 1.0;
-        chart.backgroundcolor := clblack;
-        chart.xaxisfontcolor := clwhite;
-        chart.yaxisfontcolor := clwhite;
-        chart.xaxislinecolor := clwhite;
-        chart.yaxislinecolor := clwhite;
-        chart.xgridlinewidth := 0;
-        chart.ygridlinewidth := 0;
-        chart.ycount  := 8;
-        chart.ydeltaf := 0.25;
-
-        // calculate number of samples per horizontal pixel
-        windowxsize := length(atrack.channels[i].samples) div windowxcount;
-        // calculate vertical size per channel section
-        windowysize := ascreen.height div windowycount;
-      except
-        writeln('cazzi-3.1');
+      // find min and max sample values in this time segment
+      for i := 0 to windowxsize -1 do
+      begin
+        sampleindex := x * windowxsize + i;
+        zmin := min(zmin, atrack.channels[ch].samples[sampleindex]);
+        zmax := max(zmax, atrack.channels[ch].samples[sampleindex]);
       end;
 
-      try
-        // prepare per-channel bitmap
-        bit[i].setsize(ascreen.width, windowysize);
-        //bit[i].filltransparent;
-        // loop through horizontal pixels (time segments)
-        for j := 0 to windowxcount - 1 do
-        begin
-          zmin :=  infinity;
-          zmax := -infinity;
+      // create a vertical line for waveform range at this segment
+      p1.x := x / (windowxcount -1) * atrack.duration;
+      p1.y := zmin;
+      p2.x := x / (windowxcount -1) * atrack.duration;
+      p2.y := zmax;
 
-          // find min and max sample values in this time segment
-          for k := 0 to windowxsize -1 do
-          begin
-            sampleindex := j * windowxsize + k;
-            zmin := min(zmin, atrack.channels[i].samples[sampleindex]);
-            zmax := max(zmax, atrack.channels[i].samples[sampleindex]);
-          end;
-
-          // create a vertical line for waveform range at this segment
-          p1.x := (j + 1) / windowxcount * atrack.duration;
-          p1.y := zmin;
-          p2.x := (j + 1) / windowxcount * atrack.duration;
-          p2.y := zmax;
-
-          chart.addpolyline([p1, p2], false, '');
-        end;
-      except
-        writeln('cazzi-3.2');
-      end;
-
-      try
-        // set visible bounds for chart
-        chart.ymaxf := +1.0;
-        chart.yminf := -1.0;
-        chart.xminf := 0;
-        chart.xmaxf := max(1, atrack.duration);
-      except
-        writeln('cazzi-3.3');
-      end;
-
-      try
-        // draw chart on bitmap
-        chart.draw(bit[i], bit[i].width, bit[i].height);
-      except
-        writeln('cazzi-3.4');
-      end;
-
-      chart.free;
+      chart.addpolyline([p1, p2], false, '');
+      dotick;
     end;
-
-  except
-    writeln('cazzi-3.5');
+    // set visible bounds for chart
+    chart.ymaxf := +1.0;
+    chart.yminf := -1.0;
+    chart.xminf := 0;
+    chart.xmaxf := max(1, atrack.duration);
+    // draw chart on bitmap
+    chart.draw(bit[ch], bit[ch].width, bit[ch].height);
+    chart.free;
   end;
 
-  try
-    // composite each channel's bitmap into the final output
-    for i := low(bit) to high(bit) do
-    begin
-      bit[i].canvas.draw(0, trunc(i * (ascreen.height / atrack.channelcount)), ascreen);
-      bit[i].free;
-    end;
-    bit := nil;
-
-  except
-    writeln('cazzi-3.6');
+  // composite each channel's bitmap into the final output
+  for ch := low(bit) to high(bit) do
+  begin
+    ascreen.canvas.draw(0, trunc(ch * (ascreen.height / atrack.channelcount)), bit[ch]);
+    bit[ch].free;
   end;
+  bit := nil;
+end;
+
+function tscreendrawer.getscreen(aindex: longint):tbitmap;
+begin
+  result := fscreens[aindex];
 end;
 
 end.

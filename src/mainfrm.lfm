@@ -1,7 +1,7 @@
 object audiofrm: Taudiofrm
-  Left = 1239
+  Left = 645
   Height = 600
-  Top = 255
+  Top = 264
   Width = 800
   Caption = 'AudioMeter 0.4.8 - Dynamic Range Meter'
   ClientHeight = 600
@@ -26,7 +26,7 @@ object audiofrm: Taudiofrm
     Left = 26
     Height = 19
     Top = 10
-    Width = 42
+    Width = 40
     BorderSpacing.Left = 26
     BorderSpacing.Top = 10
     Caption = 'Audio'
@@ -129,12 +129,12 @@ object audiofrm: Taudiofrm
     Left = 26
     Height = 126
     Top = 34
-    Width = 144
+    Width = 141
     AutoSize = True
     BorderSpacing.Top = 5
     BevelOuter = bvNone
     ClientHeight = 126
-    ClientWidth = 144
+    ClientWidth = 141
     Color = clBlack
     ParentBackground = False
     ParentColor = False
@@ -146,12 +146,12 @@ object audiofrm: Taudiofrm
       Left = 0
       Height = 19
       Top = 6
-      Width = 144
+      Width = 141
       AutoSize = True
       BorderSpacing.Top = 5
       BevelOuter = bvNone
       ClientHeight = 19
-      ClientWidth = 144
+      ClientWidth = 141
       ParentBackground = False
       TabOrder = 0
       object bit8: TLabel
@@ -159,7 +159,7 @@ object audiofrm: Taudiofrm
         Left = 4
         Height = 19
         Top = 0
-        Width = 35
+        Width = 34
         BorderSpacing.Left = 4
         Caption = '8-bit'
         Color = clBlack
@@ -175,7 +175,7 @@ object audiofrm: Taudiofrm
         AnchorSideTop.Control = bit8
         AnchorSideBottom.Control = bit8
         AnchorSideBottom.Side = asrBottom
-        Left = 47
+        Left = 46
         Height = 19
         Top = 0
         Width = 41
@@ -193,10 +193,10 @@ object audiofrm: Taudiofrm
         AnchorSideRight.Side = asrBottom
         AnchorSideBottom.Control = bit16
         AnchorSideBottom.Side = asrBottom
-        Left = 96
+        Left = 95
         Height = 19
         Top = 0
-        Width = 44
+        Width = 42
         Anchors = [akTop, akLeft, akBottom]
         BorderSpacing.Left = 8
         BorderSpacing.Right = 4
@@ -217,7 +217,7 @@ object audiofrm: Taudiofrm
       Left = 0
       Height = 1
       Top = 0
-      Width = 144
+      Width = 141
       Anchors = [akTop, akLeft, akRight]
     end
     object bevel2: TBevel
@@ -229,7 +229,7 @@ object audiofrm: Taudiofrm
       Left = 0
       Height = 1
       Top = 30
-      Width = 144
+      Width = 141
       Anchors = [akTop, akLeft, akRight]
       BorderSpacing.Top = 5
     end
@@ -240,7 +240,7 @@ object audiofrm: Taudiofrm
       Left = 73
       Height = 61
       Top = 35
-      Width = 67
+      Width = 64
       Anchors = [akTop, akRight]
       AutoSize = True
       BorderSpacing.Left = 4
@@ -248,17 +248,17 @@ object audiofrm: Taudiofrm
       BorderSpacing.Right = 4
       BevelOuter = bvNone
       ClientHeight = 61
-      ClientWidth = 67
+      ClientWidth = 64
       ParentBackground = False
       TabOrder = 1
       object khz96: TLabel
         AnchorSideTop.Control = RightHzPanel
         AnchorSideRight.Control = RightHzPanel
         AnchorSideRight.Side = asrBottom
-        Left = 18
+        Left = 19
         Height = 19
         Top = 0
-        Width = 49
+        Width = 45
         Anchors = [akTop, akRight]
         Caption = '96 khz'
         Color = clBlack
@@ -276,7 +276,7 @@ object audiofrm: Taudiofrm
         Left = 0
         Height = 19
         Top = 21
-        Width = 67
+        Width = 64
         Anchors = [akTop, akRight]
         BorderSpacing.Top = 2
         Caption = '176.4 khz'
@@ -295,7 +295,7 @@ object audiofrm: Taudiofrm
         Left = 16
         Height = 19
         Top = 42
-        Width = 51
+        Width = 48
         Anchors = [akTop, akRight]
         BorderSpacing.Top = 2
         Caption = '192khz'
@@ -313,23 +313,23 @@ object audiofrm: Taudiofrm
       Left = 4
       Height = 61
       Top = 35
-      Width = 62
+      Width = 57
       AutoSize = True
       BorderSpacing.Left = 4
       BorderSpacing.Top = 5
       BevelOuter = bvNone
       ClientHeight = 61
-      ClientWidth = 62
+      ClientWidth = 57
       ParentBackground = False
       TabOrder = 2
       object khz44: TLabel
         AnchorSideTop.Control = LeftHzPanel
         AnchorSideRight.Control = LeftHzPanel
         AnchorSideRight.Side = asrBottom
-        Left = 4
+        Left = 1
         Height = 19
         Top = 0
-        Width = 58
+        Width = 56
         Anchors = [akTop, akRight]
         Caption = '44.1 khz'
         Color = clBlack
@@ -345,10 +345,10 @@ object audiofrm: Taudiofrm
         AnchorSideRight.Control = khz44
         AnchorSideRight.Side = asrBottom
         AnchorSideBottom.Side = asrBottom
-        Left = 13
+        Left = 12
         Height = 19
         Top = 21
-        Width = 49
+        Width = 45
         Anchors = [akTop, akRight]
         BorderSpacing.Top = 2
         Caption = '48 khz'
@@ -369,7 +369,7 @@ object audiofrm: Taudiofrm
         Left = 0
         Height = 19
         Top = 42
-        Width = 62
+        Width = 57
         Anchors = [akTop, akRight]
         BorderSpacing.Top = 2
         Caption = '88.2 khz'
@@ -390,7 +390,7 @@ object audiofrm: Taudiofrm
       Left = 0
       Height = 1
       Top = 101
-      Width = 144
+      Width = 141
       Anchors = [akTop, akLeft, akRight]
       BorderSpacing.Top = 5
     end
@@ -399,7 +399,7 @@ object audiofrm: Taudiofrm
       AnchorSideTop.Side = asrBottom
       AnchorSideRight.Control = LeftHzPanel
       AnchorSideRight.Side = asrBottom
-      Left = 26
+      Left = 21
       Height = 19
       Top = 107
       Width = 40
@@ -415,10 +415,10 @@ object audiofrm: Taudiofrm
       AnchorSideTop.Side = asrBottom
       AnchorSideRight.Control = RightHzPanel
       AnchorSideRight.Side = asrBottom
-      Left = 94
+      Left = 93
       Height = 19
       Top = 107
-      Width = 46
+      Width = 44
       Anchors = [akTop, akRight]
       BorderSpacing.Top = 5
       Caption = 'stereo'
@@ -434,16 +434,16 @@ object audiofrm: Taudiofrm
     AnchorSideTop.Side = asrBottom
     AnchorSideBottom.Control = detailspanel
     AnchorSideBottom.Side = asrBottom
-    Left = 180
+    Left = 177
     Height = 131
     Top = 29
-    Width = 247
+    Width = 248
     Anchors = [akTop, akLeft, akBottom]
     AutoSize = True
     BorderSpacing.Left = 10
     BevelOuter = bvNone
     ClientHeight = 131
-    ClientWidth = 247
+    ClientWidth = 248
     ParentBackground = False
     TabOrder = 1
     object drlb: TStaticText
@@ -453,7 +453,7 @@ object audiofrm: Taudiofrm
       Left = 0
       Height = 134
       Top = 0
-      Width = 135
+      Width = 136
       AutoSize = True
       BorderSpacing.CellAlignVertical = ccaLeftTop
       Caption = 'DR'
@@ -472,7 +472,7 @@ object audiofrm: Taudiofrm
       AnchorSideTop.Control = drpanel
       AnchorSideBottom.Control = drlb
       AnchorSideBottom.Side = asrBottom
-      Left = 140
+      Left = 141
       Height = 134
       Top = 0
       Width = 64
@@ -494,7 +494,7 @@ object audiofrm: Taudiofrm
       AnchorSideTop.Control = drlb
       AnchorSideBottom.Control = drlb
       AnchorSideBottom.Side = asrBottom
-      Left = 147
+      Left = 148
       Height = 114
       Top = 10
       Width = 100
@@ -981,12 +981,9 @@ object audiofrm: Taudiofrm
     LineColor = clSilver
     LineBkgColor = clBlack
     LineWidth = 6
-    FontShadowOffsetX = 0
-    FontShadowOffsetY = 0
-    FontShadowRadius = 1
     Font.Color = clBlack
     Font.Height = 20
-    Size = 100
+    Size = 115
   end
   object filedialog: TOpenDialog
     Left = 544
