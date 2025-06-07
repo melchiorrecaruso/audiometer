@@ -255,6 +255,7 @@ begin
     end;
   end;
   disablebuttons;
+  application.processmessages;
 end;
 
 procedure taudiofrm.ontickanalyzer;
@@ -266,59 +267,58 @@ procedure taudiofrm.onstopanalyzer;
 begin
   freeandnil(buffer);
   freeandnil(stream);
-  try
-    if audioanalyzer.status <> 0 then
-    begin
-      trackindex := tracklist.count;
-      audio.font.color := clred;
-      case audioanalyzer.status of
-        -1: audio.caption := 'file format error!';
-        -2: audio.caption := 'file is empty!';
-        -3: audio.caption := 'file is too short!';
-      else  audio.caption := 'unknown error!';
-      end;
-      enablebuttons;
-    end else
-    begin
-      bit8  .font.color := clgray; if track.bitspersample = 8      then bit8  .font.color := clwhite;
-      bit16 .font.color := clgray; if track.bitspersample = 16     then bit16 .font.color := clwhite;
-      bit24 .font.color := clgray; if track.bitspersample = 24     then bit24 .font.color := clwhite;
 
-      khz44 .font.color := clgray; if track.samplerate    = 44100  then khz44 .font.color := clwhite;
-      khz48 .font.color := clgray; if track.samplerate    = 48000  then khz48 .font.color := clwhite;
-      khz88 .font.color := clgray; if track.samplerate    = 88000  then khz88 .font.color := clwhite;
-      khz96 .font.color := clgray; if track.samplerate    = 96000  then khz96 .font.color := clwhite;
-      khz176.font.color := clgray; if track.samplerate    = 176400 then khz176.font.color := clwhite;
-      khz192.font.color := clgray; if track.samplerate    = 192000 then khz192.font.color := clwhite;
-
-      mono  .font.color := clgray; if track.channelcount  = 1      then mono  .font.color := clwhite;
-      stereo.font.color := clgray; if track.channelcount  = 2      then stereo.font.color := clwhite;
-
-      drvalue.caption    := '--';
-      drvalue.font.color := clwhite;
-      if track.dr > 0 then
-      begin
-        drvalue.caption := format('%2.0f', [track.dr]);
-        if drvalue.caption = ' 0' then drvalue.font.color := rgbtocolor(255,   0, 0) else
-        if drvalue.caption = ' 1' then drvalue.font.color := rgbtocolor(255,   0, 0) else
-        if drvalue.caption = ' 2' then drvalue.font.color := rgbtocolor(255,   0, 0) else
-        if drvalue.caption = ' 3' then drvalue.font.color := rgbtocolor(255,   0, 0) else
-        if drvalue.caption = ' 4' then drvalue.font.color := rgbtocolor(255,   0, 0) else
-        if drvalue.caption = ' 5' then drvalue.font.color := rgbtocolor(255,   0, 0) else
-        if drvalue.caption = ' 6' then drvalue.font.color := rgbtocolor(255,   0, 0) else
-        if drvalue.caption = ' 7' then drvalue.font.color := rgbtocolor(255,   0, 0) else
-        if drvalue.caption = ' 8' then drvalue.font.color := rgbtocolor(255,  72, 0) else
-        if drvalue.caption = ' 9' then drvalue.font.color := rgbtocolor(255, 145, 0) else
-        if drvalue.caption = '10' then drvalue.font.color := rgbtocolor(255, 217, 0) else
-        if drvalue.caption = '11' then drvalue.font.color := rgbtocolor(217, 255, 0) else
-        if drvalue.caption = '12' then drvalue.font.color := rgbtocolor(144, 255, 0) else
-        if drvalue.caption = '13' then drvalue.font.color := rgbtocolor( 72, 255, 0) else
-                                       drvalue.font.color := rgbtocolor(  0, 255, 0);
-      end;
+  if audioanalyzer.status <> 0 then
+  begin
+    trackindex := tracklist.count;
+    audio.font.color := clred;
+    case audioanalyzer.status of
+      -1: audio.caption := 'file format error!';
+      -2: audio.caption := 'file is empty!';
+      -3: audio.caption := 'file is too short!';
+    else  audio.caption := 'unknown error!';
     end;
-  except
-    writeln('ramengo');
+    enablebuttons;
+  end else
+  begin
+    bit8  .font.color := clgray; if track.bitspersample = 8      then bit8  .font.color := clwhite;
+    bit16 .font.color := clgray; if track.bitspersample = 16     then bit16 .font.color := clwhite;
+    bit24 .font.color := clgray; if track.bitspersample = 24     then bit24 .font.color := clwhite;
+
+    khz44 .font.color := clgray; if track.samplerate    = 44100  then khz44 .font.color := clwhite;
+    khz48 .font.color := clgray; if track.samplerate    = 48000  then khz48 .font.color := clwhite;
+    khz88 .font.color := clgray; if track.samplerate    = 88000  then khz88 .font.color := clwhite;
+    khz96 .font.color := clgray; if track.samplerate    = 96000  then khz96 .font.color := clwhite;
+    khz176.font.color := clgray; if track.samplerate    = 176400 then khz176.font.color := clwhite;
+    khz192.font.color := clgray; if track.samplerate    = 192000 then khz192.font.color := clwhite;
+
+    mono  .font.color := clgray; if track.channelcount  = 1      then mono  .font.color := clwhite;
+    stereo.font.color := clgray; if track.channelcount  = 2      then stereo.font.color := clwhite;
+
+    drvalue.caption    := '--';
+    drvalue.font.color := clwhite;
+    if track.dr > 0 then
+    begin
+      drvalue.caption := format('%2.0f', [track.dr]);
+      if drvalue.caption = ' 0' then drvalue.font.color := rgbtocolor(255,   0, 0) else
+      if drvalue.caption = ' 1' then drvalue.font.color := rgbtocolor(255,   0, 0) else
+      if drvalue.caption = ' 2' then drvalue.font.color := rgbtocolor(255,   0, 0) else
+      if drvalue.caption = ' 3' then drvalue.font.color := rgbtocolor(255,   0, 0) else
+      if drvalue.caption = ' 4' then drvalue.font.color := rgbtocolor(255,   0, 0) else
+      if drvalue.caption = ' 5' then drvalue.font.color := rgbtocolor(255,   0, 0) else
+      if drvalue.caption = ' 6' then drvalue.font.color := rgbtocolor(255,   0, 0) else
+      if drvalue.caption = ' 7' then drvalue.font.color := rgbtocolor(255,   0, 0) else
+      if drvalue.caption = ' 8' then drvalue.font.color := rgbtocolor(255,  72, 0) else
+      if drvalue.caption = ' 9' then drvalue.font.color := rgbtocolor(255, 145, 0) else
+      if drvalue.caption = '10' then drvalue.font.color := rgbtocolor(255, 217, 0) else
+      if drvalue.caption = '11' then drvalue.font.color := rgbtocolor(217, 255, 0) else
+      if drvalue.caption = '12' then drvalue.font.color := rgbtocolor(144, 255, 0) else
+      if drvalue.caption = '13' then drvalue.font.color := rgbtocolor( 72, 255, 0) else
+                                     drvalue.font.color := rgbtocolor(  0, 255, 0);
+    end;
   end;
+  enablebuttons;
+  application.processmessages;
 
   inc(trackindex);
   if trackindex = tracklist.count then
@@ -345,15 +345,13 @@ end;
 
 procedure taudiofrm.onstartdrawer;
 begin
-  enablebuttons;
   disablepanel;
   application.processmessages;
 end;
 
 procedure taudiofrm.ontickdrawer;
 begin
-  panelprogressbar.value := panelprogressbar.value + 20;
-  application.processmessages;
+  panelprogressbar.value := screendrawer.percentage;
 end;
 
 procedure taudiofrm.onstopdrawer;
@@ -411,8 +409,8 @@ var
   mem: tmemorystream;
   process: tprocess;
 begin
-  if isneededkillanalyzer then exit;
-  if not (trackindex < tracklist.count) then exit;
+  if (trackindex >= tracklist.count) then exit;
+  if isneededkillanalyzer then trackindex := tracklist.count -1;
 
   track := tracklist.tracks[trackindex];
   try
@@ -444,7 +442,6 @@ begin
             mem.write(buf, process.output.read(buf, sizeof(buf)));
           while process.stderr.numbytesavailable > 0 do
             process.stderr.read(buf, sizeof(buf));
-        //application.processmessages;
         end;
         mem.seek(0, sofrombeginning);
 
@@ -507,7 +504,7 @@ begin
   if assigned(stream) then
   begin
     buffer := treadbufstream.create(stream);
-    audioanalyzer := ttrackanalyzer.create(track, buffer);
+    audioanalyzer := ttrackanalyzer.create(track, buffer, trackindex = tracklist.count -1);
     audioanalyzer.onstart := @onstartanalyzer;
     audioanalyzer.ontick  := @ontickanalyzer;
     audioanalyzer.onstop  := @onstopanalyzer;
