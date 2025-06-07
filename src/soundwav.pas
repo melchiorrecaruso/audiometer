@@ -417,9 +417,9 @@ begin
   result := 0;
   for i := 0 to fblocknum -1 do
   begin
-    result := result + ftrack.fchannels[channel].rms2[i];
+    result := result + sqrt(ftrack.fchannels[channel].rms2[i]);
   end;
-  result := sqrt(result / fsamplecount);
+  result := result / fblocknum;
 end;
 
 function ttrackanalyzer.getpeak(channel: word): double;
@@ -793,7 +793,7 @@ var
   track: ttrack;
 begin
   s := tstringlist.create;
-  s.add('AudioMeter 0.4.6 - Dynamic Range Meter');
+  s.add('AudioMeter 0.4.8 - Dynamic Range Meter');
   s.add(splitter);
   s.add(format('Log date : %s', [datetimetostr(now)]));
   s.add(splitter);
@@ -810,8 +810,8 @@ begin
       track := gettrack(i);
       s.add(format('DR%2.0f %7.2f dB %7.2f dB %4.0d %4.0d %7.0d %-s     %s', [
         track.dr,
-        db(track.peak)-db(1 shl (track.fbitspersample -1)),
-        db(track.rms )-db(1 shl (track.fbitspersample -1)),
+        db(track.peak),
+        db(track.rms),
         track.bitspersample,
         track.channelcount,
         track.samplerate,
