@@ -417,9 +417,9 @@ begin
   result := 0;
   for i := 0 to fblocknum -1 do
   begin
-    result := result + sqrt(ftrack.fchannels[channel].rms2[i]);
+    result := result + ftrack.fchannels[channel].rms2[i];
   end;
-  result := result / fblocknum;
+  result := sqrt(result / fblocknum);
 end;
 
 function ttrackanalyzer.getpeak(channel: word): double;
@@ -429,8 +429,7 @@ begin
   result := 0;
   for i := 0 to fblocknum -1 do
   begin
-    if result < ftrack.fchannels[channel].peak[i] then
-      result := ftrack.fchannels[channel].peak[i];
+    result := max(result, ftrack.fchannels[channel].peak[i]);
   end;
 end;
 
@@ -708,21 +707,22 @@ var
 begin
   norm := 1 shl (ftrack.fbitspersample -1);
 
-  minvalue := maxfloat;
-  maxvalue := minfloat;
   for i := low(ftrack.fchannels) to high(ftrack.fchannels) do
+  begin
+    minvalue :=  maxfloat;
+    maxvalue := -maxfloat;
     for j := low(ftrack.fchannels[i].samples) to high(ftrack.fchannels[i].samples) do
     begin
       minvalue := min(minvalue, ftrack.fchannels[i].samples[j]);
       maxvalue := max(maxvalue, ftrack.fchannels[i].samples[j]);
     end;
 
-  meanvalue := (maxvalue + minvalue) / 2;
-  for i := low(ftrack.fchannels) to high(ftrack.fchannels) do
+    meanvalue := (maxvalue + minvalue) / 2;
     for j := low(ftrack.fchannels[i].samples) to high(ftrack.fchannels[i].samples) do
     begin
       ftrack.fchannels[i].samples[j] := (ftrack.fchannels[i].samples[j] - meanvalue) / norm;
     end;
+  end;
 end;
 
 function ttrackanalyzer.getpercentage: longint;
