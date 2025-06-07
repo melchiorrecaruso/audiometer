@@ -152,9 +152,7 @@ type
     fonstart: tthreadmethod;
     fonstop: tthreadmethod;
     fontick: tthreadmethod;
-    frmson: boolean;
-    fpeakon: boolean;
-    fspectrumon: boolean;
+    fffton: boolean;
     function getpercentage: longint;
     procedure readheader(astream: tstream);
     function readsamples(astream: tstream; achannels: ttrackchannels; achannelsize: longint): longint;
@@ -167,7 +165,7 @@ type
     function getdr(channel: word): double;
     procedure normalizesamples;
   public
-    constructor create(atrack: ttrack; astream: tstream);
+    constructor create(atrack: ttrack; astream: tstream; aFFTOn: boolean);
     destructor destroy; override;
     procedure execute; override;
   public
@@ -207,6 +205,9 @@ var
 
 
 implementation
+
+uses
+  dateutils;
 
 const
   idriff = 'RIFF';
@@ -298,8 +299,9 @@ end;
 
 // ttrackanalyzer
 
-constructor ttrackanalyzer.create(atrack: ttrack; astream: tstream);
+constructor ttrackanalyzer.create(atrack: ttrack; astream: tstream; aFFTOn: boolean);
 begin
+  fffton := affton;
   ftrack := atrack;
   fstream := astream;
   freeonterminate := true;
@@ -480,6 +482,7 @@ procedure ttrackanalyzer.readfromstream(astream:tstream);
 var
   i, j, k: longint;
   step, steps: longint;
+  ticktime: tdatetime;
 begin
   {$ifopt D+}
   writeln('track.name         ', ftrack.filename);
@@ -528,46 +531,48 @@ begin
     setlength(ftrack.fchannels[i].spectrum, fsamplecount div 2);
   // calculate steps
   step  := 1;
-  steps := ftrack.fchannelcount*(fblocknum + fsamplecount div spectrumwindowsize);
+  if fffton then
+    steps := ftrack.fchannelcount*(fblocknum + fsamplecount div spectrumwindowsize)
+  else
+    steps := ftrack.fchannelcount*(fblocknum);
   // read samples
   readsamples(astream, ftrack.fchannels, fsamplecount);
   // calculate block rms and peak and db
   for j := 0 to ftrack.fchannelcount -1 do
     for i := 0 to fblocknum -1  do
     begin
-      if (step mod 512) = 0 then
-      begin
-        fpercentage := 100*step/steps;
-        if assigned(fontick) then
-          queue(fontick);
-      end;
       inc(step);
+      fpercentage := 100*step/steps;
+      if assigned(fontick) then
+        synchronize(fontick);
 
       ftrack.fchannels[j].rms2[i] := getrms2(ftrack.fchannels[j].samples, i * fblocksize, fblocksize);
       ftrack.fchannels[j].peak[i] := getpeak(ftrack.fchannels[j].samples, i * fblocksize, fblocksize);
     end;
 
-  // calculate spectrum
-  // if fspectrumon then
-  for i := 0 to ftrack.fchannelcount -1 do
-    for j := 0 to (fsamplecount div spectrumwindowsize) -1 do
+  // calculate spectrum (FFT)
+  if fffton then
+  begin
+    ticktime := now;
+    for i := 0 to ftrack.fchannelcount -1 do
     begin
-      if (step mod 512) = 0 then
+      for j := 0 to (fsamplecount div spectrumwindowsize) -1 do
       begin
-        fpercentage := 100*step/steps;
-        if assigned(fontick) then
-          queue(fontick);
+        inc(step);
+        if millisecondsbetween(now, ticktime) > 20 then
+        begin
+          fpercentage := 100*step/steps;
+          if assigned(fontick) then
+            synchronize(fontick);
+          ticktime := now;
+        end;
+
+        k := j * spectrumwindowsize;
+
+        getspectrum(@ftrack.fchannels[i].samples[k], spectrumwindowsize, @ftrack.fchannels[i].spectrum[k div 2]);
       end;
-      inc(step);
-
-      k := j * spectrumwindowsize;
-
-      getspectrum(@ftrack.fchannels[i].samples[k], spectrumwindowsize, @ftrack.fchannels[i].spectrum[k div 2]);
     end;
-  // de-allocate samples buffer
-  //for i := 0 to length(ftrack.fchannels) -1 do
-  //  setlength(samples[i], 0);
-  //setlength(samples, 0);
+  end;
 end;
 
 procedure ttrackanalyzer.readheader(astream: tstream);
