@@ -1,3 +1,24 @@
+{
+  Description: Charts drawer routines.
+
+  Copyright (C) 2025 Melchiorre Caruso <melchiorrecaruso@gmail.com>
+
+  This source is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free
+  Software Foundation; either version 2 of the License, or (at your option)
+  any later version.
+
+  This code is distributed in the hope that it will be useful, but WITHOUT ANY
+  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+  FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+  details.
+
+  A copy of the GNU General Public License is available on the World Wide Web
+  at <http://www.gnu.org/copyleft/gpl.html>. You can also obtain it by writing
+  to the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
+  MA 02111-1307, USA.
+}
+
 unit drawers;
 
 {$mode objfpc}
@@ -5,8 +26,7 @@ unit drawers;
 interface
 
 uses
-  BGRABitmap, BGRABitmapTypes, basegraphics, classes, fpimage, graphics, soundwav, sysutils;
-
+  basegraphics, classes, fpimage, graphics, soundwav, sysutils, types;
 
 type
   tvirtualscreens = array[0..3] of tbitmap;
@@ -213,7 +233,7 @@ procedure tscreendrawer.drawblocks(ascreen: tbitmap);
 var
   i, j: longint;
   rmsi, peaki: double;
-  points: arrayoftpointf = nil;
+  points: array of tpointf = nil;
   chart: tchart;
 begin
   // create and configure the chart
@@ -293,7 +313,7 @@ begin
   end;
   setlength(points, 0);
   // draw chart on screen
-  chart.draw(ascreen, ascreen.width, ascreen.height, true);
+  chart.draw(ascreen.canvas, ascreen.width, ascreen.height, true);
   chart.free;
 end;
 
@@ -303,7 +323,7 @@ var
   i, j, k: longint;
   windowsize: longint;
   windowcount: longint;
-  points: arrayoftpointf = nil;
+  points: array of tpointf = nil;
   index: longint;
   x, y: single;
   factor: single;
@@ -362,7 +382,7 @@ begin
   end;
   setlength(points, 0);
   // draw chart on screen
-  chart.draw(ascreen, ascreen.width, ascreen.height, true);
+  chart.draw(ascreen.canvas, ascreen.width, ascreen.height, true);
   chart.free;
 end;
 
@@ -394,7 +414,7 @@ begin
   chart.xminf   := 0;
   chart.yminf   := 0;
   chart.addpixel(ftrack.samplerate div 2, ftrack.duration, clblack);
-  chart.draw(ascreen, ascreen.width, ascreen.height, true);
+  chart.draw(ascreen.canvas, ascreen.width, ascreen.height, true);
 
   bit := tbitmap.create;
   bit.setsize(
@@ -513,7 +533,7 @@ begin
     chart.xminf := 0;
     chart.xmaxf := max(1, ftrack.duration);
     // draw chart on bitmap
-    chart.draw(bit[ch], bit[ch].width, bit[ch].height);
+    chart.draw(bit[ch].canvas, bit[ch].width, bit[ch].height);
     chart.free;
   end;
 
