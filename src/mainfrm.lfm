@@ -1,11 +1,11 @@
 object audiofrm: Taudiofrm
-  Left = 645
-  Height = 600
-  Top = 264
-  Width = 800
+  Left = 677
+  Height = 621
+  Top = 294
+  Width = 831
   Caption = 'AudioMeter 0.4.8 - Dynamic Range Meter'
-  ClientHeight = 600
-  ClientWidth = 800
+  ClientHeight = 621
+  ClientWidth = 831
   Color = clGray
   Constraints.MinHeight = 440
   Constraints.MinWidth = 700
@@ -40,7 +40,7 @@ object audiofrm: Taudiofrm
   object btnfile: TImage
     AnchorSideTop.Control = btnfolder
     AnchorSideRight.Control = btnfolder
-    Left = 714
+    Left = 745
     Height = 32
     Top = 34
     Width = 32
@@ -86,7 +86,7 @@ object audiofrm: Taudiofrm
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
-    Left = 756
+    Left = 787
     Height = 32
     Top = 34
     Width = 32
@@ -523,7 +523,7 @@ object audiofrm: Taudiofrm
         LineWidth = 6
         FontShadowOffsetX = 0
         FontShadowOffsetY = 0
-        FontShadowRadius = 1
+        FontShadowRadius = 0
         Font.Color = clBlack
         Font.Height = 20
       end
@@ -829,7 +829,7 @@ object audiofrm: Taudiofrm
     AnchorSideRight.Control = btnfile
     AnchorSideBottom.Control = btnfile
     AnchorSideBottom.Side = asrBottom
-    Left = 670
+    Left = 701
     Height = 32
     Top = 34
     Width = 32
@@ -950,14 +950,17 @@ object audiofrm: Taudiofrm
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
-    Left = 0
-    Height = 373
+    Left = 6
+    Height = 388
     Top = 227
-    Width = 800
+    Width = 819
     OnRedraw = virtualscreenredraw
     Alignment = taLeftJustify
     Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderSpacing.Left = 6
     BorderSpacing.Top = 10
+    BorderSpacing.Right = 6
+    BorderSpacing.Bottom = 6
     Color = clBlack
     ParentColor = False
     TabOrder = 2
@@ -970,17 +973,24 @@ object audiofrm: Taudiofrm
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
-    Left = 0
-    Height = 373
+    Left = 6
+    Height = 388
     Top = 227
-    Width = 800
+    Width = 819
     Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderSpacing.Left = 6
     BorderSpacing.Top = 10
+    BorderSpacing.Right = 6
+    BorderSpacing.Bottom = 6
     DrawText = False
+    Value = 50
     Color = clBlack
     LineColor = clSilver
     LineBkgColor = clBlack
     LineWidth = 6
+    FontShadowOffsetX = 0
+    FontShadowOffsetY = 0
+    FontShadowRadius = 0
     Font.Color = clBlack
     Font.Height = 20
     Size = 115
