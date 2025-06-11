@@ -35,12 +35,13 @@ type
   { taudiofrm }
 
   taudiofrm = class(tform)
-    panelprogressbar: TBCRadialProgressBar;
-    virtualscreen: TBGRAVirtualScreen;
+    screenprogressbar: TBCRadialProgressBar;
+    screenpanel: TPanel;
     blocksbtn: TBCButton;
 
     btnplay: TImage;
     playsound: Tplaysound;
+    virtualscreen: TBGRAVirtualScreen;
     wavebtn: TBCButton;
     spectrumbtn: tbcbutton;
     spectrogrambtn: tbcbutton;
@@ -120,6 +121,7 @@ type
     procedure enablebuttons;
     procedure disablepanel;
     procedure enablepanel;
+    procedure screenpanelResize(Sender: TObject);
 
 
 
@@ -165,6 +167,7 @@ end;
 
 procedure taudiofrm.formcreate(sender: tobject);
 begin
+  virtualscreen.align := alclient;
   virtualscreens[0] := tbitmap.create;
   virtualscreens[1] := tbitmap.create;
   virtualscreens[2] := tbitmap.create;
@@ -351,7 +354,7 @@ end;
 
 procedure taudiofrm.ontickdrawer;
 begin
-  panelprogressbar.value := screendrawer.percentage;
+  screenprogressbar.value := screendrawer.percentage;
 end;
 
 procedure taudiofrm.onstopdrawer;
@@ -392,8 +395,8 @@ procedure taudiofrm.onwaitdrawer;
 begin
   if not isneededupdatescreens then
   begin
-    screendrawer.screenwidth  := panelprogressbar.width;
-    screendrawer.screenheight := panelprogressbar.height;
+    screendrawer.screenwidth  := screenpanel.width;
+    screendrawer.screenheight := screenpanel.height;
   end;
   isneededupdatescreens := false;
 end;
@@ -838,8 +841,8 @@ begin
   wavebtn       .enabled := false;
 
   virtualscreen   .visible := false;
-  panelprogressbar.value   := 0;
-  panelprogressbar.visible := true;
+  screenprogressbar.value   := 0;
+  screenprogressbar.visible := true;
 end;
 
 procedure taudiofrm.enablepanel;
@@ -852,9 +855,15 @@ begin
   spectrumbtn   .enabled := true;
   wavebtn       .enabled := true;
 
-  panelprogressbar.value   := 0;
-  panelprogressbar.visible := false;
+  screenprogressbar.value   := 0;
+  screenprogressbar.visible := false;
   virtualscreen   .visible := true;
+end;
+
+procedure taudiofrm.screenpanelResize(Sender: TObject);
+begin
+  screenprogressbar.left := (screenpanel.width  - screenprogressbar.width ) div 2;
+  screenprogressbar.top  := (screenpanel.height - screenprogressbar.height) div 2;
 end;
 
 procedure taudiofrm.virtualscreenredraw(sender: tobject; bitmap: tbgrabitmap);
