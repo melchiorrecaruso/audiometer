@@ -942,7 +942,7 @@ object audiofrm: Taudiofrm
     TextApplyGlobalOpacity = False
     MemoryUsage = bmuHigh
   end
-  object virtualscreen: TBGRAVirtualScreen
+  object screenpanel: TPanel
     AnchorSideLeft.Control = Owner
     AnchorSideTop.Control = blocksbtn
     AnchorSideTop.Side = asrBottom
@@ -950,50 +950,54 @@ object audiofrm: Taudiofrm
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
-    Left = 6
-    Height = 388
+    Left = 0
+    Height = 394
     Top = 227
-    Width = 819
-    OnRedraw = virtualscreenredraw
-    Alignment = taLeftJustify
+    Width = 831
     Anchors = [akTop, akLeft, akRight, akBottom]
-    BorderSpacing.Left = 6
     BorderSpacing.Top = 10
-    BorderSpacing.Right = 6
-    BorderSpacing.Bottom = 6
-    Color = clBlack
-    ParentColor = False
+    BevelOuter = bvNone
+    ClientHeight = 394
+    ClientWidth = 831
+    ParentBackground = False
     TabOrder = 2
-  end
-  object panelprogressbar: TBCRadialProgressBar
-    AnchorSideLeft.Control = Owner
-    AnchorSideTop.Control = blocksbtn
-    AnchorSideTop.Side = asrBottom
-    AnchorSideRight.Control = Owner
-    AnchorSideRight.Side = asrBottom
-    AnchorSideBottom.Control = Owner
-    AnchorSideBottom.Side = asrBottom
-    Left = 6
-    Height = 388
-    Top = 227
-    Width = 819
-    Anchors = [akTop, akLeft, akRight, akBottom]
-    BorderSpacing.Left = 6
-    BorderSpacing.Top = 10
-    BorderSpacing.Right = 6
-    BorderSpacing.Bottom = 6
-    DrawText = False
-    Value = 50
-    Color = clBlack
-    LineColor = clSilver
-    LineBkgColor = clBlack
-    LineWidth = 6
-    FontShadowOffsetX = 0
-    FontShadowOffsetY = 0
-    FontShadowRadius = 0
-    Font.Color = clBlack
-    Font.Height = 20
-    Size = 115
+    OnResize = screenpanelResize
+    object virtualscreen: TBGRAVirtualScreen
+      Left = 64
+      Height = 115
+      Top = 160
+      Width = 115
+      OnRedraw = virtualscreenredraw
+      Alignment = taLeftJustify
+      Anchors = []
+      Color = clBlack
+      ParentColor = False
+      TabOrder = 0
+    end
+    object screenprogressbar: TBCRadialProgressBar
+      AnchorSideLeft.Control = Owner
+      AnchorSideTop.Control = blocksbtn
+      AnchorSideTop.Side = asrBottom
+      AnchorSideRight.Control = Owner
+      AnchorSideRight.Side = asrBottom
+      AnchorSideBottom.Control = Owner
+      AnchorSideBottom.Side = asrBottom
+      Left = 208
+      Height = 115
+      Top = 160
+      Width = 115
+      Anchors = []
+      Value = 50
+      Color = clBlack
+      LineColor = clSilver
+      LineBkgColor = clBlack
+      LineWidth = 6
+      FontShadowOffsetX = 0
+      FontShadowOffsetY = 0
+      FontShadowRadius = 0
+      Font.Color = clBlack
+      Font.Height = 20
+    end
   end
   object filedialog: TOpenDialog
     Left = 544
