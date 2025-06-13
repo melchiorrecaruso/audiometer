@@ -46,7 +46,6 @@
           </Parsing>
           <CodeGeneration>
             <SmartLinkUnit Value="True"/>
-            <TargetCPU Value="x86_64"/>
             <Optimizations>
               <OptimizationLevel Value="2"/>
             </Optimizations>
@@ -77,22 +76,22 @@
     </RunParams>
     <RequiredPackages>
       <Item>
+        <PackageName Value="BGRABitmapPack"/>
+      </Item>
+      <Item>
+        <PackageName Value="SpringLib"/>
+      </Item>
+      <Item>
         <PackageName Value="playwavepackage"/>
       </Item>
       <Item>
         <PackageName Value="lmDSP"/>
       </Item>
       <Item>
-        <PackageName Value="BGRABitmapPack"/>
-      </Item>
-      <Item>
         <PackageName Value="fcl"/>
       </Item>
       <Item>
         <PackageName Value="bgracontrols"/>
-      </Item>
-      <Item>
-        <PackageName Value="tachartlazaruspkg"/>
       </Item>
       <Item>
         <PackageName Value="LCL"/>
@@ -114,6 +113,10 @@
         <Filename Value="src/soundwav.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
+      <Unit>
+        <Filename Value="src/drawers.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -130,35 +133,29 @@
     <Parsing>
       <SyntaxOptions>
         <CStyleOperator Value="False"/>
+        <IncludeAssertionCode Value="True"/>
         <AllowLabel Value="False"/>
         <UseAnsiStrings Value="False"/>
         <CPPInline Value="False"/>
       </SyntaxOptions>
     </Parsing>
     <CodeGeneration>
-      <TargetCPU Value="x86_64"/>
+      <Checks>
+        <IOChecks Value="True"/>
+        <RangeChecks Value="True"/>
+        <OverflowChecks Value="True"/>
+        <StackChecks Value="True"/>
+      </Checks>
+      <VerifyObjMethodCallValidity Value="True"/>
       <Optimizations>
         <OptimizationLevel Value="0"/>
       </Optimizations>
     </CodeGeneration>
     <Linking>
       <Debugging>
-        <DebugInfoType Value="dsDwarf2Set"/>
+        <DebugInfoType Value="dsDwarf3"/>
         <UseHeaptrc Value="True"/>
       </Debugging>
     </Linking>
   </CompilerOptions>
-  <Debugging>
-    <Exceptions>
-      <Item>
-        <Name Value="EAbort"/>
-      </Item>
-      <Item>
-        <Name Value="ECodetoolError"/>
-      </Item>
-      <Item>
-        <Name Value="EFOpenError"/>
-      </Item>
-    </Exceptions>
-  </Debugging>
 </CONFIG>

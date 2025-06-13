@@ -1,7 +1,7 @@
 {
   Description: AudioMeter application.
 
-  Copyright (C) 2020-2024 Melchiorre Caruso <melchiorrecaruso@gmail.com>
+  Copyright (C) 2020-2025 Melchiorre Caruso <melchiorrecaruso@gmail.com>
 
   This source is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free
@@ -24,15 +24,14 @@ program audiometer;
 {$mode objfpc}{$H+}
 
 uses
-  {$IFDEF UNIX} cthreads, {$ENDIF} interfaces,
-  forms, mainfrm, tachartlazaruspkg;
+  {$IFDEF UNIX} cthreads, {$ENDIF} interfaces, forms, mainfrm, drawers;
 
 {$R *.res}
 
 begin
   requirederivedformresource:=true;
-  Application.Title:='AudioMeter';
-  Application.Scaled:=True;
+  application.title:='AudioMeter';
+  application.scaled:=true;
   application.initialize;
   application.createform(taudiofrm, audiofrm);
   application.run;

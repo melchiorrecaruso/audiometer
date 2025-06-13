@@ -1,7 +1,7 @@
 {
   Description: Main form.
 
-  Copyright (C) 2020-2024 Melchiorre Caruso <melchiorrecaruso@gmail.com>
+  Copyright (C) 2020-2025 Melchiorre Caruso <melchiorrecaruso@gmail.com>
 
   This source is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free
@@ -27,24 +27,24 @@ interface
 
 uses
   classes, sysutils, uplaysound, forms, controls, graphics, dialogs, buttons,
-  stdctrls, extctrls, comctrls, tagraph, taseries, tasources, bufstream,
-  soundwav, bcradialprogressbar, bclistbox, bcbutton, process, inifiles,
-  bgrabitmap, bgrabitmaptypes, bctypes, tadrawutils;
+  stdctrls, extctrls, comctrls, bufstream, soundwav, bcradialprogressbar,
+  bclistbox, bcbutton, process, inifiles, bgrabitmap, bgrabitmaptypes, bctypes,
+  bgravirtualscreen, drawers;
 
 type
   { taudiofrm }
 
   taudiofrm = class(tform)
-    blocksbtn: tbcbutton;
-    freq: tlistchartsource;
+    screenprogressbar: TBCRadialProgressBar;
+    screenpanel: TPanel;
+    blocksbtn: TBCButton;
+
     btnplay: TImage;
     playsound: Tplaysound;
-    spectrumchart: tchart;
-    page3: tpage;
-    spectranalisysbtn: tbcbutton;
-    spectrumscreen: TChart;
-    spectrumseries: tbarseries;
+    virtualscreen: TBGRAVirtualScreen;
+    wavebtn: TBCButton;
     spectrumbtn: tbcbutton;
+    spectrogrambtn: tbcbutton;
     bevel1: tbevel;
     bevel2: tbevel;
     bevel3: tbevel;
@@ -54,7 +54,6 @@ type
     btnfile: timage;
     btnfolder: timage;
     buttons: timagelist;
-    dbchart: tchart;
     drlb: tstatictext;
     drvalue: tstatictext;
     khz176: tlabel;
@@ -68,61 +67,82 @@ type
     lefthzpanel: tpanel;
     mono: tlabel;
     drpanel: tpanel;
-    notebook: tnotebook;
-    page1: tpage;
-    page2: tpage;
-    peakseries: tbarseries;
     progressbar: tbcradialprogressbar;
     progresspanel: tpanel;
     righthzpanel: tpanel;
-    rmseries: tbarseries;
     stereo: tlabel;
     report: timagelist;
     audio: tlabel;
     dirdialog: tselectdirectorydialog;
-    peak: tlistchartsource;
-    rms: tlistchartsource;
     filedialog: topendialog;
-    procedure blocksbtnclick(sender: tobject);
-    procedure btnfolderclick(sender: tobject);
-    procedure btnfoldermousedown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
-    procedure btnfoldermouseleave(sender: tobject);
-    procedure btnfoldermousemove(sender: tobject; shift: tshiftstate; x, y: integer);
-    procedure btnfoldermouseup(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
-    procedure btnplaymousedown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
-    procedure btnplaymouseleave(sender: tobject);
-    procedure btnplaymousemove(sender: tobject; shift: tshiftstate; x, y: integer);
-    procedure btnplaymouseup(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
-    procedure formclosequery(sender: tobject; var canclose: boolean);
+
     procedure formcreate(sender: tobject);
+    procedure formclosequery(sender: tobject; var canclose: boolean);
+    procedure formresize(sender: tobject);
+    procedure formdestroy(sender: tobject);
+    // file button
     procedure btnfileclick(sender: tobject);
     procedure btnfilemousedown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
     procedure btnfilemouseleave(sender: tobject);
     procedure btnfilemousemove(sender: tobject; shift: tshiftstate; x, y: integer);
     procedure btnfilemouseup(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
-    procedure formdestroy(sender: tobject);
-    procedure formresize(sender: tobject);
+    // folder button
+    procedure btnfolderclick(sender: tobject);
+    procedure btnfoldermousedown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
+    procedure btnfoldermouseleave(sender: tobject);
+    procedure btnfoldermousemove(sender: tobject; shift: tshiftstate; x, y: integer);
+    procedure btnfoldermouseup(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
+    // play button
     procedure btnplayclick(sender: tobject);
-    procedure onstart;
-    procedure onstop;
-    procedure onprogress;
+    procedure btnplaymousedown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
+    procedure btnplaymouseleave(sender: tobject);
+    procedure btnplaymousemove(sender: tobject; shift: tshiftstate; x, y: integer);
+    procedure btnplaymouseup(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
+    // panel buttons
+    procedure panelbtnclick(sender: tobject);
+
+
+    procedure loadbuttonicon(btn: timage; index: longint; x, y: longint);
+
+
     procedure clear;
     procedure execute;
-    procedure updatespectrumchart(atrack: ttrack);
-    function  drawspectrum(atrack: ttrack; awidth, aheight: longint): tbgrabitmap;
-    procedure btnloadicon(btn: timage; index: longint; x, y: longint);
-    procedure spectrumscreenbeforecustomdrawbackwall(asender: tchart;
-      adrawer: ichartdrawer; const arect: trect; var adodefaultdrawing: boolean);
+
+    procedure onstartanalyzer;
+    procedure ontickanalyzer;
+    procedure onstopanalyzer;
+
+    procedure onstartdrawer;
+    procedure ontickdrawer;
+    procedure onstopdrawer;
+    procedure onwaitdrawer;
+
+    procedure disablebuttons;
+    procedure enablebuttons;
+    procedure disablepanel;
+    procedure enablepanel;
+    procedure screenpanelResize(Sender: TObject);
+
+
+
+    procedure virtualscreenredraw(Sender: TObject; Bitmap: TBGRABitmap);
+
   private
-    buffer:     treadbufstream;
-    stream:     tfilestream;
-    trackindex: longint;
-    trackkill:  boolean;
-    tracklist:  ttracklist;
-    trackfile:  string;
-    tempfile:   string;
-    wave:       ttrackanalyzer;
-    working:    boolean;
+    virtualscreens: tvirtualscreens;
+    buffer:      treadbufstream;
+    stream:      tfilestream;
+    trackindex:  longword;
+
+    track:       ttrack;
+    tracklist:   ttracklist;
+    trackfile:   string;
+    tempfile:    string;
+
+
+    isneededupdatescreens: boolean;
+    isneededkillanalyzer:  boolean;
+
+    pageindex:  integer;
   public
   end;
 
@@ -136,43 +156,6 @@ implementation
 uses
   math, fileutil;
 
-{ taudiofrm }
-
-procedure taudiofrm.formcreate(sender: tobject);
-begin
-  trackindex := 0;
-  trackkill  := false;
-  tracklist  := ttracklist.create;
-  // load openfile button icon
-  btnloadicon(btnfile, 1, 0, 0);
-  btnfile.onmousemove := @btnfilemousemove;
-  // load openfolder button icon
-  btnloadicon(btnfolder, 3, 0, 5);
-  btnfile.onmousemove := @btnfilemousemove;
-  // initialize chart
-  dbchart.disableredrawing;
-  // initialize progress bar
-  progresspanel.visible := false;
-  progressbar  .value   := 0;
-  // inizialize mail form
-  color := clblack;
-  // initialize buttons
-  blocksbtn.statenormal .fontex.shadow := false;
-  blocksbtn.statehover  .fontex.shadow := false;
-  blocksbtn.stateclicked.fontex.shadow := false;
-  spectrumbtn.statenormal .fontex.shadow := false;
-  spectrumbtn.statehover  .fontex.shadow := false;
-  spectrumbtn.stateclicked.fontex.shadow := false;
-  spectranalisysbtn.statenormal .fontex.shadow := false;
-  spectranalisysbtn.statehover  .fontex.shadow := false;
-  spectranalisysbtn.stateclicked.fontex.shadow := false;
-  // initialize notebook
-  notebook.pageindex := 0;
-  // inizialize
-  working := false;
-  clear;
-end;
-
 function cutoff(const s: string): string;
 begin
   result := s;
@@ -180,11 +163,66 @@ begin
   result := result + '...';
 end;
 
+{ taudiofrm }
+
+procedure taudiofrm.formcreate(sender: tobject);
+begin
+  virtualscreen.align := alclient;
+  virtualscreens[0] := tbitmap.create;
+  virtualscreens[1] := tbitmap.create;
+  virtualscreens[2] := tbitmap.create;
+  virtualscreens[3] := tbitmap.create;
+  isneededupdatescreens := false;
+  isneededkillanalyzer  := false;
+  // ---
+  track := nil;
+  trackindex := 0;
+  tracklist  := ttracklist.create;
+  // load openfile button icon
+  loadbuttonicon(btnfile, 1, 0, 0);
+  btnfile.onmousemove := @btnfilemousemove;
+  // load openfolder button icon
+  loadbuttonicon(btnfolder, 3, 0, 5);
+  btnfile.onmousemove := @btnfilemousemove;
+  // initialize progress bar
+  progresspanel.visible := false;
+  progressbar.value := 0;
+  // inizialize main form
+  color := clblack;
+  // initialize buttons
+  blocksbtn.statenormal .fontex.shadow := false;
+  blocksbtn.statehover  .fontex.shadow := false;
+  blocksbtn.stateclicked.fontex.shadow := false;
+  spectrogrambtn.statenormal .fontex.shadow := false;
+  spectrogrambtn.statehover  .fontex.shadow := false;
+  spectrogrambtn.stateclicked.fontex.shadow := false;
+  spectrumbtn.statenormal .fontex.shadow := false;
+  spectrumbtn.statehover  .fontex.shadow := false;
+  spectrumbtn.stateclicked.fontex.shadow := false;
+  wavebtn.statenormal .fontex.shadow := false;
+  wavebtn.statehover  .fontex.shadow := false;
+  wavebtn.stateclicked.fontex.shadow := false;
+  // initialize
+  clear;
+  // ---
+  panelbtnclick(blocksbtn);
+end;
+
 procedure taudiofrm.formdestroy(sender: tobject);
 begin
-  rms.clear;
-  peak.clear;
+  freeandnil(virtualscreens[0]);
+  freeandnil(virtualscreens[1]);
+  freeandnil(virtualscreens[2]);
+  freeandnil(virtualscreens[3]);
   tracklist.destroy;
+  track := nil;
+end;
+
+procedure taudiofrm.formclosequery(sender: tobject; var canclose: boolean);
+begin
+  isneededkillanalyzer := true;
+  canclose := (audioanalyzer = nil) and
+              (screendrawer  = nil);
 end;
 
 procedure taudiofrm.formresize(sender: tobject);
@@ -193,117 +231,59 @@ begin
   begin
     audio.caption := cutoff(audio.caption);
   end;
+
+  isneededupdatescreens := true;
+  if audioanalyzer <> nil then exit;
+  if screendrawer  <> nil then exit;
+  screendrawer := tscreendrawer.create(track);
+  screendrawer.onstart := @onstartdrawer;
+  screendrawer.ontick  := @ontickdrawer;
+  screendrawer.onstop  := @onstopdrawer;
+  screendrawer.onwait  := @onwaitdrawer;
+  screendrawer.start;
 end;
 
-procedure taudiofrm.btnplayclick(sender: tobject);
-begin
-  case btnplay.imageindex of
-    6: begin
-         playsound.stopsound;
-         btnplay.imageindex := 5;
-       end;
-    7: begin
-         playsound.stopsound;
-         btnplay.imageindex := 5;
-       end;
-  else begin
-         playsound.stopsound;
-         btnplay.imageindex := 5;
-         if fileexists(tempfile) then
-         begin
-           playsound.playstyle := psasync;
-           playsound.soundfile := tempfile;
-           playsound.execute;
-           btnplay.imageindex := 6;
-         end;
-       end;
-  end;
-end;
+// track analyzer events
 
-procedure taudiofrm.formclosequery(sender: tobject; var canclose: boolean);
-begin
-  trackkill := true;
-  canclose  := assigned(wave) = false;
-end;
-
-procedure taudiofrm.onstart;
+procedure taudiofrm.onstartanalyzer;
 begin
   clear;
-  working := true;
-  audio.font.color := clwhite;
-  audio.caption    := extractfilename(tracklist.tracks[trackindex].name);
-  while (audio.left + audio.width) > (btnfolder.left + btnfolder.width) do
+  if assigned(track) then
   begin
-    audio.caption := cutoff(audio.caption);
+    audio.font.color := clwhite;
+    audio.caption    := extractfilename(track.filename);
+    while (audio.left + audio.width) > (btnfolder.left + btnfolder.width) do
+    begin
+      audio.caption := cutoff(audio.caption);
+    end;
   end;
-
-  btnplay      .enabled := false;
-  btnfile      .enabled := false;
-  btnfolder    .enabled := false;
-  drvalue      .visible := false;
-  progresspanel.visible := true;
+  disablebuttons;
   application.processmessages;
 end;
 
-procedure taudiofrm.onstop;
-var
-  i: longint;
-  j: longint;
-//mycapture: tbitmap;
-  norm: longint;
-  rmsi: double;
-  peaki: double;
-  track: ttrack;
+procedure taudiofrm.ontickanalyzer;
+begin
+  progressbar.value := audioanalyzer.percentage;
+end;
+
+procedure taudiofrm.onstopanalyzer;
 begin
   freeandnil(buffer);
   freeandnil(stream);
-//if fileexists(tempfile) then
-//begin
-  //deletefile(tempfile);
-//end;
-  if wave.status <> 0 then
+
+  if audioanalyzer.status <> 0 then
   begin
     trackindex := tracklist.count;
     audio.font.color := clred;
-    case wave.status of
+    case audioanalyzer.status of
       -1: audio.caption := 'file format error!';
       -2: audio.caption := 'file is empty!';
       -3: audio.caption := 'file is too short!';
     else  audio.caption := 'unknown error!';
     end;
-    btnplay.enabled       := true;
-    btnfile.enabled       := true;
-    btnfolder.enabled     := true;
-    progresspanel.visible := false;
+    enablebuttons;
   end else
   begin
-    rms.clear;
-    peak.clear;
-    // load rms and peak
-    track := tracklist.tracks[trackindex];
-    if track.channelcount > 0 then
-    begin
-      norm := 1 shl (track.bitspersample -1);
-      for i := 0 to track.channels[0].count -1 do
-      begin
-        rmsi := 0;
-        for j := 0 to track.channelcount -1 do
-          rmsi := rmsi + sqrt(track.channels[j].rms2[i]);
-        rms.add(i, max(0, db(rmsi/track.channelcount*norm)));
-
-        peaki := 0;
-        for j := 0 to track.channelcount -1 do
-          peaki := peaki + track.channels[j].peak[i];
-        peak.add(i, max(0, db(peaki/track.channelcount*norm)));
-      end;
-    end;
-    dbchart.bottomaxis.range.max := rms.count;
-    dbchart.invalidate;
-
-    spectrumscreen.bottomaxis.range.max := track.samplerate div 2;
-    spectrumscreen.invalidate;
-
-
     bit8  .font.color := clgray; if track.bitspersample = 8      then bit8  .font.color := clwhite;
     bit16 .font.color := clgray; if track.bitspersample = 16     then bit16 .font.color := clwhite;
     bit24 .font.color := clgray; if track.bitspersample = 24     then bit24 .font.color := clwhite;
@@ -339,87 +319,89 @@ begin
       if drvalue.caption = '13' then drvalue.font.color := rgbtocolor( 72, 255, 0) else
                                      drvalue.font.color := rgbtocolor(  0, 255, 0);
     end;
-    // load spectrum chart
-    updatespectrumchart(track);
-
-    //
-    drvalue      .visible := true;
-    btnplay      .enabled := true;
-    btnfile      .enabled := true;
-    btnfolder    .enabled := true;
-    progresspanel.visible := false;
-    progressbar  .value   := 0;
   end;
-  wave := nil;
-
-  //mycapture := tbitmap.create;
-  //mycapture.setsize(446, 146);
-  //mycapture.canvas.fillrect(0, 0, 446, 146);
-  //begin
-  //  borderstyle := bsnone;
-  //  paintto(mycapture.canvas, 0, 0);
-  //  borderstyle := bssizeable;
+  enablebuttons;
   application.processmessages;
-  //end;
-  //report.add(mycapture, nil);
-  //mycapture.free;
 
   inc(trackindex);
   if trackindex = tracklist.count then
   begin
     // save text report
     tracklist.savetofile(trackfile);
-    // save png report
-    (*
-    mycapture := tbitmap.create;
-    mycapture.setsize(446, report.count*146);
-    mycapture.canvas.fillrect(0, 0, 446, report.count*146);
-    for i := 0 to report.count -1 do
+    // ---
+    audioanalyzer := nil;
+    screendrawer := tscreendrawer.create(track);
+    screendrawer.onstart := @onstartdrawer;
+    screendrawer.ontick  := @ontickdrawer;
+    screendrawer.onstop  := @onstopdrawer;
+    screendrawer.onwait  := @onwaitdrawer;
+    screendrawer.start;
+  end else
+    if assigned(track) then
     begin
-      report.draw(mycapture.canvas, 0, i*146, i);
+      track.clearchannels;
     end;
-    mycapture.savetofile(changefileext(trackfile, '.png'));
-    mycapture.destroy;
-    report.clear;
-    *)
-    working := false;
-    // update spectrum image
-    if notebook.pageindex = 1 then
-      spectrumscreen.invalidate;
-  end;
   execute;
 end;
 
-procedure taudiofrm.onprogress;
+// chart drawer events
+
+procedure taudiofrm.onstartdrawer;
 begin
-  progressbar.value := wave.percentage;
+  disablepanel;
   application.processmessages;
 end;
 
-procedure taudiofrm.clear;
+procedure taudiofrm.ontickdrawer;
 begin
-  bit8  .font.color := clgray;
-  bit16 .font.color := clgray;
-  bit24 .font.color := clgray;
-  khz44 .font.color := clgray;
-  khz48 .font.color := clgray;
-  khz88 .font.color := clgray;
-  khz96 .font.color := clgray;
-  khz176.font.color := clgray;
-  khz192.font.color := clgray;
-  mono  .font.color := clgray;
-  stereo.font.color := clgray;
-
-  rms.clear;
-  peak.clear;
-  audio.caption      := 'Audio';
-  audio.font.color   := clwhite;
-  drvalue.caption    := '--';
-  drvalue.font.color := clwhite;
-  dbchart.invalidate;
-
-  blocksbtnclick(nil);
+  screenprogressbar.value := screendrawer.percentage;
 end;
+
+procedure taudiofrm.onstopdrawer;
+begin
+  if isneededupdatescreens then
+  begin
+    screendrawer := tscreendrawer.create(track);
+    screendrawer.onstart := @onstartdrawer;
+    screendrawer.ontick  := @ontickdrawer;
+    screendrawer.onstop  := @onstopdrawer;
+    screendrawer.onwait  := @onwaitdrawer;
+    screendrawer.start;
+  end else
+  begin
+    virtualscreens[0].setsize(screendrawer.screenwidth, screendrawer.screenheight);
+    virtualscreens[1].setsize(screendrawer.screenwidth, screendrawer.screenheight);
+    virtualscreens[2].setsize(screendrawer.screenwidth, screendrawer.screenheight);
+    virtualscreens[3].setsize(screendrawer.screenwidth, screendrawer.screenheight);
+
+    if (screendrawer.screenwidth  > 0) and
+       (screendrawer.screenheight > 0) then
+    begin
+      virtualscreens[0].canvas.draw(0, 0, screendrawer.screens[0]);
+      virtualscreens[1].canvas.draw(0, 0, screendrawer.screens[1]);
+      virtualscreens[2].canvas.draw(0, 0, screendrawer.screens[2]);
+      virtualscreens[3].canvas.draw(0, 0, screendrawer.screens[3]);
+    end;
+    screendrawer := nil;
+    enablebuttons;
+    enablepanel;
+
+    virtualscreen.redrawbitmap;
+  end;
+  application.processmessages;
+end;
+
+procedure taudiofrm.onwaitdrawer;
+begin
+  if not isneededupdatescreens then
+  begin
+    screendrawer.screenwidth  := screenpanel.width;
+    screendrawer.screenheight := screenpanel.height;
+  end;
+  isneededupdatescreens := false;
+end;
+
+//
 
 procedure taudiofrm.execute;
 var
@@ -429,14 +411,13 @@ var
   ini: tinifile;
   mem: tmemorystream;
   process: tprocess;
-  track:   ttrack;
 begin
-  if trackkill then exit;
-  if trackindex >= tracklist.count then exit;
+  if (trackindex >= tracklist.count) then exit;
+  if isneededkillanalyzer then trackindex := tracklist.count -1;
 
   track := tracklist.tracks[trackindex];
   try
-    if extractfileext(track.name) <> '.wav' then
+    if extractfileext(track.filename) <> '.wav' then
     begin
       tempfile := includetrailingbackslash(
         gettempdir(false)) + 'audiometer-tmp.wav';
@@ -445,13 +426,13 @@ begin
       process := tprocess.create(nil);
       try
         process.parameters.clear;
-        process.currentdirectory := extractfiledir(track.name);
+        process.currentdirectory := extractfiledir(track.filename);
         process.executable := 'ffprobe';
         process.parameters.add('-show_streams');
         process.parameters.add('-hide_banner');
         process.parameters.add('-print_format');
         process.parameters.add('ini');
-        process.parameters.add(extractfilename(track.name));
+        process.parameters.add(extractfilename(track.filename));
         process.options := [ponoconsole, pousepipes];
         process.execute;
 
@@ -464,7 +445,6 @@ begin
             mem.write(buf, process.output.read(buf, sizeof(buf)));
           while process.stderr.numbytesavailable > 0 do
             process.stderr.read(buf, sizeof(buf));
-          application.processmessages;
         end;
         mem.seek(0, sofrombeginning);
 
@@ -486,16 +466,16 @@ begin
       end;
       process.destroy;
 
-      // decode to .wave
+      // decode to .audioanalyzer
       process := tprocess.create(nil);
       try
         process.parameters.clear;
-        process.currentdirectory := extractfiledir(track.name);
+        process.currentdirectory := extractfiledir(track.filename);
         process.executable := 'ffmpeg';
         process.parameters.add('-y');
         process.parameters.add('-hide_banner');
         process.parameters.add('-i');
-        process.parameters.add(extractfilename(track.name));
+        process.parameters.add(extractfilename(track.filename));
 
         if bit4sample = 24 then
         begin
@@ -517,7 +497,7 @@ begin
       process.destroy;
 
     end else
-      tempfile := track.name;
+      tempfile := track.filename;
 
     stream := tfilestream.create(tempfile, fmopenread or fmshareexclusive);
   except
@@ -527,11 +507,11 @@ begin
   if assigned(stream) then
   begin
     buffer := treadbufstream.create(stream);
-    wave   := ttrackanalyzer.create(track, buffer, trackindex = tracklist.count -1);
-    wave.onstart    := @onstart;
-    wave.onstop     := @onstop;
-    wave.onprogress := @onprogress;
-    wave.start;
+    audioanalyzer := ttrackanalyzer.create(track, buffer, trackindex = tracklist.count -1);
+    audioanalyzer.onstart := @onstartanalyzer;
+    audioanalyzer.ontick  := @ontickanalyzer;
+    audioanalyzer.onstop  := @onstopanalyzer;
+    audioanalyzer.start;
   end else
   begin
     messagedlg('AudioMeter', format('Error to open file "%s"', [tempfile]), mterror, [mbok], '');
@@ -540,148 +520,27 @@ begin
   end;
 end;
 
-function getcolor(factor: double): tbgrapixel;
-var
-  r1, g1, b1, r2, g2, b2: byte;
-  color1: tbgrapixel;
-  color2: tbgrapixel;
+procedure taudiofrm.clear;
 begin
-  if factor < 0 then exit(clblack);
-  if factor > 1 then exit(clwhite);
+  bit8  .font.color := clgray;
+  bit16 .font.color := clgray;
+  bit24 .font.color := clgray;
+  khz44 .font.color := clgray;
+  khz48 .font.color := clgray;
+  khz88 .font.color := clgray;
+  khz96 .font.color := clgray;
+  khz176.font.color := clgray;
+  khz192.font.color := clgray;
+  mono  .font.color := clgray;
+  stereo.font.color := clgray;
 
-  if factor < 1/5 then
-  begin
-    color1 := clblack;
-    color2 := clnavy;
-    factor := (factor -   0) / (1/5);
-  end else
-  if factor < 2/5 then
-  begin
-    color1 := clnavy;
-    color2 := clpurple;
-    factor := (factor - 1/5) / (1/5);
-  end else
-  if factor < 3/5 then
-  begin
-    color1 := clpurple;
-    color2 := clred;
-    factor := (factor - 2/5) / (1/5);
-  end else
-  if factor < 4/5 then
-  begin
-    color1 := clred;
-    color2 := clyellow;
-    factor := (factor - 3/5) / (1/5);
-  end else
-  begin
-    color1 := clyellow;
-    color2 := clwhite;
-    factor := (factor - 4/5) / (1/5);
-  end;
-
-  r1 := color1.red;
-  g1 := color1.green;
-  b1 := color1.blue;
-
-  r2 := color2.red;
-  g2 := color2.green;
-  b2 := color2.blue;
-
-  result.red   := trunc(r1 + (r2 - r1) * factor);
-  result.green := trunc(g1 + (g2 - g1) * factor);
-  result.blue  := trunc(b1 + (b2 - b1) * factor);
-  result.alpha := 255;
+  audio.caption      := 'Audio';
+  audio.font.color   := clwhite;
+  drvalue.caption    := '--';
+  drvalue.font.color := clwhite;
 end;
 
-function taudiofrm.drawspectrum(atrack: ttrack; awidth, aheight: longint): tbgrabitmap;
-var
-  index: longint;
-  i, j, k: longint;
-  amp, maxamp: double;
-  windowsize: longint;
-  windowcount: longint;
-begin
-  result := tbgrabitmap.create;
-  result.setsize(awidth, aheight);
-  result.filltransparent;
-
-  if atrack.channelcount > 0 then
-  begin
-    maxamp := 0;
-    for i := 0 to atrack.channelcount -1 do
-      for j := 0 to length(atrack.channels[i].spectrum) -1 do
-      begin
-        maxamp := max(maxamp, atrack.channels[i].spectrum[j]);
-      end;
-
-    windowsize  := atrack.spectrumws div 2;
-    for i := 0 to awidth -1 do
-      for j := 0 to aheight -1 do
-      begin
-        amp := 0;
-        for k := 0 to atrack.channelcount -1 do
-        begin
-          windowcount := length(atrack.channels[k].spectrum) div windowsize;
-
-          index := trunc(j/aheight*windowcount)*windowsize + trunc(i/awidth*windowsize);
-          // skip DC component
-          if index mod windowsize <> 0 then
-          begin
-            amp := max(amp, db(atrack.maxamp*atrack.channels[k].spectrum[index]/maxamp)/db(1 shl atrack.bitspersample));
-          end;
-        end;
-        result.setpixel(i, j, getcolor(amp));
-      end;
-  end;
-end;
-
-procedure taudiofrm.updatespectrumchart(atrack: ttrack);
-var
-  i, j, k: longint;
-  maxamp: double;
-  windowsize: longint;
-  windowcount: longint;
-  arr: array of double = nil;
-begin
-  freq.clear;
-  if atrack.channelcount > 0 then
-  begin
-    maxamp := minfloat;
-    for i := 0 to atrack.channelcount -1 do
-      for j := 0 to length(atrack.channels[i].spectrum) -1 do
-      begin
-        maxamp := max(maxamp, atrack.channels[i].spectrum[j]);
-      end;
-
-    setlength(arr, atrack.spectrumws div 2);
-    for i := 0 to length(arr) -1 do arr[i] := 0;
-
-    windowsize := atrack.spectrumws div 2;
-    for i := 0 to atrack.channelcount -1 do
-    begin
-      windowcount := length(atrack.channels[i].spectrum) div windowsize;
-
-      for j := 0 to length(arr) -1 do
-      begin
-        arr[j] := 0;
-        if j mod windowsize <> 0 then
-        begin
-          for k := 0 to windowcount -1 do
-          begin
-            arr[j] := max(arr[j], atrack.channels[i].spectrum[k*windowsize + j]/maxamp);
-          end;
-        end;
-      end;
-    end;
-
-    for i := 0 to length(arr) -1 do
-      if i mod windowsize <> 0 then
-      begin
-        freq.add(i*atrack.samplerate/atrack.spectrumws, db(atrack.maxamp*arr[i]/atrack.channelcount), '', clYellow);
-      end;
-    arr := nil;
-  end;
-end;
+// button events
 
 procedure taudiofrm.btnfileclick(sender: tobject);
 begin
@@ -694,7 +553,7 @@ begin
     begin
       tracklist.add(filedialog.filename);
       trackfile  := changefileext(filedialog.filename, '.md');
-      trackkill  := false;
+      isneededkillanalyzer  := false;
       trackindex := 0;
     end else
     begin
@@ -730,84 +589,119 @@ begin
     sysutils.findclose(sr);
     tracklist.sort;
     trackfile  := path + extractfilename(dirdialog.filename) + '.md';
-    trackkill  := false;
+    isneededkillanalyzer  := false;
     trackindex := 0;
   end;
   execute;
 end;
 
-procedure taudiofrm.blocksbtnclick(sender: tobject);
+procedure taudiofrm.btnplayclick(sender: tobject);
+begin
+  case btnplay.imageindex of
+    6: begin
+         playsound.stopsound;
+         btnplay.imageindex := 5;
+       end;
+    7: begin
+         playsound.stopsound;
+         btnplay.imageindex := 5;
+       end;
+  else begin
+         playsound.stopsound;
+         btnplay.imageindex := 5;
+         if fileexists(tempfile) then
+         begin
+           playsound.playstyle := psasync;
+           playsound.soundfile := tempfile;
+           playsound.execute;
+           btnplay.imageindex := 6;
+         end;
+       end;
+  end;
+end;
+
+// panel button events
+
+procedure taudiofrm.panelbtnclick(sender: tobject);
 var
   btn1: tbcbutton;
   btn2: tbcbutton;
   btn3: tbcbutton;
+  btn4: tbcbutton;
 begin
- if sender = nil then
- begin
-   if notebook.pageindex = 0 then
-   begin
-     btn1 := blocksbtn;
-     btn2 := spectrumbtn;
-     btn3 := spectranalisysbtn;
-   end else
-   if notebook.pageindex = 1 then
-   begin
-     btn2 := blocksbtn;
-     btn1 := spectrumbtn;
-     btn3 := spectranalisysbtn;
-   end else
-   begin
-     btn2 := blocksbtn;
-     btn3 := spectrumbtn;
-     btn1 := spectranalisysbtn;
-   end;
- end else
- begin
-   btn1 := sender as tbcbutton;
-   if btn1 = blocksbtn then
-   begin
-     btn2 := spectrumbtn;
-     btn3 := spectranalisysbtn;
-   end else
-   if btn1 = spectrumbtn then
-   begin
-     btn2 := blocksbtn;
-     btn3 := spectranalisysbtn;
-   end else
-   begin
-     btn2 := blocksbtn;
-     btn3 := spectrumbtn;
-   end;
+  if (audioanalyzer <> nil) then exit;
+  if (screendrawer  <> nil) then exit;
 
-   if btn1 = blocksbtn         then notebook.pageindex := 0 else
-   if btn1 = spectrumbtn       then notebook.pageindex := 1 else
-   if btn1 = spectranalisysbtn then notebook.pageindex := 2;
- end;
+  btn1 := sender as tbcbutton;
 
- btn1.statenormal .background.color  := clwhite;
- btn1.statehover  .background.color  := clwhite;
- btn1.stateclicked.background.color  := clblack;
+  if btn1 = blocksbtn      then pageindex := 0 else
+  if btn1 = spectrumbtn    then pageindex := 1 else
+  if btn1 = spectrogrambtn then pageindex := 2 else
+  if btn1 = wavebtn        then pageindex := 3;
 
- btn1.statenormal .fontex    .color  := clblack;
- btn1.statehover  .fontex    .color  := clblack;
- btn1.stateclicked.fontex    .color  := clwhite;
+  case pageindex of
+    0: begin
+         btn1 := blocksbtn;
+         btn2 := spectrumbtn;
+         btn3 := spectrogrambtn;
+         btn4 := wavebtn;
+       end;
+    1: begin
+         btn2 := blocksbtn;
+         btn1 := spectrumbtn;
+         btn3 := spectrogrambtn;
+         btn4 := wavebtn;
+       end;
+    2: begin
+         btn2 := blocksbtn;
+         btn3 := spectrumbtn;
+         btn1 := spectrogrambtn;
+         btn4 := wavebtn;
+       end;
+    3: begin
+         btn2 := blocksbtn;
+         btn3 := spectrumbtn;
+         btn4 := spectrogrambtn;
+         btn1 := wavebtn;
+       end;
+  end;
 
- btn2.statenormal .background.color  := clblack;
- btn2.statehover  .background.color  := clblack;
- btn2.stateclicked.background.color  := clwhite;
+  btn1.statenormal .background.color  := clwhite;
+  btn1.statehover  .background.color  := clwhite;
+  btn1.stateclicked.background.color  := clblack;
 
- btn2.statenormal .fontex    .color  := clwhite;
- btn2.statehover  .fontex    .color  := clwhite;
- btn2.stateclicked.fontex    .color  := clblack;
+  btn1.statenormal .fontex    .color  := clblack;
+  btn1.statehover  .fontex    .color  := clblack;
+  btn1.stateclicked.fontex    .color  := clwhite;
 
- btn3.statenormal .background.color  := clblack;
- btn3.statehover  .background.color  := clblack;
- btn3.stateclicked.background.color  := clwhite;
+  btn2.statenormal .background.color  := clblack;
+  btn2.statehover  .background.color  := clblack;
+  btn2.stateclicked.background.color  := clwhite;
 
- btn3.statenormal .fontex    .color  := clwhite;
- btn3.statehover  .fontex    .color  := clwhite;
- btn3.stateclicked.fontex    .color  := clblack;
+  btn2.statenormal .fontex    .color  := clwhite;
+  btn2.statehover  .fontex    .color  := clwhite;
+  btn2.stateclicked.fontex    .color  := clblack;
+
+  btn3.statenormal .background.color  := clblack;
+  btn3.statehover  .background.color  := clblack;
+  btn3.stateclicked.background.color  := clwhite;
+
+  btn3.statenormal .fontex    .color  := clwhite;
+  btn3.statehover  .fontex    .color  := clwhite;
+  btn3.stateclicked.fontex    .color  := clblack;
+
+  btn4.statenormal .background.color  := clblack;
+  btn4.statehover  .background.color  := clblack;
+  btn4.stateclicked.background.color  := clwhite;
+
+  btn4.statenormal .fontex    .color  := clwhite;
+  btn4.statehover  .fontex    .color  := clwhite;
+  btn4.stateclicked.fontex    .color  := clblack;
+
+  virtualscreen.redrawbitmap;
 end;
+
+// mouse events
 
 procedure taudiofrm.btnfilemouseup(sender: tobject; button: tmousebutton;
   shift: tshiftstate; x, y: integer);
@@ -819,36 +713,36 @@ procedure taudiofrm.btnfilemousedown(sender: tobject; button: tmousebutton;
   shift: tshiftstate; x, y: integer);
 begin
   btnfile.onmousemove := nil;
-  btnloadicon(btnfile, 1, 0, 0);
+  loadbuttonicon(btnfile, 1, 0, 0);
 end;
 
 procedure taudiofrm.btnfilemouseleave(sender: tobject);
 begin
-  btnloadicon(btnfile, 1, 0, 0);
+  loadbuttonicon(btnfile, 1, 0, 0);
 end;
 
 procedure taudiofrm.btnfilemousemove(sender: tobject;
   shift: tshiftstate; x, y: integer);
 begin
-  btnloadicon(btnfile, 0, 0, 0);
+  loadbuttonicon(btnfile, 0, 0, 0);
 end;
 
 procedure taudiofrm.btnfoldermousedown(sender: tobject; button: tmousebutton;
   shift: tshiftstate; x, y: integer);
 begin
   btnfolder.onmousemove := nil;
-  btnloadicon(btnfolder, 3, 0, 5);
+  loadbuttonicon(btnfolder, 3, 0, 5);
 end;
 
 procedure taudiofrm.btnfoldermouseleave(sender: tobject);
 begin
-  btnloadicon(btnfolder, 3, 0, 5);
+  loadbuttonicon(btnfolder, 3, 0, 5);
 end;
 
 procedure taudiofrm.btnfoldermousemove(sender: tobject;
   shift: tshiftstate; x, y: integer);
 begin
-  btnloadicon(btnfolder, 2, 0, 5);
+  loadbuttonicon(btnfolder, 2, 0, 5);
 end;
 
 procedure taudiofrm.btnfoldermouseup(sender: tobject; button: tmousebutton;
@@ -895,29 +789,95 @@ begin
   end;
 end;
 
-procedure taudiofrm.btnloadicon(btn: timage; index: longint; x, y: longint);
+// ---
+
+procedure taudiofrm.loadbuttonicon(btn: timage; index: longint; x, y: longint);
 begin
-  btn.center         := false;
-  btn.stretch        := false;
-  btn.proportional   := true;
+  btn.center := false;
+  btn.stretch := false;
+  btn.proportional := true;
   btn.picture.bitmap := nil;
   buttons.draw(btn.canvas, x, y, index);
 end;
 
-procedure taudiofrm.spectrumscreenBeforeCustomDrawBackWall(asender: tchart;
-  adrawer: ichartdrawer; const arect: trect; var adodefaultdrawing: boolean);
-var
-  bit: tbgrabitmap;
+procedure taudiofrm.disablebuttons;
 begin
-  adodefaultdrawing := true;
-  if (working = false) and (tracklist.count > 0) then
+  btnplay       .enabled := false;
+  btnfile       .enabled := false;
+  btnfolder     .enabled := false;
+  blocksbtn     .enabled := false;
+  spectrogrambtn.enabled := false;
+  spectrumbtn   .enabled := false;
+  wavebtn       .enabled := false;
+
+  drvalue      .visible := false;
+  progressbar  .value   := 0;
+  progresspanel.visible := true;
+end;
+
+procedure taudiofrm.enablebuttons;
+begin
+  btnplay       .enabled := true;
+  btnfile       .enabled := true;
+  btnfolder     .enabled := true;
+  blocksbtn     .enabled := true;
+  spectrogrambtn.enabled := true;
+  spectrumbtn   .enabled := true;
+  wavebtn       .enabled := true;
+
+  progressbar.value     := 0;
+  progresspanel.visible := false;
+  drvalue.visible       := true;
+end;
+
+procedure taudiofrm.disablepanel;
+begin
+  btnplay       .enabled := false;
+  btnfile       .enabled := false;
+  btnfolder     .enabled := false;
+  blocksbtn     .enabled := false;
+  spectrogrambtn.enabled := false;
+  spectrumbtn   .enabled := false;
+  wavebtn       .enabled := false;
+
+  virtualscreen   .visible := false;
+  screenprogressbar.value   := 0;
+  screenprogressbar.visible := true;
+end;
+
+procedure taudiofrm.enablepanel;
+begin
+  btnplay       .enabled := true;
+  btnfile       .enabled := true;
+  btnfolder     .enabled := true;
+  blocksbtn     .enabled := true;
+  spectrogrambtn.enabled := true;
+  spectrumbtn   .enabled := true;
+  wavebtn       .enabled := true;
+
+  screenprogressbar.value   := 0;
+  screenprogressbar.visible := false;
+  virtualscreen   .visible := true;
+end;
+
+procedure taudiofrm.screenpanelResize(Sender: TObject);
+begin
+  screenprogressbar.left := (screenpanel.width  - screenprogressbar.width ) div 2;
+  screenprogressbar.top  := (screenpanel.height - screenprogressbar.height) div 2;
+end;
+
+procedure taudiofrm.virtualscreenredraw(sender: tobject; bitmap: tbgrabitmap);
+begin
+  if (audioanalyzer <> nil) then exit;
+  if (screendrawer  <> nil) then exit;
+  if isneededupdatescreens  then exit;
+
+  bitmap.filltransparent;
+  if (virtualscreens[pageindex].width  > 0) and
+     (virtualscreens[pageindex].height > 0) then
   begin
-    adodefaultdrawing := false;
-    bit := drawspectrum(tracklist[tracklist.count -1], arect.width, arect.height);
-    adrawer.putimage(arect.left, arect.top, bit);
-    bit.destroy;
+    bitmap.putimage(0, 0, virtualscreens[pageindex], dmset);
   end;
 end;
 
 end.
-
