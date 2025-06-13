@@ -49,6 +49,10 @@ type
     ftrack: ttrack;
     procedure dotick;
     procedure calculatetickcount;
+    procedure drawdefaultblocks(ascreen: tbitmap);
+    procedure drawdefaultspectrum(ascreen: tbitmap);
+    procedure drawdefaultspectrogram(ascreen: tbitmap);
+    procedure drawdefaultwave(ascreen: tbitmap);
     procedure drawblocks(ascreen: tbitmap);
     procedure drawspectrum(ascreen: tbitmap);
     procedure drawspectrogram(ascreen: tbitmap);
@@ -171,7 +175,7 @@ begin
   if assigned(fonwait) then
     while (fscreenwidth = 0) or (fscreenheight = 0) do
     begin
-      if millisecondsbetween(now, fticktime) > 500 then
+      if millisecondsbetween(now, fticktime) > 250 then
       begin
         queue(fonwait);
         fticktime := now;
@@ -188,13 +192,16 @@ begin
     if assigned(ftrack) then
     begin
       calculatetickcount;
-      if assigned(ftrack) then
-      begin
-        drawblocks     (fscreens[0]);
-        drawspectrum   (fscreens[1]);
-        drawspectrogram(fscreens[2]);
-        drawwave       (fscreens[3]);
-      end;
+      drawblocks     (fscreens[0]);
+      drawspectrum   (fscreens[1]);
+      drawspectrogram(fscreens[2]);
+      drawwave       (fscreens[3]);
+    end else
+    begin
+      drawdefaultblocks     (fscreens[0]);
+      drawdefaultspectrum   (fscreens[1]);
+      drawdefaultspectrogram(fscreens[2]);
+      drawdefaultwave       (fscreens[3]);
     end;
   end;
 
@@ -544,6 +551,161 @@ begin
     bit[ch].free;
   end;
   bit := nil;
+end;
+
+procedure tscreendrawer.drawdefaultblocks(ascreen: tbitmap);
+var
+  points: array of tpointf = nil;
+  chart: tchart;
+begin
+  // create and configure the chart
+  chart := tchart.create;
+  chart.legendenabled := false;
+  chart.title := '';
+  chart.xaxislabel := 'blocknum';
+  chart.yaxislabel := 'audio [dB]';
+  chart.xgridlinewidth := 0;
+  chart.ygridlinewidth := 0;
+  chart.scale := 1.0;
+  chart.backgroundcolor := clblack;
+  chart.titlefontcolor := clwhite;
+  chart.xaxisfontcolor := clwhite;
+  chart.yaxisfontcolor := clwhite;
+  chart.xaxislinecolor := clwhite;
+  chart.yaxislinecolor := clwhite;
+  chart.textureheight := 1;
+  chart.texturewidth := 1;
+  chart.texturebackgroundcolor := clblack;
+  chart.pencolor := clblack;
+
+  setlength(points, 2);
+  points[0].x := 0;
+  points[0].y := 0;
+  points[1].x := 30;
+  points[1].y := 96;
+  chart.addpolygon(points, '');
+  setlength(points, 0);
+  // draw chart on screen
+  chart.draw(ascreen.canvas, ascreen.width, ascreen.height, true);
+  chart.free;
+end;
+
+procedure tscreendrawer.drawdefaultspectrum(ascreen: tbitmap);
+var
+  points: array of tpointf = nil;
+  chart: tchart;
+begin
+  // create and configure the chart
+  chart := tchart.create;
+  chart.legendenabled := false;
+  chart.title := '';
+  chart.xaxislabel := 'freq [Hz]';
+  chart.yaxislabel := 'audio [dB]';
+  chart.xgridlinewidth := 0;
+  chart.ygridlinewidth := 0;
+  chart.scale := 1.0;
+  chart.backgroundcolor := clblack;
+  chart.titlefontcolor := clwhite;
+  chart.xaxisfontcolor := clwhite;
+  chart.yaxisfontcolor := clwhite;
+  chart.xaxislinecolor := clwhite;
+  chart.yaxislinecolor := clwhite;
+  chart.textureheight := 1;
+  chart.texturewidth := 1;
+  chart.texturebackgroundcolor := clblack;
+  chart.pencolor := clblack;
+
+  setlength(points, 2);
+  points[0].x := 0;
+  points[0].y := 0;
+  points[1].x := 44000;
+  points[1].y := 96;
+  chart.addpolygon(points, '');
+  setlength(points, 0);
+  // draw chart on screen
+  chart.draw(ascreen.canvas, ascreen.width, ascreen.height, true);
+  chart.free;
+end;
+
+procedure tscreendrawer.drawdefaultspectrogram(ascreen: tbitmap);
+var
+  points: array of tpointf = nil;
+  chart: tchart;
+begin
+  // create and configure the chart
+  chart := tchart.create;
+  chart.legendenabled := false;
+  chart.title := '';
+  chart.xaxislabel := 'freq [Hz]';
+  chart.yaxislabel := 'time [s]';
+  chart.xgridlinewidth := 0;
+  chart.ygridlinewidth := 0;
+  chart.scale := 1.0;
+  chart.backgroundcolor := clblack;
+  chart.titlefontcolor := clwhite;
+  chart.xaxisfontcolor := clwhite;
+  chart.yaxisfontcolor := clwhite;
+  chart.xaxislinecolor := clwhite;
+  chart.yaxislinecolor := clwhite;
+  chart.textureheight := 1;
+  chart.texturewidth := 1;
+  chart.texturebackgroundcolor := clblack;
+  chart.pencolor := clblack;
+
+  setlength(points, 2);
+  points[0].x := 0;
+  points[0].y := 0;
+  points[1].x := 44000;
+  points[1].y := 96;
+  chart.addpolygon(points, '');
+  setlength(points, 0);
+  // draw chart on screen
+  chart.draw(ascreen.canvas, ascreen.width, ascreen.height, true);
+  chart.free;
+end;
+
+procedure tscreendrawer.drawdefaultwave(ascreen: tbitmap);
+var
+  points: array of tpointf = nil;
+  chart: tchart;
+begin
+  // create and configure the chart
+  chart := tchart.create;
+  chart.legendenabled := false;
+  chart.title := '';
+  chart.xaxislabel := 'time [s]';
+  chart.yaxislabel := '';
+  chart.xgridlinewidth := 0;
+  chart.ygridlinewidth := 0;
+  chart.scale := 1.0;
+  chart.backgroundcolor := clblack;
+  chart.titlefontcolor := clwhite;
+  chart.xaxisfontcolor := clwhite;
+  chart.yaxisfontcolor := clwhite;
+  chart.xaxislinecolor := clwhite;
+  chart.yaxislinecolor := clwhite;
+  chart.textureheight := 1;
+  chart.texturewidth := 1;
+  chart.texturebackgroundcolor := clblack;
+  chart.pencolor := clblack;
+
+  chart.ymaxf := +1.0;
+  chart.yminf := -1.0;
+  chart.xminf := 0;
+  chart.xmaxf := 100;
+  chart.ycount  := 8;
+  chart.ydeltaf := 0.25;
+
+  setlength(points, 2);
+  points[0].x := 0;
+  points[0].y := -1;
+  points[1].x := 100;
+  points[1].y := 1;
+  chart.addpolygon(points, '');
+  setlength(points, 0);
+  // draw chart on screen
+  chart.draw(ascreen.canvas, ascreen.width, ascreen.height, true);
+  chart.free;
 end;
 
 function tscreendrawer.getscreen(aindex: longint):tbitmap;
