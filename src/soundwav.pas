@@ -197,7 +197,7 @@ type
   end;
 
 
-  function filesupported(const fileext: string): boolean;
+  function filesupported(fileext: string): boolean;
   function dB(const value: double): double;
 
 var
@@ -219,13 +219,17 @@ const
 
 // usefull routines
 
-function filesupported(const fileext: string): boolean;
+function filesupported(fileext: string): boolean;
 begin
+  fileext := lowercase(fileext);
+  if fileext = '.wav'  then exit(true);
+  if fileext = '.flac' then exit(true);
+  if fileext = '.mp3'  then exit(true);
+  if fileext = '.ape'  then exit(true);
+  if fileext = '.ogg'  then exit(true);
+  if fileext = '.m4a'  then exit(true);
+  if fileext = '.ac3'  then exit(true);
   result := false;
-  if fileext = '.wav'  then result := true;
-  if fileext = '.flac' then result := true;
-  if fileext = '.mp3'  then result := true;
-  if fileext = '.ape'  then result := true;
 end;
 
 function compare(const item1, item2: double): longint;
