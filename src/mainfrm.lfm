@@ -1,7 +1,7 @@
 object audiofrm: Taudiofrm
-  Left = 677
+  Left = 613
   Height = 621
-  Top = 294
+  Top = 353
   Width = 831
   Caption = 'AudioMeter 0.4.8 - Dynamic Range Meter'
   ClientHeight = 621
@@ -961,7 +961,7 @@ object audiofrm: Taudiofrm
     ClientWidth = 831
     ParentBackground = False
     TabOrder = 2
-    OnResize = screenpanelResize
+    OnResize = screenpanelresize
     object virtualscreen: TBGRAVirtualScreen
       Left = 64
       Height = 115
@@ -982,7 +982,7 @@ object audiofrm: Taudiofrm
       AnchorSideRight.Side = asrBottom
       AnchorSideBottom.Control = Owner
       AnchorSideBottom.Side = asrBottom
-      Left = 208
+      Left = 224
       Height = 115
       Top = 160
       Width = 115
