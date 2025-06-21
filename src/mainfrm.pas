@@ -121,7 +121,7 @@ type
     procedure enablebuttons;
     procedure disablepanel;
     procedure enablepanel;
-    procedure screenpanelResize(Sender: TObject);
+    procedure screenpanelresize(Sender: TObject);
 
 
 
@@ -840,8 +840,8 @@ begin
   spectrumbtn   .enabled := false;
   wavebtn       .enabled := false;
 
-  virtualscreen   .visible := false;
-  screenprogressbar.value   := 0;
+  virtualscreen    .visible := false;
+  screenprogressbar.value   := 100;
   screenprogressbar.visible := true;
 end;
 
@@ -857,10 +857,10 @@ begin
 
   screenprogressbar.value   := 0;
   screenprogressbar.visible := false;
-  virtualscreen   .visible := true;
+  virtualscreen    .visible := true;
 end;
 
-procedure taudiofrm.screenpanelResize(Sender: TObject);
+procedure taudiofrm.screenpanelresize(Sender: TObject);
 begin
   screenprogressbar.left := (screenpanel.width  - screenprogressbar.width ) div 2;
   screenprogressbar.top  := (screenpanel.height - screenprogressbar.height) div 2;
