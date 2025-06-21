@@ -316,6 +316,7 @@ begin
     chart.pencolor := clblack;
     chart.texturecolor := clred;
     chart.addpolygon(points, '');
+
     dotick;
   end;
   setlength(points, 0);
@@ -460,8 +461,8 @@ begin
     chart.getdrawingrect.left,
     chart.getdrawingrect.top + (chart.GetDrawingRect.Height - bit.Height), bit);
 
-  bit.free;
   chart.free;
+  bit.free;
 end;
 
 procedure tscreendrawer.drawwave(ascreen: tbitmap);
