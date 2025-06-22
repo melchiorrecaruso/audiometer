@@ -354,7 +354,7 @@ end;
 
 procedure taudiofrm.ontickdrawer;
 begin
-  screenprogressbar.value := screendrawer.percentage;
+  screenprogressbar.value := screenprogressbar.value + 1;
 end;
 
 procedure taudiofrm.onstopdrawer;
@@ -841,7 +841,7 @@ begin
   wavebtn       .enabled := false;
 
   virtualscreen    .visible := false;
-  screenprogressbar.value   := 100;
+  screenprogressbar.value   := 0;
   screenprogressbar.visible := true;
 end;
 
