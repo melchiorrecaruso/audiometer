@@ -92,6 +92,7 @@ type
     rms2: tfloatarray;
     peak: tfloatarray;
     spectrum: tfloatarray;
+    truepeak: double;
   end;
 
   // ttrackchannels
@@ -111,6 +112,7 @@ type
     fbyterate: longint;
     frms: double;
     fpeak: double;
+    ftruepeak: double;
     fdr: double;
     fduration: longint;
     fchannels: ttrackchannels;
@@ -163,6 +165,7 @@ type
     function getrms(channel: word): double;
     function getpeak(channel: word): double;
     function getdr(channel: word): double;
+    function gettruepeak(channel: word): double;
     procedure normalizesamples;
   public
     constructor create(atrack: ttrack; astream: tstream; aFFTOn: boolean);
@@ -264,6 +267,41 @@ begin
     result := neginfinity;
 end;
 
+function cubicinterpolate(p0, p1, p2, p3, t: single): single;
+var
+  a0, a1, a2, a3: single;
+begin
+  a0 := -0.5 * p0 + 1.5 * p1 - 1.5 * p2 + 0.5 * p3;
+  a1 := p0 - 2.5 * p1 + 2.0 * p2 - 0.5 * p3;
+  a2 := -0.5 * p0 + 0.5 * p2;
+  a3 := p1;
+  result := ((a0 * t + a1) * t + a2) * t + a3;
+end;
+
+function calculatetruepeaklevelcubic(samples: tfloatarray; oversamplefactor: integer): double;
+var
+  i, j: integer;
+  t, interpvalue: double;
+  p0, p1, p2, p3: double;
+begin
+  result := 0.0;
+  for i := 1 to high(samples) - 2 do
+  begin
+    p0 := samples[i - 1];
+    p1 := samples[i];
+    p2 := samples[i + 1];
+    p3 := samples[i + 2];
+
+    for j := 0 to oversamplefactor - 1 do
+    begin
+      t := j / oversamplefactor;
+      interpvalue := cubicinterpolate(p0, p1, p2, p3, t);
+      if abs(interpvalue) > result then
+        result := abs(interpvalue);
+    end;
+  end;
+end;
+
 // ttrack
 
 constructor ttrack.create(const afilename: string);
@@ -277,6 +315,7 @@ begin
   fbyterate      := 0;
   frms           := 0;
   fpeak          := 0;
+  ftruepeak      := 0;
   fdr            := 0;
   fchannels      := nil;
 end;
@@ -414,6 +453,11 @@ begin
   peak.destroy;
 end;
 
+function ttrackanalyzer.gettruepeak(channel: word): double;
+begin
+  result := calculatetruepeaklevelcubic(ftrack.channels[channel].samples, 8);
+end;
+
 function ttrackanalyzer.getrms(channel: word): double;
 var
   i: longint;
@@ -454,24 +498,27 @@ begin
       for i := 0 to ffmt.channels -1 do
       begin
         dr := getdr(i);
-        ftrack.fdr   := ftrack.fdr   + dr;
-        ftrack.frms  := ftrack.frms  + getrms (i);
-        ftrack.fpeak := ftrack.fpeak + getpeak(i);
+        ftrack.fdr       := ftrack.fdr       + dr;
+        ftrack.frms      := ftrack.frms      + getrms (i);
+        ftrack.fpeak     := ftrack.fpeak     + getpeak(i);
+        ftrack.ftruepeak := ftrack.ftruepeak + gettruepeak(i);
         {$ifopt D+}
         writeln;
         writeln('track.DR  [', i,']      ', dr            :2:1);
-        writeln('track.Peak[', i,']      ', db(getpeak(i)):2:2);
         writeln('track.Rms [', i,']      ', db(getrms (i)):2:2);
+        writeln('track.Peak[', i,']      ', db(getpeak(i)):2:2);
         {$endif}
       end;
-      ftrack.fdr   := ftrack.fdr  /ffmt.channels;
-      ftrack.fpeak := ftrack.fpeak/ffmt.channels;
-      ftrack.frms  := ftrack.frms /ffmt.channels;
+      ftrack.fdr       := ftrack.fdr      /ffmt.channels;
+      ftrack.frms      := ftrack.frms     /ffmt.channels;
+      ftrack.fpeak     := ftrack.fpeak    /ffmt.channels;
+      ftrack.ftruepeak := ftrack.ftruepeak/ffmt.channels;
       {$ifopt D+}
       writeln;
-      writeln('track.DR:          ', ftrack.fdr      :2:1);
-      writeln('track.Peak         ', db(ftrack.fpeak):2:2);
-      writeln('track.Rms          ', db(ftrack.frms ):2:2);
+      writeln('track.DR:          ', ftrack.fdr          :2:1);
+      writeln('track.Rms          ', db(ftrack.frms     ):2:2);
+      writeln('track.Peak         ', db(ftrack.fpeak    ):2:2);
+      writeln('track.TruePeak     ', db(ftrack.ftruepeak):2:2);
       writeln;
       {$endif}
     end;
@@ -503,6 +550,7 @@ begin
   ftrack.fbyterate      := ffmt.bytespersec;
   ftrack.frms           := 0;
   ftrack.fpeak          := 0;
+  ftrack.ftruepeak      := 0;
   ftrack.fdr            := 0;
   ftrack.fduration      := 0;
 
@@ -797,7 +845,7 @@ var
   track: ttrack;
 begin
   s := tstringlist.create;
-  s.add('AudioMeter 0.4.8 - Dynamic Range Meter');
+  s.add('AudioMeter 0.5.0 - Dynamic Range Meter');
   s.add(splitter);
   s.add(format('Log date : %s', [datetimetostr(now)]));
   s.add(splitter);
