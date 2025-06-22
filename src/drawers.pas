@@ -39,16 +39,12 @@ type
     fonstop: tthreadmethod;
     fontick: tthreadmethod;
     fonwait: tthreadmethod;
-    fpercentage: integer;
     fscreens: tvirtualscreens;
     fscreenheight: integer;
     fscreenwidth: integer;
-    ftick: integer;
-    ftickcount: integer;
     fticktime: tdatetime;
     ftrack: ttrack;
     procedure dotick;
-    procedure calculatetickcount;
     procedure drawdefaultblocks(ascreen: tbitmap);
     procedure drawdefaultspectrum(ascreen: tbitmap);
     procedure drawdefaultspectrogram(ascreen: tbitmap);
@@ -67,7 +63,6 @@ type
     property onstop: tthreadmethod read fonstop write fonstop;
     property ontick: tthreadmethod read fontick write fontick;
     property onwait: tthreadmethod read fonwait write fonwait;
-    property percentage: integer read fpercentage;
     property screens[index: longint]: tbitmap read getscreen;
     property screenwidth: integer read fscreenwidth write fscreenwidth;
     property screenheight: integer read fscreenheight write fscreenheight;
@@ -191,7 +186,14 @@ begin
 
     if assigned(ftrack) then
     begin
-      calculatetickcount;
+
+      fblocknum := 0;
+      if ftrack.channelcount > 0 then
+      begin
+        fblocknum := length(ftrack.channels[0].rms2);
+      end;
+      fmaxdB := 6*ftrack.bitspersample;
+
       drawblocks     (fscreens[0]);
       drawspectrum   (fscreens[1]);
       drawspectrogram(fscreens[2]);
@@ -211,29 +213,14 @@ end;
 
 procedure tscreendrawer.dotick;
 begin
-  inc(ftick);
   if assigned(fontick) then
   begin
-    fpercentage := (100 * ftick) div ftickcount;
     if millisecondsbetween(now, fticktime) > 20 then
     begin
       synchronize(fontick);
       fticktime := now;
     end;
   end;
-end;
-
-procedure tscreendrawer.calculatetickcount;
-begin
-  fblocknum := 0;
-  if ftrack.channelcount > 0 then
-  begin
-    fblocknum := length(ftrack.channels[0].rms2);
-  end;
-  fmaxdB := 6*ftrack.bitspersample;
-
-  ftick := 0;
-  ftickcount := fscreenwidth * (fscreenheight - 110);
 end;
 
 procedure tscreendrawer.drawblocks(ascreen: tbitmap);
@@ -316,7 +303,6 @@ begin
     chart.pencolor := clblack;
     chart.texturecolor := clred;
     chart.addpolygon(points, '');
-
     dotick;
   end;
   setlength(points, 0);
@@ -437,6 +423,7 @@ begin
 
   // loop over output bitmap pixels
   for x := 0 to bit.width -1 do
+  begin
     for y := 0 to bit.height -1 do
     begin
       amp := 0;
@@ -457,6 +444,7 @@ begin
       end;
       dotick;
     end;
+  end;
   ascreen.canvas.draw(
     chart.getdrawingrect.left,
     chart.getdrawingrect.top + (chart.GetDrawingRect.Height - bit.Height), bit);
