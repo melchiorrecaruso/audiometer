@@ -302,6 +302,68 @@ begin
   end;
 end;
 
+function hamming(n, Num: longint): double;
+begin
+  result := 0.54 - 0.46 * cos(2*pi*n/(Num-1));
+end;
+
+function sinc(x: double): double;
+begin
+  if abs(x) > 1E-10 then
+    result := sin(pi*x)/(pi*x)
+  else
+    result := 1.0
+end;
+
+function calculatetruepeaklevelfir(samples: tfloatarray; oversamplefactor: integer): double;
+const
+  phases = 4;          // Oversampling 2x → 2 fasi
+  taps   = 12;         // Numero di coefficienti per fase
+  fc     = 0.5/phases; // Cutoff relativo (per 2x: 0.5 / 2)
+var
+  coefficients: array[0..phases -1, 0..taps -1] of double = (
+    ( 0.0017089843750, 0.0109863281250, -0.0196533203125, 0.0332031250000, -0.0594482421875, 0.1373291015625, 0.9721679687500, -0.1022949218750, 0.0476074218750, -0.0266113281250, 0.0148925781250, -0.0083007812500),
+    (-0.0291748046875, 0.0292968750000, -0.0517578125000, 0.0891113281250, -0.1665039062500, 0.4650878906250, 0.7797851562500, -0.2003173828125, 0.1015625000000, -0.0582275390625, 0.0330810546875, -0.0189208984375),
+    (-0.0189208984375, 0.0330810546875, -0.0582275390625, 0.1015625000000, -0.2003173828125, 0.7797851562500, 0.4650878906250, -0.1665039062500, 0.0891113281250, -0.0517578125000, 0.0292968750000, -0.0291748046875),
+    (-0.0083007812500, 0.0148925781250, -0.0266113281250, 0.0476074218750, -0.1022949218750, 0.9721679687500, 0.1373291015625, -0.0594482421875, 0.0332031250000, -0.0196533203125, 0.0109863281250,  0.0017089843750));
+
+  halftaps, i, tap, phase: longint;
+  raw, sum: double;
+begin
+  halftaps := taps div 2;
+  (*
+  // Generate FIR coefficents
+
+  for phase := 0 to phases -1 do
+  begin
+    sum := 0.0;
+    for tap := 0 to taps -1 do
+    begin
+      raw := sinc(2 * fc *(tap - halftaps - phase/phases)) * hamming(tap, taps);
+      coefficients[phase, tap] := raw;
+      sum := sum + raw;
+    end;
+    // Normalize coefficents
+    for tap := 0 to taps -1 do
+      coefficients[phase, tap] := coefficients[phase, tap] / sum;
+  end;
+  *)
+
+  result := 0;
+  for i := (low(samples) + 6) to (high(samples) -6) do
+  begin
+    for phase := 0 to phases -1 do
+    begin
+      sum := 0;
+      for tap := 0 to taps -1 do
+      begin
+        sum := sum + samples[tap - halftaps + i] * coefficients[phase, tap];
+      end;
+      result := max(result, abs(sum));
+    end;
+  end;
+end;
+
 // ttrack
 
 constructor ttrack.create(const afilename: string);
@@ -455,7 +517,7 @@ end;
 
 function ttrackanalyzer.gettruepeak(channel: word): double;
 begin
-  result := calculatetruepeaklevelcubic(ftrack.channels[channel].samples, 8);
+  result := calculatetruepeaklevelcubic(ftrack.channels[channel].samples, 4);
 end;
 
 function ttrackanalyzer.getrms(channel: word): double;
@@ -501,7 +563,7 @@ begin
         ftrack.fdr       := ftrack.fdr       + dr;
         ftrack.frms      := ftrack.frms      + getrms (i);
         ftrack.fpeak     := ftrack.fpeak     + getpeak(i);
-        ftrack.ftruepeak := ftrack.ftruepeak + gettruepeak(i);
+        ftrack.ftruepeak := max(ftrack.ftruepeak, gettruepeak(i));
         {$ifopt D+}
         writeln;
         writeln('track.DR  [', i,']      ', dr            :2:1);
@@ -512,7 +574,7 @@ begin
       ftrack.fdr       := ftrack.fdr      /ffmt.channels;
       ftrack.frms      := ftrack.frms     /ffmt.channels;
       ftrack.fpeak     := ftrack.fpeak    /ffmt.channels;
-      ftrack.ftruepeak := ftrack.ftruepeak/ffmt.channels;
+    //ftrack.ftruepeak := ftrack.ftruepeak/ffmt.channels;
       {$ifopt D+}
       writeln;
       writeln('track.DR:          ', ftrack.fdr          :2:1);
