@@ -35,6 +35,43 @@ type
   { taudiofrm }
 
   taudiofrm = class(tform)
+    Bevel4: TBevel;
+    Bevel5: TBevel;
+    CRESTLeftValue1: TLabel;
+    CRESTRightValue: TLabel;
+    CRESTRightValue1: TLabel;
+    ILabel: TLabel;
+    PCM: TLabel;
+    Label14: TLabel;
+    LRALabel: TLabel;
+    LUFSPanel: TPanel;
+    MLabel: TLabel;
+    Panel4: TPanel;
+    Panel5: TPanel;
+    Panel6: TPanel;
+    Panel7: TPanel;
+    PLRLeftValue1: TLabel;
+    PLRRightValue: TLabel;
+    PLRRightValue1: TLabel;
+    RMSLeftValue1: TLabel;
+    RMSRightValue: TLabel;
+    RMSRightValue1: TLabel;
+    SLabel: TLabel;
+    TPLLabel: TLabel;
+    PLRLeftValue: TLabel;
+    Label13: TLabel;
+    TPLLeftValue: TLabel;
+    RMSLabel: TLabel;
+    CRESTLabel: TLabel;
+    PLRLabel: TLabel;
+    RMSLeftValue: TLabel;
+    CRESTLeftValue: TLabel;
+    TPLLeftValue1: TLabel;
+    TPLRightValue: TLabel;
+    TPLRightValue1: TLabel;
+    TPMPanel: TPanel;
+    Panel2: TPanel;
+    Panel3: TPanel;
     screenprogressbar: TBCRadialProgressBar;
     screenpanel: TPanel;
     blocksbtn: TBCButton;
@@ -284,19 +321,20 @@ begin
     enablebuttons;
   end else
   begin
-    bit8  .font.color := clgray; if track.bitspersample = 8      then bit8  .font.color := clwhite;
-    bit16 .font.color := clgray; if track.bitspersample = 16     then bit16 .font.color := clwhite;
-    bit24 .font.color := clgray; if track.bitspersample = 24     then bit24 .font.color := clwhite;
+    pcm   .font.color  := clwhite;
+    bit8  .font.color  := clgray; if track.bitspersample = 8      then bit8  .font.color := clwhite;
+    bit16 .font.color  := clgray; if track.bitspersample = 16     then bit16 .font.color := clwhite;
+    bit24 .font.color  := clgray; if track.bitspersample = 24     then bit24 .font.color := clwhite;
 
-    khz44 .font.color := clgray; if track.samplerate    = 44100  then khz44 .font.color := clwhite;
-    khz48 .font.color := clgray; if track.samplerate    = 48000  then khz48 .font.color := clwhite;
-    khz88 .font.color := clgray; if track.samplerate    = 88000  then khz88 .font.color := clwhite;
-    khz96 .font.color := clgray; if track.samplerate    = 96000  then khz96 .font.color := clwhite;
-    khz176.font.color := clgray; if track.samplerate    = 176400 then khz176.font.color := clwhite;
-    khz192.font.color := clgray; if track.samplerate    = 192000 then khz192.font.color := clwhite;
+    khz44 .font.color  := clgray; if track.samplerate    = 44100  then khz44 .font.color := clwhite;
+    khz48 .font.color  := clgray; if track.samplerate    = 48000  then khz48 .font.color := clwhite;
+    khz88 .font.color  := clgray; if track.samplerate    = 88000  then khz88 .font.color := clwhite;
+    khz96 .font.color  := clgray; if track.samplerate    = 96000  then khz96 .font.color := clwhite;
+    khz176.font.color  := clgray; if track.samplerate    = 176400 then khz176.font.color := clwhite;
+    khz192.font.color  := clgray; if track.samplerate    = 192000 then khz192.font.color := clwhite;
 
-    mono  .font.color := clgray; if track.channelcount  = 1      then mono  .font.color := clwhite;
-    stereo.font.color := clgray; if track.channelcount  = 2      then stereo.font.color := clwhite;
+    mono  .font.color  := clgray; if track.channelcount  = 1      then mono  .font.color := clwhite;
+    stereo.font.color  := clgray; if track.channelcount  = 2      then stereo.font.color := clwhite;
 
     drvalue.caption    := '--';
     drvalue.font.color := clwhite;
@@ -522,6 +560,7 @@ end;
 
 procedure taudiofrm.clear;
 begin
+  pcm   .font.color := clgray;
   bit8  .font.color := clgray;
   bit16 .font.color := clgray;
   bit24 .font.color := clgray;
