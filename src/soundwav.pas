@@ -251,15 +251,7 @@ begin
   result := ansicomparefilename(ttrack(item1).ffilename, ttrack(item2).ffilename);
 end;
 
-function db(const value: double): double;
-begin
-  if value > minfloat then
-    result := 20*log10(value)
-  else
-    result := neginfinity;
-end;
-
-function dr(const value: double): double;
+function dB(const value: double): double;
 begin
   if value > minfloat then
     result := 20*log10(value)
@@ -302,66 +294,55 @@ begin
   end;
 end;
 
-function hamming(n, Num: longint): double;
-begin
-  result := 0.54 - 0.46 * cos(2*pi*n/(Num-1));
-end;
-
-function sinc(x: double): double;
-begin
-  if abs(x) > 1E-10 then
-    result := sin(pi*x)/(pi*x)
-  else
-    result := 1.0
-end;
-
-function calculatetruepeaklevelfir(samples: tfloatarray; oversamplefactor: integer): double;
-const
-  phases = 4;          // Oversampling 2x → 2 fasi
-  taps   = 12;         // Numero di coefficienti per fase
-  fc     = 0.5/phases; // Cutoff relativo (per 2x: 0.5 / 2)
+function calculatetruepeakfir(samples: tfloatarray; oversample, taps: integer): double;
 var
-  coefficients: array[0..phases -1, 0..taps -1] of double = (
-    ( 0.0017089843750, 0.0109863281250, -0.0196533203125, 0.0332031250000, -0.0594482421875, 0.1373291015625, 0.9721679687500, -0.1022949218750, 0.0476074218750, -0.0266113281250, 0.0148925781250, -0.0083007812500),
-    (-0.0291748046875, 0.0292968750000, -0.0517578125000, 0.0891113281250, -0.1665039062500, 0.4650878906250, 0.7797851562500, -0.2003173828125, 0.1015625000000, -0.0582275390625, 0.0330810546875, -0.0189208984375),
-    (-0.0189208984375, 0.0330810546875, -0.0582275390625, 0.1015625000000, -0.2003173828125, 0.7797851562500, 0.4650878906250, -0.1665039062500, 0.0891113281250, -0.0517578125000, 0.0292968750000, -0.0291748046875),
-    (-0.0083007812500, 0.0148925781250, -0.0266113281250, 0.0476074218750, -0.1022949218750, 0.9721679687500, 0.1373291015625, -0.0594482421875, 0.0332031250000, -0.0196533203125, 0.0109863281250,  0.0017089843750));
-
-  halftaps, i, tap, phase: longint;
-  raw, sum: double;
+  fc, x: double;
+  i, phase, tap: longint;
+  coeff, sum: double;
+  coeffs: array of array of double = nil;
 begin
-  halftaps := taps div 2;
-  (*
-  // Generate FIR coefficents
+  setlength(coeffs, oversample);
+  for i := low(coeffs) to high(coeffs) do
+    setlength(coeffs[i], taps);
 
-  for phase := 0 to phases -1 do
+  fc := 0.5 / oversample;
+  // generate fir coeffs
+  for phase := 0 to oversample -1 do
   begin
     sum := 0.0;
     for tap := 0 to taps -1 do
     begin
-      raw := sinc(2 * fc *(tap - halftaps - phase/phases)) * hamming(tap, taps);
-      coefficients[phase, tap] := raw;
-      sum := sum + raw;
+      x := (tap - (taps / 2)) - phase/oversample;
+      // sinc
+      if abs(x) > 1e-10 then
+        coeff := 2.0 * fc * sin(pi * x) / (pi * x)
+      else
+        coeff := 2.0 * fc;
+      // finestra di hamming
+      coeff := coeff * (0.54 - 0.46 * cos(2.0 * pi * tap / (taps - 1)));
+      coeffs[phase, tap] := coeff;
+      sum := sum + coeff;
     end;
-    // Normalize coefficents
+    // normalize coeffs
     for tap := 0 to taps -1 do
-      coefficients[phase, tap] := coefficients[phase, tap] / sum;
+      coeffs[phase, tap] := coeffs[phase, tap] / sum;
   end;
-  *)
 
   result := 0;
-  for i := (low(samples) + 6) to (high(samples) -6) do
+  for i := (low(samples) + taps div 2) to (high(samples) - taps div 2) do
   begin
-    for phase := 0 to phases -1 do
+    for phase := 0 to oversample -1 do
     begin
       sum := 0;
       for tap := 0 to taps -1 do
-      begin
-        sum := sum + samples[tap - halftaps + i] * coefficients[phase, tap];
-      end;
+        sum := sum + samples[tap - (taps div 2) + i] * coeffs[phase, tap];
       result := max(result, abs(sum));
     end;
   end;
+
+  for i := low(coeffs) to high(coeffs) do
+    setlength(coeffs[i], 0);
+  setlength(coeffs, 0);
 end;
 
 // ttrack
@@ -517,7 +498,13 @@ end;
 
 function ttrackanalyzer.gettruepeak(channel: word): double;
 begin
-  result := calculatetruepeaklevelcubic(ftrack.channels[channel].samples, 4);
+  case ftrack.samplerate of
+    44100:  result := calculatetruepeakfir(ftrack.channels[channel].samples, 4, 12);
+    48000:  result := calculatetruepeakfir(ftrack.channels[channel].samples, 4, 12);
+    96000:  result := calculatetruepeakfir(ftrack.channels[channel].samples, 2, 12);
+    192000: result := getpeak(channel);
+    else    result := getpeak(channel);
+  end;
 end;
 
 function ttrackanalyzer.getrms(channel: word): double;
