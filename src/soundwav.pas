@@ -92,7 +92,6 @@ type
     rms2: tfloatarray;
     peak: tfloatarray;
     spectrum: tfloatarray;
-    truepeak: double;
   end;
 
   // ttrackchannels
@@ -110,12 +109,21 @@ type
     fchannelcount: longint;
     fbitspersample: longint;
     fbyterate: longint;
-    frms: double;
-    fpeak: double;
-    ftruepeak: double;
-    fdr: double;
+    frms: tfloatarray;
+    fpeak: tfloatarray;
+    ftruepeak: tfloatarray;
+    fdr: tfloatarray;
     fduration: longint;
     fchannels: ttrackchannels;
+    function getdri(channel: longint): double;
+    function getrmsi(channel: longint): double;
+    function getpeaki(channel: longint): double;
+    function gettruepeaki(channel: longint): double;
+
+    function getdr: double;
+    function getrms: double;
+    function getpeak: double;
+    function gettruepeak: double;
   public
     constructor create(const afilename: string);
     destructor destroy; override;
@@ -128,9 +136,17 @@ type
     property channelcount: longint read fchannelcount;
     property bitspersample: longint read fbitspersample;
     property byterate: longint read fbyterate;
-    property rms: double read frms;
-    property peak: double read fpeak;
-    property dr: double read fdr;
+
+    property dri[channel: longint]: double read getdri;
+    property rmsi[channel: longint]: double read getrmsi;
+    property peaki[channel: longint]: double read getpeaki;
+    property truepeaki[channel: longint]: double read gettruepeaki;
+
+    property dr: double read getdr;
+    property rms: double read getrms;
+    property peak: double read getpeak;
+    property truepeak: double read gettruepeak;
+
     property duration: longint read fduration;
     property channels: ttrackchannels read fchannels;
   end;
@@ -198,7 +214,6 @@ type
     property count: longint read getcount;
     property tracks[index: longint]: ttrack read gettrack; default;
   end;
-
 
   function filesupported(fileext: string): boolean;
   function dB(const value: double): double;
@@ -356,16 +371,20 @@ begin
   fsamplerate    := 0;
   fbitspersample := 0;
   fbyterate      := 0;
-  frms           := 0;
-  fpeak          := 0;
-  ftruepeak      := 0;
-  fdr            := 0;
+  frms           := nil;
+  fpeak          := nil;
+  ftruepeak      := nil;
+  fdr            := nil;
   fchannels      := nil;
 end;
 
 destructor ttrack.destroy;
 begin
   clearchannels;
+  setlength(frms,      0);
+  setlength(fpeak,     0);
+  setlength(ftruepeak, 0);
+  setlength(fdr,       0);
   inherited destroy;
 end;
 
@@ -381,6 +400,76 @@ begin
     setlength(fchannels[i].spectrum, 0);
   end;
   setlength(fchannels, 0);
+end;
+
+function ttrack.getdri(channel: longint): double;
+begin
+  result := fdr[channel];
+end;
+
+function ttrack.getrmsi(channel: longint): double;
+begin
+  result := frms[channel];
+end;
+
+function ttrack.getpeaki(channel: longint): double;
+begin
+  result := fpeak[channel];
+end;
+
+function ttrack.gettruepeaki(channel: longint): double;
+begin
+  result := ftruepeak[channel];
+end;
+
+function ttrack.getdr: double;
+var
+  i: longint;
+begin
+  result := 0;
+  if length(fdr) > 0 then
+  begin
+    for i := low(fdr) to high(fdr) do
+      result := result + fdr[i];
+    result := result / length(fdr);
+  end;
+end;
+
+function ttrack.getrms: double;
+var
+  i: longint;
+begin
+  result := 0;
+  if length(frms) > 0 then
+  begin
+    for i := low(frms) to high(frms) do
+      result := result + sqr(frms[i]);
+    result := sqrt(result / length(frms));
+  end;
+end;
+
+function ttrack.getpeak: double;
+var
+  i: longint;
+begin
+  result := 0;
+  if length(fpeak) > 0 then
+  begin
+    for i := low(fpeak) to high(fpeak) do
+      result := math.max(result, fpeak[i]);
+  end;
+end;
+
+function ttrack.gettruepeak: double;
+var
+  i: longint;
+begin
+  result := 0;
+  if length(ftruepeak) > 0 then
+  begin
+    for i := low(ftruepeak) to high(ftruepeak) do
+      result := math.max(result, ftruepeak[i]);
+  end;
 end;
 
 // ttrackanalyzer
@@ -501,7 +590,9 @@ begin
   case ftrack.samplerate of
     44100:  result := calculatetruepeakfir(ftrack.channels[channel].samples, 4, 12);
     48000:  result := calculatetruepeakfir(ftrack.channels[channel].samples, 4, 12);
+    88200:  result := calculatetruepeakfir(ftrack.channels[channel].samples, 2, 12);
     96000:  result := calculatetruepeakfir(ftrack.channels[channel].samples, 2, 12);
+    176400: result := getpeak(channel);
     192000: result := getpeak(channel);
     else    result := getpeak(channel);
   end;
@@ -532,8 +623,11 @@ end;
 
 procedure ttrackanalyzer.execute;
 var
-  i: longint;
-  dr: double;
+  i, j: longint;
+  dr:       double = 0;
+  rms:      double = 0;
+  peak:     double = 0;
+  truepeak: double = 0;
 begin
   fpercentage := 0;
   if assigned(fonstart) then
@@ -543,31 +637,37 @@ begin
   if fstatus = 0 then
     if ffmt.channels > 0 then
     begin
-      ftrack.fdr := 0;
       for i := 0 to ffmt.channels -1 do
       begin
-        dr := getdr(i);
-        ftrack.fdr       := ftrack.fdr       + dr;
-        ftrack.frms      := ftrack.frms      + getrms (i);
-        ftrack.fpeak     := ftrack.fpeak     + getpeak(i);
-        ftrack.ftruepeak := max(ftrack.ftruepeak, gettruepeak(i));
+        ftrack.fdr      [i] := getdr      (i);
+        ftrack.frms     [i] := getrms     (i);
+        ftrack.fpeak    [i] := getpeak    (i);
+        ftrack.ftruepeak[i] := gettruepeak(i);
         {$ifopt D+}
         writeln;
-        writeln('track.DR  [', i,']      ', dr            :2:1);
-        writeln('track.Rms [', i,']      ', db(getrms (i)):2:2);
-        writeln('track.Peak[', i,']      ', db(getpeak(i)):2:2);
+        writeln('track.DR  [', i,'] ',    ftrack.fdr      [i] :2:1);
+        writeln('track.Rms [', i,'] ', db(ftrack.frms     [i]):2:2);
+        writeln('track.Peak[', i,'] ', db(ftrack.fpeak    [i]):2:2);
+        writeln('track.TPL [', i,'] ', db(ftrack.ftruepeak[i]):2:2);
         {$endif}
       end;
-      ftrack.fdr       := ftrack.fdr      /ffmt.channels;
-      ftrack.frms      := ftrack.frms     /ffmt.channels;
-      ftrack.fpeak     := ftrack.fpeak    /ffmt.channels;
-    //ftrack.ftruepeak := ftrack.ftruepeak/ffmt.channels;
+
+      for i := 0 to ffmt.channels -1 do
+      begin
+        dr       := dr   + ftrack.fdr  [i];
+        rms      := rms  + ftrack.frms [i];
+        peak     := peak + ftrack.fpeak[i];
+        truepeak := max(truepeak, ftrack.ftruepeak[i]);
+      end;
+      dr       := dr   /ffmt.channels;
+      rms      := rms  /ffmt.channels;
+      peak     := peak /ffmt.channels;
       {$ifopt D+}
       writeln;
-      writeln('track.DR:          ', ftrack.fdr          :2:1);
-      writeln('track.Rms          ', db(ftrack.frms     ):2:2);
-      writeln('track.Peak         ', db(ftrack.fpeak    ):2:2);
-      writeln('track.TruePeak     ', db(ftrack.ftruepeak):2:2);
+      writeln('track.DR:          ',   (dr      ):2:1);
+      writeln('track.Rms          ', db(rms     ):2:2);
+      writeln('track.Peak         ', db(peak    ):2:2);
+      writeln('track.TruePeak     ', db(truepeak):2:2);
       writeln;
       {$endif}
     end;
@@ -597,11 +697,12 @@ begin
   ftrack.fchannelcount  := ffmt.channels;
   ftrack.fsamplerate    := ffmt.samplespersec;
   ftrack.fbyterate      := ffmt.bytespersec;
-  ftrack.frms           := 0;
-  ftrack.fpeak          := 0;
-  ftrack.ftruepeak      := 0;
-  ftrack.fdr            := 0;
   ftrack.fduration      := 0;
+
+  setlength(ftrack.fdr,       ffmt.channels);
+  setlength(ftrack.frms,      ffmt.channels);
+  setlength(ftrack.fpeak,     ffmt.channels);
+  setlength(ftrack.ftruepeak, ffmt.channels);
 
   if ftrack.fsamplerate > 0 then
   begin
@@ -900,7 +1001,7 @@ begin
   s.add(splitter);
   s.add('');
 
-  dr  := 0;
+  dr := 0;
   if count > 0 then
   begin
     track := gettrack(0);
@@ -910,7 +1011,7 @@ begin
     begin
       track := gettrack(i);
       s.add(format('DR%2.0f %7.2f dB %7.2f dB %4.0d %4.0d %7.0d %-s     %s', [
-        track.dr,
+          (track.dr),
         db(track.peak),
         db(track.rms),
         track.bitspersample,
