@@ -336,9 +336,25 @@ begin
     mono  .font.color  := clgray; if track.channelcount  = 1      then mono  .font.color := clwhite;
     stereo.font.color  := clgray; if track.channelcount  = 2      then stereo.font.color := clwhite;
 
+    if track.channelcount > 0 then if dB(track.truepeaki[0]) <  0.0 then tplleftvalue .font.color := cllime;
+    if track.channelcount > 0 then if dB(track.truepeaki[0]) >= 0.0 then tplleftvalue .font.color := clyellow;
+    if track.channelcount > 0 then if dB(track.truepeaki[0]) >  0.5 then tplleftvalue .font.color := clred;
+
+    if track.channelcount > 1 then if dB(track.truepeaki[1]) <  0.0 then tplrightvalue.font.color := cllime;
+    if track.channelcount > 1 then if dB(track.truepeaki[1]) >= 0.0 then tplrightvalue.font.color := clyellow;
+    if track.channelcount > 1 then if dB(track.truepeaki[1]) >  0.5 then tplrightvalue.font.color := clred;
+
+
+    if track.channelcount > 0 then tplleftvalue   .caption := format('%0.1f', [dB(track.truepeaki[0])]);
+    if track.channelcount > 1 then tplrightvalue  .caption := format('%0.1f', [dB(track.truepeaki[1])]);
+    if track.channelcount > 0 then rmsleftvalue   .caption := format('%0.1f', [dB(track.rmsi[0])]);
+    if track.channelcount > 1 then rmsrightvalue  .caption := format('%0.1f', [dB(track.rmsi[1])]);
+    if track.channelcount > 0 then crestleftvalue .caption := format('%0.1f', [dB(track.truepeaki[0]/track.rmsi[0])]);
+    if track.channelcount > 1 then crestrightvalue.caption := format('%0.1f', [dB(track.truepeaki[1]/track.rmsi[1])]);
+
     drvalue.caption    := '--';
     drvalue.font.color := clwhite;
-    if track.dr > 0 then
+    if (track.dr) > 0 then
     begin
       drvalue.caption := format('%2.0f', [track.dr]);
       if drvalue.caption = ' 0' then drvalue.font.color := rgbtocolor(255,   0, 0) else
@@ -572,6 +588,13 @@ begin
   khz192.font.color := clgray;
   mono  .font.color := clgray;
   stereo.font.color := clgray;
+
+  tplleftvalue   .font.color := clgray;
+  tplrightvalue  .font.color := clgray;
+  rmsleftvalue   .font.color := clgray;
+  rmsrightvalue  .font.color := clgray;
+  crestleftvalue .font.color := clgray;
+  crestrightvalue.font.color := clgray;
 
   audio.caption      := 'Audio';
   audio.font.color   := clwhite;
