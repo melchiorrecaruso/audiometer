@@ -118,7 +118,15 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
-        <Filename Value="src/soundutils.pas"/>
+        <Filename Value="src/loudness.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/dynamicrange.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/common.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
     </Units>
