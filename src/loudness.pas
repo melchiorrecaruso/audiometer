@@ -39,8 +39,8 @@ type
     x1, x2: double;
     y1, y2: double;
   public
-    procedure init(samplerate: longint);
-    function run(const sample: double): double;
+    procedure init(asamplerate: longint);
+    function run(const asample: tsample): tsample;
   end;
 
   thighpassfilter = record
@@ -50,8 +50,8 @@ type
     x1, x2: double;
     y1, y2: double;
   public
-    procedure init(samplerate: longint);
-    function run(const sample: double): double;
+    procedure init(asamplerate: longint);
+    function run(const asample: tsample): tsample;
   end;
 
   tkweightingfilter = record
@@ -59,32 +59,29 @@ type
     highpassfilter: thighpassfilter;
     shelvingfilter: tshelvingfilter;
   public
-    procedure init(samplerate: longint);
-    procedure run(var samples: arrayofdouble);
-    function run(const sample: double): double;
+    procedure init(asamplerate: longint);
+    function run(const asamples: tsamples): tsamples;
+    function run(const asample: tsample): tsample;
+  end;
+
+  tloudness = record
+
+
+
+
   end;
 
 
-
-
-
-function peak(const asamples: arrayofdouble; aindex, acount: longint): double;
-function rms2(const asamples: arrayofdouble; aindex, acount: longint): double;
 function rms2tolufs(const aenergy: double): double;
-
-function truepeak(const asamples: arrayofdouble; aoversample, ataps: longint): double;
-function lufs(const asamples: arrayofdouble; asamplerate: longint): double;
-function lra(const asamples: arrayofdouble; asamplerate: longint): double;
-function plr(const sample, energy: double): double;
-
-
+function truepeak(const asamples: tsamples; aoversample, ataps: longint): tsample;
+function lufs(const asamples: tsamples; asamplerate: longint): double;
+function lra(const asamples: tsamples; asamplerate: longint): double;
+function plr(const truepeak: tsample; const energy: double): double;
 
 implementation
 
 uses
   math;
-
-
 
 function rms2tolufs(const aenergy: double): double;
 begin
@@ -94,38 +91,12 @@ begin
     result := neginfinity;
 end;
 
-function rms2(const asamples: arrayofdouble; aindex, acount: longint): double;
-var
-  i: integer;
+function plr(const truepeak: tsample; const energy: double): double;
 begin
-  result := 0.0;
-  if acount > 0 then
-  begin
-    for i := aindex to (aindex + acount) -1 do
-    begin
-      result := result + sqr(asamples[i]);
-    end;
-    result := result / acount;
-  end;
+  result := decibel(truepeak) - rms2tolufs(energy);
 end;
 
-function peak(const asamples: arrayofdouble; aindex, acount: longint): double;
-var
-  i: integer;
-begin
-  result := 0.0;
-  for i := aindex to (aindex + acount) -1 do
-  begin
-    result := max(result, abs(asamples[i]));
-  end;
-end;
-
-function plr(const sample, energy: double): double;
-begin
-  result := decibel(sample) - rms2tolufs(energy);
-end;
-
-function truepeak(const asamples: arrayofdouble; aoversample, ataps: longint): double;
+function truepeak(const asamples: tsamples; aoversample, ataps: longint): double;
 var
   fc, x: double;
   i, phase, tap: longint;
@@ -176,7 +147,7 @@ begin
   setlength(coeffs, 0);
 end;
 
-function lufs(const asamples: arrayofdouble; asamplerate: integer): double;
+function lufs(const asamples: tsamples; asamplerate: integer): double;
 const
   blockms = 400;
   stepms  = 100;
@@ -234,18 +205,16 @@ begin
   result := rms2tolufs(e1);
 end;
 
-
-
 function percentile(const values: arrayofdouble; p: double): double;
 var
   i: longint;
   index: double;
-  list: tdoublelist;
+  list: tlistofdouble;
 begin
   if length(values) = 0 then
     exit(neginfinity);
 
-  list := tdoublelist.create;
+  list := tlistofdouble.create;
   for i := low(values) to high(values) do
   begin
     list.add(values[i]);
@@ -263,7 +232,7 @@ begin
   list.free;
 end;
 
-function lra(const asamples: arrayofdouble; asamplerate: integer): double;
+function lra(const asamples: tsamples; asamplerate: integer): double;
 const
   blockms = 3000;
   stepms  = 1000;
@@ -305,7 +274,7 @@ end;
 
 // tshelvingfilter
 
-procedure tshelvingfilter.init(samplerate: longint);
+procedure tshelvingfilter.init(asamplerate: longint);
 const
   gain = 4.0;
   f0 = 1500.0;
@@ -316,7 +285,7 @@ begin
   y1 := 0; y2 := 0;
 
   a := power(10, gain / 40);
-  w0 := 2 * pi * f0 / samplerate;
+  w0 := 2 * pi * f0 / asamplerate;
   cosw0 := cos(w0);
   alpha := sin(w0) / 2 * sqrt((a + 1/a) * (1 / 0.707 - 1) + 2); // q ≈ 0.707
 
@@ -340,19 +309,19 @@ begin
 //b2 :=  1.19839281085285;
 end;
 
-function tshelvingfilter.run(const sample: double): double;
+function tshelvingfilter.run(const asample: tsample): tsample;
 begin
-  result := b0 * sample + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+  result := b0 * asample + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
   // shift state
   x2 := x1;
-  x1 := sample;
+  x1 := asample;
   y2 := y1;
   y1 := result;
 end;
 
 // thighpassfilter
 
-procedure thighpassfilter.init(samplerate: longint);
+procedure thighpassfilter.init(asamplerate: longint);
 const
   f0 = 60.0;
 var
@@ -361,7 +330,7 @@ begin
   x1 := 0; x2 := 0;
   y1 := 0; y2 := 0;
 
-  w0 := 2 * Pi * f0 / samplerate;
+  w0 := 2 * Pi * f0 / asamplerate;
   c := 1 / tan(w0 / 2);
 
   norm := 1 / (1 + sqrt(2) * c + c * c);
@@ -378,35 +347,36 @@ begin
 //b2 :=  1.0;
 end;
 
-function thighpassfilter.run(const sample: double): double;
+function thighpassfilter.run(const asample: tsample): tsample;
 begin
-  result := b0 * sample + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+  result := b0 * asample + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
   // shift state
   x2 := x1;
-  x1 := sample;
+  x1 := asample;
   y2 := y1;
   y1 := result;
 end;
 
 // tkweightingfilter
 
-procedure tkweightingfilter.init(samplerate: longint);
+procedure tkweightingfilter.init(asamplerate: longint);
 begin
-  highpassfilter.init(samplerate);
-  shelvingfilter.init(samplerate);
+  highpassfilter.init(asamplerate);
+  shelvingfilter.init(asamplerate);
 end;
 
-function tkweightingfilter.run(const sample: double): double;
+function tkweightingfilter.run(const asample: tsample): tsample;
 begin
-  result := shelvingfilter.run(highpassfilter.run(sample));
+  result := shelvingfilter.run(highpassfilter.run(asample));
 end;
 
-procedure tkweightingfilter.run(var samples: arrayofdouble);
+function tkweightingfilter.run(const asamples: tsamples): tsamples;
 var
   i: integer;
 begin
-  for i := low(samples) to high(samples) do
-    samples[i] := run(samples[i]);
+  setlength(result, length(asamples));
+  for i := low(result) to high(result) do
+    result[i] := run(asamples[i]);
 end;
 
 end.
