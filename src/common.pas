@@ -8,32 +8,23 @@ uses
   classes, fgl, sysutils;
 
 type
-  tchannel  = array of double;
-  tchannels = array of tchannel;
+  tsample   = double;
+  tsamples  = array of tsample;
+  tchannels = array of tsamples;
 
-  arrayofdouble = array of double;
+  tarrayofdouble = array of double;
+  tlistofdouble  = specialize tfpglist<double>;
 
-  tdoublelist = specialize tfpglist<double>;
-
-
-function compare(const value1, value2: double): longint;
 function decibel(const asample: double): double;
+function compare(const sample1, sample2: double): longint;
+function peak(const asamples: tsamples; aindex, acount: longint): double;
+function rms2(const asamples: tsamples; aindex, acount: longint): double;
+function rms(const asamples: tsamples; aindex, acount: longint): double;
 
 implementation
 
 uses
   math;
-
-function compare(const value1, value2: double): longint;
-begin
-  if value2 > value1 then
-    result := +1
-  else
-    if value2 < value1 then
-      result := -1
-    else
-      result := 0;
-end;
 
 function decibel(const asample: double): double;
 begin
@@ -41,6 +32,48 @@ begin
     result := 20*log10(asample)
   else
     result := neginfinity;
+end;
+
+function compare(const sample1, sample2: double): longint;
+begin
+  if sample2 > sample1 then
+    result := +1
+  else
+    if sample2 < sample1 then
+      result := -1
+    else
+      result := 0;
+end;
+
+function rms2(const asamples: tsamples; aindex, acount: longint): double;
+var
+  i: integer;
+begin
+  result := 0.0;
+  if acount > 0 then
+  begin
+    for i := aindex to (aindex + acount) -1 do
+    begin
+      result := result + sqr(asamples[i]);
+    end;
+    result := result / acount;
+  end;
+end;
+
+function rms(const asamples: tsamples; aindex, acount: longint): double;
+begin
+  result := sqrt(rms2(asamples, aindex, acount));
+end;
+
+function peak(const asamples: tsamples; aindex, acount: longint): double;
+var
+  i: integer;
+begin
+  result := 0.0;
+  for i := aindex to (aindex + acount) -1 do
+  begin
+    result := max(result, abs(asamples[i]));
+  end;
 end;
 
 end.
