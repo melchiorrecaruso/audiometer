@@ -50,9 +50,9 @@ type
     Panel5: TPanel;
     Panel6: TPanel;
     Panel7: TPanel;
-    PLRLeftValue1: TLabel;
+    LRALeftValue: TLabel;
     PLRRightValue: TLabel;
-    PLRRightValue1: TLabel;
+    LRARightValue: TLabel;
     RMSLeftValue1: TLabel;
     RMSRightValue: TLabel;
     RMSRightValue1: TLabel;
@@ -191,7 +191,7 @@ implementation
 {$R *.lfm}
 
 uses
-  math, fileutil;
+  math, fileutil, soundutils;
 
 function cutoff(const s: string): string;
 begin
@@ -336,21 +336,27 @@ begin
     mono  .font.color  := clgray; if track.channelcount  = 1      then mono  .font.color := clwhite;
     stereo.font.color  := clgray; if track.channelcount  = 2      then stereo.font.color := clwhite;
 
-    if track.channelcount > 0 then if dB(track.truepeaki[0]) <  0.0 then tplleftvalue .font.color := cllime;
-    if track.channelcount > 0 then if dB(track.truepeaki[0]) >= 0.0 then tplleftvalue .font.color := clyellow;
-    if track.channelcount > 0 then if dB(track.truepeaki[0]) >  0.5 then tplleftvalue .font.color := clred;
+    if track.channelcount > 0 then if decibel(track.truepeaki[0]) <  0.0 then tplleftvalue .font.color := cllime;
+    if track.channelcount > 0 then if decibel(track.truepeaki[0]) >= 0.0 then tplleftvalue .font.color := clyellow;
+    if track.channelcount > 0 then if decibel(track.truepeaki[0]) >  0.5 then tplleftvalue .font.color := clred;
 
-    if track.channelcount > 1 then if dB(track.truepeaki[1]) <  0.0 then tplrightvalue.font.color := cllime;
-    if track.channelcount > 1 then if dB(track.truepeaki[1]) >= 0.0 then tplrightvalue.font.color := clyellow;
-    if track.channelcount > 1 then if dB(track.truepeaki[1]) >  0.5 then tplrightvalue.font.color := clred;
+    if track.channelcount > 1 then if decibel(track.truepeaki[1]) <  0.0 then tplrightvalue.font.color := cllime;
+    if track.channelcount > 1 then if decibel(track.truepeaki[1]) >= 0.0 then tplrightvalue.font.color := clyellow;
+    if track.channelcount > 1 then if decibel(track.truepeaki[1]) >  0.5 then tplrightvalue.font.color := clred;
 
 
-    if track.channelcount > 0 then tplleftvalue   .caption := format('%0.1f', [dB(track.truepeaki[0])]);
-    if track.channelcount > 1 then tplrightvalue  .caption := format('%0.1f', [dB(track.truepeaki[1])]);
-    if track.channelcount > 0 then rmsleftvalue   .caption := format('%0.1f', [dB(track.rmsi[0])]);
-    if track.channelcount > 1 then rmsrightvalue  .caption := format('%0.1f', [dB(track.rmsi[1])]);
-    if track.channelcount > 0 then crestleftvalue .caption := format('%0.1f', [dB(track.truepeaki[0]/track.rmsi[0])]);
-    if track.channelcount > 1 then crestrightvalue.caption := format('%0.1f', [dB(track.truepeaki[1]/track.rmsi[1])]);
+    if track.channelcount > 0 then tplleftvalue   .caption := format('%0.1f', [decibel(track.truepeaki[0])]);
+    if track.channelcount > 1 then tplrightvalue  .caption := format('%0.1f', [decibel(track.truepeaki[1])]);
+    if track.channelcount > 0 then rmsleftvalue   .caption := format('%0.1f', [decibel(track.rmsi[0])]);
+    if track.channelcount > 1 then rmsrightvalue  .caption := format('%0.1f', [decibel(track.rmsi[1])]);
+    if track.channelcount > 0 then crestleftvalue .caption := format('%0.1f', [decibel(track.truepeaki[0]/track.rmsi[0])]);
+    if track.channelcount > 1 then crestrightvalue.caption := format('%0.1f', [decibel(track.truepeaki[1]/track.rmsi[1])]);
+    if track.channelcount > 0 then plrleftvalue   .caption := format('%0.1f', [decibel(track.truepeaki[0]) - track.lufsi[0]]);
+    if track.channelcount > 1 then plrrightvalue  .caption := format('%0.1f', [decibel(track.truepeaki[1]) - track.lufsi[1]]);
+
+    if track.channelcount > 0 then lraleftvalue   .caption := format('%0.1f', [track.lrai[0]]);
+    if track.channelcount > 1 then lrarightvalue  .caption := format('%0.1f', [track.lrai[1]]);
+
 
     drvalue.caption    := '--';
     drvalue.font.color := clwhite;

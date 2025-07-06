@@ -1480,7 +1480,7 @@ object audiofrm: Taudiofrm
         Font.Style = [fsBold]
         ParentFont = False
       end
-      object PLRLeftValue1: TLabel
+      object LRALeftValue: TLabel
         AnchorSideTop.Control = CRESTLeftValue1
         AnchorSideTop.Side = asrBottom
         AnchorSideRight.Control = Panel6
@@ -1595,7 +1595,7 @@ object audiofrm: Taudiofrm
         Font.Style = [fsBold]
         ParentFont = False
       end
-      object PLRRightValue1: TLabel
+      object LRARightValue: TLabel
         AnchorSideTop.Control = CRESTRightValue1
         AnchorSideTop.Side = asrBottom
         AnchorSideRight.Control = Panel7

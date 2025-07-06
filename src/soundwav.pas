@@ -26,7 +26,7 @@ unit soundwav;
 interface
 
 uses
-  classes, sysutils, math, fgl, ufft, utypes;
+  classes, sysutils, math, soundutils, ufft, utypes;
 
 // WAVE utils
 
@@ -80,18 +80,14 @@ type
     subck2id   : array [0..3] of char; // should be "data"
     subck2size : longword;             // == numsamples * numchannels * bitspersample/8
   end;
-  // and after this header the actual data comes, which is an array of samples
-
-  tfloatarray = array of double;
-  tfloatlist  = specialize tfpglist<double>;
 
   // ttrackchannel
 
   tchannel = record
-    samples: tfloatarray;
-    rms2: tfloatarray;
-    peak: tfloatarray;
-    spectrum: tfloatarray;
+    samples: arrayofdouble;
+    rms2: arrayofdouble;
+    peak: arrayofdouble;
+    spectrum: arrayofdouble;
   end;
 
   // ttrackchannels
@@ -109,16 +105,20 @@ type
     fchannelcount: longint;
     fbitspersample: longint;
     fbyterate: longint;
-    frms: tfloatarray;
-    fpeak: tfloatarray;
-    ftruepeak: tfloatarray;
-    fdr: tfloatarray;
+    frms: arrayofdouble;
+    fpeak: arrayofdouble;
+    ftruepeak: arrayofdouble;
+    flufs: arrayofdouble;
+    flra: arrayofdouble;
+    fdr: arrayofdouble;
     fduration: longint;
     fchannels: ttrackchannels;
     function getdri(channel: longint): double;
     function getrmsi(channel: longint): double;
     function getpeaki(channel: longint): double;
     function gettruepeaki(channel: longint): double;
+    function getlufsi(channel: longint): double;
+    function getlrai(channel: longint): double;
 
     function getdr: double;
     function getrms: double;
@@ -141,6 +141,8 @@ type
     property rmsi[channel: longint]: double read getrmsi;
     property peaki[channel: longint]: double read getpeaki;
     property truepeaki[channel: longint]: double read gettruepeaki;
+    property lufsi[channel: longint]: double read getlufsi;
+    property lrai[channel: longint]: double read getlrai;
 
     property dr: double read getdr;
     property rms: double read getrms;
@@ -176,8 +178,9 @@ type
     function readsamples(astream: tstream; achannels: ttrackchannels; achannelsize: longint): longint;
     procedure readfromstream(astream: tstream);
     procedure getspectrum(asamples: pdouble; count: longint; aspectrum: pfloat);
-    function getrms2(asamples: tfloatarray; index, count: longint): double;
-    function getpeak(asamples: tfloatarray; index, count: longint): double;
+    function getrms2(asamples: arrayofdouble; index, count: longint): double;
+    function getpeak(asamples: arrayofdouble; index, count: longint): double;
+    function getrms2(channel: word): double;
     function getrms(channel: word): double;
     function getpeak(channel: word): double;
     function getdr(channel: word): double;
@@ -216,7 +219,6 @@ type
   end;
 
   function filesupported(fileext: string): boolean;
-  function dB(const value: double): double;
 
 var
   audioanalyzer: ttrackanalyzer = nil;
@@ -250,114 +252,9 @@ begin
   result := false;
 end;
 
-function compare(const item1, item2: double): longint;
-begin
-  if item2 > item1 then
-    result := +1
-  else
-    if item2 < item1 then
-      result := -1
-    else
-      result := 0;
-end;
-
 function comparetrackname(item1, item2: pointer): longint;
 begin
   result := ansicomparefilename(ttrack(item1).ffilename, ttrack(item2).ffilename);
-end;
-
-function dB(const value: double): double;
-begin
-  if value > minfloat then
-    result := 20*log10(value)
-  else
-    result := neginfinity;
-end;
-
-function cubicinterpolate(p0, p1, p2, p3, t: single): single;
-var
-  a0, a1, a2, a3: single;
-begin
-  a0 := -0.5 * p0 + 1.5 * p1 - 1.5 * p2 + 0.5 * p3;
-  a1 := p0 - 2.5 * p1 + 2.0 * p2 - 0.5 * p3;
-  a2 := -0.5 * p0 + 0.5 * p2;
-  a3 := p1;
-  result := ((a0 * t + a1) * t + a2) * t + a3;
-end;
-
-function calculatetruepeaklevelcubic(samples: tfloatarray; oversamplefactor: integer): double;
-var
-  i, j: integer;
-  t, interpvalue: double;
-  p0, p1, p2, p3: double;
-begin
-  result := 0.0;
-  for i := 1 to high(samples) - 2 do
-  begin
-    p0 := samples[i - 1];
-    p1 := samples[i];
-    p2 := samples[i + 1];
-    p3 := samples[i + 2];
-
-    for j := 0 to oversamplefactor - 1 do
-    begin
-      t := j / oversamplefactor;
-      interpvalue := cubicinterpolate(p0, p1, p2, p3, t);
-      if abs(interpvalue) > result then
-        result := abs(interpvalue);
-    end;
-  end;
-end;
-
-function calculatetruepeakfir(samples: tfloatarray; oversample, taps: integer): double;
-var
-  fc, x: double;
-  i, phase, tap: longint;
-  coeff, sum: double;
-  coeffs: array of array of double = nil;
-begin
-  setlength(coeffs, oversample);
-  for i := low(coeffs) to high(coeffs) do
-    setlength(coeffs[i], taps);
-
-  fc := 0.5 / oversample;
-  // generate fir coeffs
-  for phase := 0 to oversample -1 do
-  begin
-    sum := 0.0;
-    for tap := 0 to taps -1 do
-    begin
-      x := (tap - (taps / 2)) - phase/oversample;
-      // sinc
-      if abs(x) > 1e-10 then
-        coeff := 2.0 * fc * sin(pi * x) / (pi * x)
-      else
-        coeff := 2.0 * fc;
-      // finestra di hamming
-      coeff := coeff * (0.54 - 0.46 * cos(2.0 * pi * tap / (taps - 1)));
-      coeffs[phase, tap] := coeff;
-      sum := sum + coeff;
-    end;
-    // normalize coeffs
-    for tap := 0 to taps -1 do
-      coeffs[phase, tap] := coeffs[phase, tap] / sum;
-  end;
-
-  result := 0;
-  for i := (low(samples) + taps div 2) to (high(samples) - taps div 2) do
-  begin
-    for phase := 0 to oversample -1 do
-    begin
-      sum := 0;
-      for tap := 0 to taps -1 do
-        sum := sum + samples[tap - (taps div 2) + i] * coeffs[phase, tap];
-      result := max(result, abs(sum));
-    end;
-  end;
-
-  for i := low(coeffs) to high(coeffs) do
-    setlength(coeffs[i], 0);
-  setlength(coeffs, 0);
 end;
 
 // ttrack
@@ -374,6 +271,8 @@ begin
   frms           := nil;
   fpeak          := nil;
   ftruepeak      := nil;
+  flufs          := nil;
+  flra           := nil;
   fdr            := nil;
   fchannels      := nil;
 end;
@@ -384,6 +283,8 @@ begin
   setlength(frms,      0);
   setlength(fpeak,     0);
   setlength(ftruepeak, 0);
+  setlength(flufs,     0);
+  setlength(flra,      0);
   setlength(fdr,       0);
   inherited destroy;
 end;
@@ -420,6 +321,16 @@ end;
 function ttrack.gettruepeaki(channel: longint): double;
 begin
   result := ftruepeak[channel];
+end;
+
+function ttrack.getlufsi(channel: longint): double;
+begin
+  result := flufs[channel];
+end;
+
+function ttrack.getlrai(channel: longint): double;
+begin
+  result := flra[channel];
 end;
 
 function ttrack.getdr: double;
@@ -528,7 +439,7 @@ begin
   end;
 end;
 
-function ttrackanalyzer.getrms2(asamples: tfloatarray; index, count: longint): double;
+function ttrackanalyzer.getrms2(asamples: arrayofdouble; index, count: longint): double;
 var
   i: longint;
 begin
@@ -537,10 +448,10 @@ begin
   begin
     result := result + sqr(asamples[i]);
   end;
-  result := 2*result/count;
+  result := result/count;
 end;
 
-function ttrackanalyzer.getpeak(asamples: tfloatarray; index, count: longint): double;
+function ttrackanalyzer.getpeak(asamples: arrayofdouble; index, count: longint): double;
 var
   i : longint;
 begin
@@ -555,12 +466,12 @@ function ttrackanalyzer.getdr(channel: word): double;
 var
   i, n: longint;
   peak2nd: double;
-  rms2: tfloatlist;
-  peak: tfloatlist;
+  rms2: tdoublelist;
+  peak: tdoublelist;
 begin
   result := 0;
-  rms2 := tfloatlist.create;
-  peak := tfloatlist.create;
+  rms2 := tdoublelist.create;
+  peak := tdoublelist.create;
   for i := 0 to fblocknum -1 do
   begin
     rms2.add(ftrack.fchannels[channel].rms2[i]);
@@ -579,7 +490,7 @@ begin
     begin
       result := result + rms2[i];
     end;
-    result := db(peak2nd/sqrt(result/n));
+    result := decibel(peak2nd/sqrt(result/n));
   end;
   rms2.destroy;
   peak.destroy;
@@ -588,26 +499,32 @@ end;
 function ttrackanalyzer.gettruepeak(channel: word): double;
 begin
   case ftrack.samplerate of
-    44100:  result := calculatetruepeakfir(ftrack.channels[channel].samples, 4, 12);
-    48000:  result := calculatetruepeakfir(ftrack.channels[channel].samples, 4, 12);
-    88200:  result := calculatetruepeakfir(ftrack.channels[channel].samples, 2, 12);
-    96000:  result := calculatetruepeakfir(ftrack.channels[channel].samples, 2, 12);
+    44100:  result := truepeak(ftrack.channels[channel].samples, 4, 12);
+    48000:  result := truepeak(ftrack.channels[channel].samples, 4, 12);
+    88200:  result := truepeak(ftrack.channels[channel].samples, 2, 12);
+    96000:  result := truepeak(ftrack.channels[channel].samples, 2, 12);
     176400: result := getpeak(channel);
     192000: result := getpeak(channel);
     else    result := getpeak(channel);
   end;
 end;
 
-function ttrackanalyzer.getrms(channel: word): double;
+
+function ttrackanalyzer.getrms2(channel: word): double;
 var
   i: longint;
 begin
   result := 0;
-  for i := 0 to fblocknum -1 do
+  for i := 0 to length(ftrack.channels[channel].samples) -1 do
   begin
-    result := result + ftrack.fchannels[channel].rms2[i];
+    result := result + sqr(ftrack.channels[channel].samples[i]);
   end;
-  result := sqrt(result / fblocknum);
+  result := result / length(ftrack.channels[channel].samples);
+end;
+
+function ttrackanalyzer.getrms(channel: word): double;
+begin
+  result := sqrt(getrms2(channel));
 end;
 
 function ttrackanalyzer.getpeak(channel: word): double;
@@ -615,9 +532,9 @@ var
   i: longint;
 begin
   result := 0;
-  for i := 0 to fblocknum -1 do
+  for i := 0 to length(ftrack.channels[channel].samples) -1 do
   begin
-    result := max(result, ftrack.fchannels[channel].peak[i]);
+    result := max(result, abs(ftrack.channels[channel].samples[i]));
   end;
 end;
 
@@ -643,12 +560,14 @@ begin
         ftrack.frms     [i] := getrms     (i);
         ftrack.fpeak    [i] := getpeak    (i);
         ftrack.ftruepeak[i] := gettruepeak(i);
+        ftrack.flufs    [i] := lufs(ftrack.channels[i].samples, ftrack.samplerate);
+        ftrack.flra     [i] := lra (ftrack.channels[i].samples, ftrack.samplerate);
         {$ifopt D+}
         writeln;
-        writeln('track.DR  [', i,'] ',    ftrack.fdr      [i] :2:1);
-        writeln('track.Rms [', i,'] ', db(ftrack.frms     [i]):2:2);
-        writeln('track.Peak[', i,'] ', db(ftrack.fpeak    [i]):2:2);
-        writeln('track.TPL [', i,'] ', db(ftrack.ftruepeak[i]):2:2);
+        writeln('track.DR  [', i,'] ',         ftrack.fdr      [i] :2:1);
+        writeln('track.Rms [', i,'] ', decibel(ftrack.frms     [i]):2:2);
+        writeln('track.Peak[', i,'] ', decibel(ftrack.fpeak    [i]):2:2);
+        writeln('track.TPL [', i,'] ', decibel(ftrack.ftruepeak[i]):2:2);
         {$endif}
       end;
 
@@ -659,15 +578,15 @@ begin
         peak     := peak + ftrack.fpeak[i];
         truepeak := max(truepeak, ftrack.ftruepeak[i]);
       end;
-      dr       := dr   /ffmt.channels;
-      rms      := rms  /ffmt.channels;
-      peak     := peak /ffmt.channels;
+      dr       := dr  /ffmt.channels;
+      rms      := rms /ffmt.channels;
+      peak     := peak/ffmt.channels;
       {$ifopt D+}
       writeln;
-      writeln('track.DR:          ',   (dr      ):2:1);
-      writeln('track.Rms          ', db(rms     ):2:2);
-      writeln('track.Peak         ', db(peak    ):2:2);
-      writeln('track.TruePeak     ', db(truepeak):2:2);
+      writeln('track.DR:          ',        (dr      ):2:1);
+      writeln('track.Rms          ', decibel(rms     ):2:2);
+      writeln('track.Peak         ', decibel(peak    ):2:2);
+      writeln('track.TruePeak     ', decibel(truepeak):2:2);
       writeln;
       {$endif}
     end;
@@ -703,6 +622,8 @@ begin
   setlength(ftrack.frms,      ffmt.channels);
   setlength(ftrack.fpeak,     ffmt.channels);
   setlength(ftrack.ftruepeak, ffmt.channels);
+  setlength(ftrack.flufs,     ffmt.channels);
+  setlength(ftrack.flra,      ffmt.channels);
 
   if ftrack.fsamplerate > 0 then
   begin
@@ -1011,9 +932,9 @@ begin
     begin
       track := gettrack(i);
       s.add(format('DR%2.0f %7.2f dB %7.2f dB %4.0d %4.0d %7.0d %-s     %s', [
-          (track.dr),
-        db(track.peak),
-        db(track.rms),
+               (track.dr),
+        decibel(track.peak),
+        decibel(track.rms),
         track.bitspersample,
         track.channelcount,
         track.samplerate,

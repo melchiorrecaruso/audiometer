@@ -75,7 +75,7 @@ var
 implementation
 
 uses
-  math, dateutils;
+  math, dateutils, soundutils;
 
 function getcolor(factor: double): tcolor;
 var
@@ -271,9 +271,9 @@ begin
     points[0].x := (i + 1) - 0.35;
     points[0].y := 0;
     points[1].x := (i + 1) - 0.35;
-    points[1].y := fmaxdB + db(rmsi);
+    points[1].y := fmaxdB + decibel(rmsi);
     points[2].x := (i + 1) + 0.35;
-    points[2].y := fmaxdB + db(rmsi);
+    points[2].y := fmaxdB + decibel(rmsi);
     points[3].x := (i + 1) + 0.35;
     points[3].y := 0;
 
@@ -292,13 +292,13 @@ begin
 
     // draw red block from rms to peak
     points[0].x := (i + 1) - 0.35;
-    points[0].y := fmaxdB + db(rmsi);
+    points[0].y := fmaxdB + decibel(rmsi);
     points[1].x := (i + 1) - 0.35;
-    points[1].y := fmaxdB + db(peaki);
+    points[1].y := fmaxdB + decibel(peaki);
     points[2].x := (i + 1) + 0.35;
-    points[2].y := fmaxdB + db(peaki);
+    points[2].y := fmaxdB + decibel(peaki);
     points[3].x := (i + 1) + 0.35;
-    points[3].y := fmaxdB + db(rmsi);
+    points[3].y := fmaxdB + decibel(rmsi);
 
     chart.pencolor := clblack;
     chart.texturecolor := clred;
@@ -359,7 +359,7 @@ begin
       index := j * windowsize + i;
       for k := 0 to ftrack.channelcount -1 do
       begin
-        y := max(y, fmaxdB + dB(ftrack.channels[k].spectrum[index]));
+        y := max(y, fmaxdB + decibel(ftrack.channels[k].spectrum[index]));
       end;
     end;
 
@@ -434,7 +434,7 @@ begin
         // convert amplitude to dB scale and normalize
         if (index mod windowsize) <> 0 then
         begin
-          amp := max(amp, 1 + dB(ftrack.channels[ch].spectrum[index]) / fmaxdB);
+          amp := max(amp, 1 + decibel(ftrack.channels[ch].spectrum[index]) / fmaxdB);
         end;
       end;
       // map amplitude to color and set pixel
