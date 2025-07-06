@@ -81,19 +81,6 @@ type
     subck2size : longword;             // == numsamples * numchannels * bitspersample/8
   end;
 
-  // ttrackchannel
-
-  tchannel = record
-    samples: arrayofdouble;
-    rms2: arrayofdouble;
-    peak: arrayofdouble;
-    spectrum: arrayofdouble;
-  end;
-
-  // ttrackchannels
-
-  ttrackchannels = array of tchannel;
-
   // ttrack
 
   ttrack = class
@@ -105,25 +92,10 @@ type
     fchannelcount: longint;
     fbitspersample: longint;
     fbyterate: longint;
-    frms: arrayofdouble;
-    fpeak: arrayofdouble;
-    ftruepeak: arrayofdouble;
-    flufs: arrayofdouble;
-    flra: arrayofdouble;
-    fdr: arrayofdouble;
     fduration: longint;
-    fchannels: ttrackchannels;
-    function getdri(channel: longint): double;
-    function getrmsi(channel: longint): double;
-    function getpeaki(channel: longint): double;
-    function gettruepeaki(channel: longint): double;
-    function getlufsi(channel: longint): double;
-    function getlrai(channel: longint): double;
+    fchannels: tchannels;
 
-    function getdr: double;
-    function getrms: double;
-    function getpeak: double;
-    function gettruepeak: double;
+    fdynamicrange: tblocks;
   public
     constructor create(const afilename: string);
     destructor destroy; override;
@@ -136,21 +108,10 @@ type
     property channelcount: longint read fchannelcount;
     property bitspersample: longint read fbitspersample;
     property byterate: longint read fbyterate;
-
-    property dri[channel: longint]: double read getdri;
-    property rmsi[channel: longint]: double read getrmsi;
-    property peaki[channel: longint]: double read getpeaki;
-    property truepeaki[channel: longint]: double read gettruepeaki;
-    property lufsi[channel: longint]: double read getlufsi;
-    property lrai[channel: longint]: double read getlrai;
-
-    property dr: double read getdr;
-    property rms: double read getrms;
-    property peak: double read getpeak;
-    property truepeak: double read gettruepeak;
-
     property duration: longint read fduration;
-    property channels: ttrackchannels read fchannels;
+
+    property dynamicrange: tblocks read fdynamicrange;
+
   end;
 
   { ttrackanalyzer }
@@ -175,7 +136,7 @@ type
     fffton: boolean;
     function getpercentage: longint;
     procedure readheader(astream: tstream);
-    function readsamples(astream: tstream; achannels: ttrackchannels; achannelsize: longint): longint;
+    function readsamples(astream: tstream; achannels: tchannels; achannelsize: longint): longint;
     procedure readfromstream(astream: tstream);
     procedure getspectrum(asamples: pdouble; count: longint; aspectrum: pfloat);
     function getrms2(asamples: arrayofdouble; index, count: longint): double;
@@ -268,119 +229,18 @@ begin
   fsamplerate    := 0;
   fbitspersample := 0;
   fbyterate      := 0;
-  frms           := nil;
-  fpeak          := nil;
-  ftruepeak      := nil;
-  flufs          := nil;
-  flra           := nil;
-  fdr            := nil;
   fchannels      := nil;
 end;
 
 destructor ttrack.destroy;
 begin
   clearchannels;
-  setlength(frms,      0);
-  setlength(fpeak,     0);
-  setlength(ftruepeak, 0);
-  setlength(flufs,     0);
-  setlength(flra,      0);
-  setlength(fdr,       0);
   inherited destroy;
 end;
 
 procedure ttrack.clearchannels;
-var
-  i: longint;
 begin
-  for i := low(fchannels) to high(fchannels) do
-  begin
-    setlength(fchannels[i].samples,  0);
-    setlength(fchannels[i].rms2,     0);
-    setlength(fchannels[i].peak,     0);
-    setlength(fchannels[i].spectrum, 0);
-  end;
   setlength(fchannels, 0);
-end;
-
-function ttrack.getdri(channel: longint): double;
-begin
-  result := fdr[channel];
-end;
-
-function ttrack.getrmsi(channel: longint): double;
-begin
-  result := frms[channel];
-end;
-
-function ttrack.getpeaki(channel: longint): double;
-begin
-  result := fpeak[channel];
-end;
-
-function ttrack.gettruepeaki(channel: longint): double;
-begin
-  result := ftruepeak[channel];
-end;
-
-function ttrack.getlufsi(channel: longint): double;
-begin
-  result := flufs[channel];
-end;
-
-function ttrack.getlrai(channel: longint): double;
-begin
-  result := flra[channel];
-end;
-
-function ttrack.getdr: double;
-var
-  i: longint;
-begin
-  result := 0;
-  if length(fdr) > 0 then
-  begin
-    for i := low(fdr) to high(fdr) do
-      result := result + fdr[i];
-    result := result / length(fdr);
-  end;
-end;
-
-function ttrack.getrms: double;
-var
-  i: longint;
-begin
-  result := 0;
-  if length(frms) > 0 then
-  begin
-    for i := low(frms) to high(frms) do
-      result := result + sqr(frms[i]);
-    result := sqrt(result / length(frms));
-  end;
-end;
-
-function ttrack.getpeak: double;
-var
-  i: longint;
-begin
-  result := 0;
-  if length(fpeak) > 0 then
-  begin
-    for i := low(fpeak) to high(fpeak) do
-      result := math.max(result, fpeak[i]);
-  end;
-end;
-
-function ttrack.gettruepeak: double;
-var
-  i: longint;
-begin
-  result := 0;
-  if length(ftruepeak) > 0 then
-  begin
-    for i := low(ftruepeak) to high(ftruepeak) do
-      result := math.max(result, ftruepeak[i]);
-  end;
 end;
 
 // ttrackanalyzer
@@ -439,103 +299,32 @@ begin
   end;
 end;
 
-function ttrackanalyzer.getrms2(asamples: arrayofdouble; index, count: longint): double;
-var
-  i: longint;
-begin
-  result := 0;
-  for i := index to (index + count) -1 do
-  begin
-    result := result + sqr(asamples[i]);
-  end;
-  result := result/count;
-end;
-
-function ttrackanalyzer.getpeak(asamples: arrayofdouble; index, count: longint): double;
-var
-  i : longint;
-begin
-  result := 0;
-  for i := index to (index + count) -1 do
-  begin
-    result := max(result, abs(asamples[i]));
-  end;
-end;
-
-function ttrackanalyzer.getdr(channel: word): double;
-var
-  i, n: longint;
-  peak2nd: double;
-  rms2: tdoublelist;
-  peak: tdoublelist;
-begin
-  result := 0;
-  rms2 := tdoublelist.create;
-  peak := tdoublelist.create;
-  for i := 0 to fblocknum -1 do
-  begin
-    rms2.add(ftrack.fchannels[channel].rms2[i]);
-    peak.add(ftrack.fchannels[channel].peak[i]);
-  end;
-  rms2.sort(@compare);
-  peak.sort(@compare);
-
-  n := trunc(0.2 * fblocknum);
-  if n > 1 then
-  begin
-    peak2nd := peak[1];
-
-    result := 0;
-    for i := 0 to n -1 do
-    begin
-      result := result + rms2[i];
-    end;
-    result := decibel(peak2nd/sqrt(result/n));
-  end;
-  rms2.destroy;
-  peak.destroy;
-end;
-
 function ttrackanalyzer.gettruepeak(channel: word): double;
 begin
   case ftrack.samplerate of
-    44100:  result := truepeak(ftrack.channels[channel].samples, 4, 12);
-    48000:  result := truepeak(ftrack.channels[channel].samples, 4, 12);
-    88200:  result := truepeak(ftrack.channels[channel].samples, 2, 12);
-    96000:  result := truepeak(ftrack.channels[channel].samples, 2, 12);
+    44100:  result := truepeak(ftrack.fchannels[channel], 4, 12);
+    48000:  result := truepeak(ftrack.fchannels[channel], 4, 12);
+    88200:  result := truepeak(ftrack.fchannels[channel], 2, 12);
+    96000:  result := truepeak(ftrack.fchannels[channel], 2, 12);
     176400: result := getpeak(channel);
     192000: result := getpeak(channel);
     else    result := getpeak(channel);
   end;
 end;
 
-
 function ttrackanalyzer.getrms2(channel: word): double;
-var
-  i: longint;
 begin
-  result := 0;
-  for i := 0 to length(ftrack.channels[channel].samples) -1 do
-  begin
-    result := result + sqr(ftrack.channels[channel].samples[i]);
-  end;
-  result := result / length(ftrack.channels[channel].samples);
+  result := rms2(ftrack.fchannels[channel], 0, length(ftrack.fchannels[channel]));
 end;
 
 function ttrackanalyzer.getrms(channel: word): double;
 begin
-  result := sqrt(getrms2(channel));
+  result := rms(ftrack.fchannels[channel], 0, length(ftrack.fchannels[channel]));
 end;
 
 function ttrackanalyzer.getpeak(channel: word): double;
-var
-  i: longint;
 begin
-  result := 0;
-  for i := 0 to length(ftrack.channels[channel].samples) -1 do
-  begin
-    result := max(result, abs(ftrack.channels[channel].samples[i]));
-  end;
+  result := peak(ftrack.fchannels[channel], 0, length(ftrack.fchannels[channel]));
 end;
 
 procedure ttrackanalyzer.execute;
