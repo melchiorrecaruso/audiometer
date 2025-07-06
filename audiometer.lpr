@@ -24,7 +24,8 @@ program audiometer;
 {$mode objfpc}{$H+}
 
 uses
-  {$IFDEF UNIX} cthreads, {$ENDIF} interfaces, forms, mainfrm, drawers, soundutils;
+  {$IFDEF UNIX} cthreads, {$ENDIF} interfaces, forms, mainfrm, drawers,
+  loudness, dynamicrange, common;
 
 {$R *.res}
 
