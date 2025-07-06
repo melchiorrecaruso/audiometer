@@ -26,7 +26,7 @@ unit soundwav;
 interface
 
 uses
-  classes, sysutils, math, soundutils, ufft, utypes;
+  classes, common, dynamicrange, sysutils, math, loudness, ufft, utypes;
 
 // WAVE utils
 
