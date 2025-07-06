@@ -31,8 +31,8 @@ uses
 
 type
   tblock = record
-    rms2: arrayofdouble;
-    peak: arrayofdouble;
+    rms2: tarrayofdouble;
+    peak: tarrayofdouble;
   end;
 
   tblocks = record
@@ -40,7 +40,7 @@ type
     fblocks: array of tblock;
     fblocknum: longint;
     fblocksize: longint;
-    fdynamicrange: arrayofdouble;
+    fdynamicrange: tarrayofdouble;
     function getblock(index: longint): tblock;
     function getdynamicrange: double;
   public
@@ -97,9 +97,9 @@ end;
 procedure tblocks.execute(const achannels: tchannels; asamplerate: longint);
 var
   i, j, ch: longint;
-  sum2, peak: double;
-  rmslist: tdoublelist;
-  peaklist: tdoublelist;
+  sum2, peak, peak2nd: double;
+  rmslist: tlistofdouble;
+  peaklist: tlistofdouble;
   channelcount, num: longint;
 begin
   clear;
@@ -137,8 +137,8 @@ begin
   setlength(fdynamicrange, channelcount);
   for ch := 0 to channelcount -1 do
   begin
-    rmslist  := tdoublelist.create;
-    peaklist := tdoublelist.create;
+    rmslist  := tlistofdouble.create;
+    peaklist := tlistofdouble.create;
     for i := low(fblocks) to high(fblocks) do
     begin
       rmslist.add(sqrt(2*fblocks[i].rms2[ch]));
@@ -147,18 +147,21 @@ begin
     rmslist.sort(@compare);
     peaklist.sort(@compare);
 
-    sum2 := 0;
     num  := trunc(0.2 * rmslist.count);
-    for j := 0 to num -1 do
+    if num > 1 then
     begin
-      sum2 := sum2 + sqr(rmslist[i]);
-    end;
-    fdynamicrange[ch] := decibel(sqrt(sum2/num) / peaklist[1]);
+      peak2nd := peaklist[1];
 
+      sum2 := 0;
+      for j := 0 to num -1 do
+      begin
+        sum2 := sum2 + sqr(rmslist[i]);
+      end;
+      fdynamicrange[ch] := decibel(sqrt(sum2/num) / peak2nd);
+    end;
     rmslist.destroy;
     peaklist.destroy
   end;
 end;
 
 end.
-
