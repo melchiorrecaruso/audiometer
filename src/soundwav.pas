@@ -299,19 +299,6 @@ begin
   end;
 end;
 
-function ttrackanalyzer.gettruepeak(channel: word): double;
-begin
-  case ftrack.samplerate of
-    44100:  result := truepeak(ftrack.fchannels[channel], 4, 12);
-    48000:  result := truepeak(ftrack.fchannels[channel], 4, 12);
-    88200:  result := truepeak(ftrack.fchannels[channel], 2, 12);
-    96000:  result := truepeak(ftrack.fchannels[channel], 2, 12);
-    176400: result := getpeak(channel);
-    192000: result := getpeak(channel);
-    else    result := getpeak(channel);
-  end;
-end;
-
 function ttrackanalyzer.getrms2(channel: word): double;
 begin
   result := rms2(ftrack.fchannels[channel], 0, length(ftrack.fchannels[channel]));
