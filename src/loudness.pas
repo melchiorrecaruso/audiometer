@@ -495,7 +495,7 @@ begin
   end;
 end;
 
-procedure tebur128analyzer.CalculateIntegratedLoudness(const achannels: tchannels);
+procedure tebur128analyzer.CalculateIntegratedLoudness(const AChannels: TChannels);
 const
   Blockms = 400;
   Stepms  = 100;
@@ -557,54 +557,57 @@ begin
   end;
 end;
 
-procedure tebur128analyzer.CalculateLoudnessRange(const achannels: tchannels);
+procedure tebur128analyzer.CalculateLoudnessRange(const AChannels: TChannels);
 const
-  blockms = 3000;
-  stepms  = 1000;
-  absolutegatelufs = -70.0;
+  Blockms = 3000;
+  Stepms  = 1000;
+  AbsolutegateLufs = -70.0;
 var
-  blocksize, stepsize, i: longint;
-  energy: double;
-  energies: arrayofdouble = nil;
-  energycount: integer;
+  BlockSize, StepSize, i, ch: longint;
+  Energy: double;
+  Energies: arrayofdouble = nil;
+  EnergyCount: integer;
   p95, p10: double;
 begin
-  blocksize := (asamplerate * blockms) div 1000;
-  stepsize  := (asamplerate * stepms ) div 1000;
+  BlockSize := (FSamplerate * Blockms) div 1000;
+  StepSize  := (FSamplerate * Stepms ) div 1000;
 
-
-
-
-  setlength(energies, length(asamples) div stepsize);
-  energycount := 0;
-
-  i := 0;
-  while (i + blocksize) < length(asamples) do
+  SetLength(FLraPerChannel, Length(AChannels));
+  for ch := Low(AChannels) to High(AChannels) do
   begin
-    energy := rms2(asamples, i, blocksize);
+    SetLength(Energies, Length(AChannels[ch]) div StepSize);
 
-    if rms2tolufs(energy) > absolutegatelufs then
+    EnergyCount := 0;
+
+    i := Low(AChannels[ch]);
+    while (i + BlockSize) < Length(AChannels[ch]) do
     begin
-      energies[energycount] := energy;
-      inc(energycount);
-    end;
-    inc(i, stepsize);
-  end;
+      Energy := rms2(AChannels[ch], i, BlockSize);
 
-  if energycount >= 2 then
-  begin
-    p95 := percentile(energies, 0.95);
-    p10 := percentile(energies, 0.10);
-    result := p95 - p10;
-  end else
-    result := 0;
+      if Rms2toLufs(Energy) > AbsolutegateLufs then
+      begin
+        Energies[EnergyCount] := Energy;
+        Inc(EnergyCount);
+      end;
+      Inc(i, StepSize);
+    end;
+
+    if EnergyCount >= 2 then
+    begin
+      p95 := Percentile(Energies, 0.95);
+      p10 := Percentile(Energies, 0.10);
+      FLraPerChannel[ch] := p95 - p10;
+    end else
+      FLraPerChannel[ch] := neginfinity;
+  end;
 end;
 
 procedure tebur128analyzer.Analyze(const AChannels: TChannels; ASamplerate: integer);
 var
   i, j: longint;
-  kWeighted: TChannels;
-  kWeightingFilter: TkWeightingFilter;
+  y, z: TChannels;
+  kFilter: TkWeightingFilter;
+  MeanSquare: arrayofdouble;
 begin
   FSamplerate := ASamplerate;
 
@@ -613,22 +616,24 @@ begin
   CalculateRms2(AChannels);
   CalculateTruePeak(AChannels);
 
-  kWeighted := nil;
-  SetLength(kWeighted, Length(AChannels));
-  for i := low(kWeighted) to high(kWeighted) do
+  y := nil;
+  SetLength(y, Length(AChannels));
+  for i := low(y) to high(y) do
   begin
-    kWeightingFilter.Init(ASamplerate);
+    kFilter.Init(ASamplerate);
 
-    SetLength(kWeighted[i], Length(AChannels[i]));
-    for j := low(kWeighted[i]) to high(kWeighted[i]) do
+    SetLength(y[i], Length(AChannels[i]));
+    for j := low(y[i]) to high(y[i]) do
     begin
-      kweighted[i][j] := kWeightingFilter.Run(AChannels[i][j]);
+      y[i][j] := kFilter.Run(AChannels[i][j]);
     end;
   end;
 
-  CalculateMomentaryLoudness(kWeighted);
-  CalculateShortTermLoudness(kWeighted);
-  CalculateIntegratedLoudness(kWeighted);
+  CalculateMomentaryLoudness(y);
+  CalculateShortTermLoudness(y);
+  CalculateIntegratedLoudness(y);
+
+
 
 
 
