@@ -112,6 +112,7 @@
       <Unit>
         <Filename Value="src/soundwav.pas"/>
         <IsPartOfProject Value="True"/>
+        <UnitName Value="Soundwav"/>
       </Unit>
       <Unit>
         <Filename Value="src/drawers.pas"/>
@@ -120,13 +121,20 @@
       <Unit>
         <Filename Value="src/loudness.pas"/>
         <IsPartOfProject Value="True"/>
+        <UnitName Value="Loudness"/>
       </Unit>
       <Unit>
         <Filename Value="src/dynamicrange.pas"/>
         <IsPartOfProject Value="True"/>
+        <UnitName Value="DynamicRange"/>
       </Unit>
       <Unit>
         <Filename Value="src/common.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="Common"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/spectrum.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>
     </Units>

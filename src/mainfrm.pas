@@ -37,9 +37,9 @@ type
   taudiofrm = class(tform)
     Bevel4: TBevel;
     Bevel5: TBevel;
-    CRESTLeftValue1: TLabel;
+    IntegratedLoudnessLeftValue: TLabel;
     CRESTRightValue: TLabel;
-    CRESTRightValue1: TLabel;
+    IntegratedLoudnessRightValue: TLabel;
     ILabel: TLabel;
     PCM: TLabel;
     Label14: TLabel;
@@ -50,9 +50,9 @@ type
     Panel5: TPanel;
     Panel6: TPanel;
     Panel7: TPanel;
-    LRALeftValue: TLabel;
+    LoudnessRangeLeftValue: TLabel;
     PLRRightValue: TLabel;
-    LRARightValue: TLabel;
+    LoudnessRangeRightValue: TLabel;
     RMSLeftValue1: TLabel;
     RMSRightValue: TLabel;
     RMSRightValue1: TLabel;
@@ -336,33 +336,34 @@ begin
     mono  .font.color  := clgray; if track.channelcount  = 1      then mono  .font.color := clwhite;
     stereo.font.color  := clgray; if track.channelcount  = 2      then stereo.font.color := clwhite;
 
-    if track.channelcount > 0 then if decibel(track.truepeaki[0]) <  0.0 then tplleftvalue .font.color := cllime;
-    if track.channelcount > 0 then if decibel(track.truepeaki[0]) >= 0.0 then tplleftvalue .font.color := clyellow;
-    if track.channelcount > 0 then if decibel(track.truepeaki[0]) >  0.5 then tplleftvalue .font.color := clred;
+    if track.channelcount > 0 then if decibel(track.loudness.truepeak(0)) <  0.0 then tplleftvalue .font.color := cllime;
+    if track.channelcount > 0 then if decibel(track.loudness.truepeak(0)) >= 0.0 then tplleftvalue .font.color := clyellow;
+    if track.channelcount > 0 then if decibel(track.loudness.truepeak(0)) >  0.5 then tplleftvalue .font.color := clred;
 
-    if track.channelcount > 1 then if decibel(track.truepeaki[1]) <  0.0 then tplrightvalue.font.color := cllime;
-    if track.channelcount > 1 then if decibel(track.truepeaki[1]) >= 0.0 then tplrightvalue.font.color := clyellow;
-    if track.channelcount > 1 then if decibel(track.truepeaki[1]) >  0.5 then tplrightvalue.font.color := clred;
+    if track.channelcount > 1 then if decibel(track.loudness.truepeak(1)) <  0.0 then tplrightvalue.font.color := cllime;
+    if track.channelcount > 1 then if decibel(track.loudness.truepeak(1)) >= 0.0 then tplrightvalue.font.color := clyellow;
+    if track.channelcount > 1 then if decibel(track.loudness.truepeak(1)) >  0.5 then tplrightvalue.font.color := clred;
 
+    if track.channelcount > 0 then tplleftvalue   .caption := format('%0.1f', [decibel(track.loudness.truepeak(0))]);
+    if track.channelcount > 1 then tplrightvalue  .caption := format('%0.1f', [decibel(track.loudness.truepeak(1))]);
+    if track.channelcount > 0 then rmsleftvalue   .caption := format('%0.1f', [decibel(sqrt(track.loudness.rms2(0)))]);
+    if track.channelcount > 1 then rmsrightvalue  .caption := format('%0.1f', [decibel(sqrt(track.loudness.rms2(1)))]);
+    if track.channelcount > 0 then crestleftvalue .caption := format('%0.1f', [track.loudness.CrestFactor(0)]);
+    if track.channelcount > 1 then crestrightvalue.caption := format('%0.1f', [track.loudness.CrestFactor(1)]);
+    if track.channelcount > 0 then plrleftvalue   .caption := format('%0.1f', [track.loudness.PeakToLoudnessRatio(0)]);
+    if track.channelcount > 1 then plrrightvalue  .caption := format('%0.1f', [track.loudness.PeakToLoudnessRatio(1)]);
 
-    if track.channelcount > 0 then tplleftvalue   .caption := format('%0.1f', [decibel(track.truepeaki[0])]);
-    if track.channelcount > 1 then tplrightvalue  .caption := format('%0.1f', [decibel(track.truepeaki[1])]);
-    if track.channelcount > 0 then rmsleftvalue   .caption := format('%0.1f', [decibel(track.rmsi[0])]);
-    if track.channelcount > 1 then rmsrightvalue  .caption := format('%0.1f', [decibel(track.rmsi[1])]);
-    if track.channelcount > 0 then crestleftvalue .caption := format('%0.1f', [decibel(track.truepeaki[0]/track.rmsi[0])]);
-    if track.channelcount > 1 then crestrightvalue.caption := format('%0.1f', [decibel(track.truepeaki[1]/track.rmsi[1])]);
-    if track.channelcount > 0 then plrleftvalue   .caption := format('%0.1f', [decibel(track.truepeaki[0]) - track.lufsi[0]]);
-    if track.channelcount > 1 then plrrightvalue  .caption := format('%0.1f', [decibel(track.truepeaki[1]) - track.lufsi[1]]);
-
-    if track.channelcount > 0 then lraleftvalue   .caption := format('%0.1f', [track.lrai[0]]);
-    if track.channelcount > 1 then lrarightvalue  .caption := format('%0.1f', [track.lrai[1]]);
+    if track.channelcount > 0 then IntegratedLoudnessLeftValue .caption := format('%0.2f', [track.loudness.IntegratedLoudness(0)]);
+    if track.channelcount > 1 then IntegratedLoudnessRightValue.caption := format('%0.2f', [track.loudness.IntegratedLoudness(1)]);
+    if track.channelcount > 0 then LoudnessRangeLeftValue      .caption := format('%0.2f', [track.loudness.LoudnessRanges(0)]);
+    if track.channelcount > 1 then LoudnessRangeRightValue     .caption := format('%0.2f', [track.loudness.LoudnessRanges(1)]);
 
 
     drvalue.caption    := '--';
     drvalue.font.color := clwhite;
-    if (track.dr) > 0 then
+    if (track.drmeter.dr) > 0 then
     begin
-      drvalue.caption := format('%2.0f', [track.dr]);
+      drvalue.caption := format('%2.0f', [track.drmeter.dr]);
       if drvalue.caption = ' 0' then drvalue.font.color := rgbtocolor(255,   0, 0) else
       if drvalue.caption = ' 1' then drvalue.font.color := rgbtocolor(255,   0, 0) else
       if drvalue.caption = ' 2' then drvalue.font.color := rgbtocolor(255,   0, 0) else

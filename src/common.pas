@@ -1,4 +1,4 @@
-unit common;
+unit Common;
 
 {$mode objfpc}{$h+}
 
@@ -8,71 +8,83 @@ uses
   classes, fgl, sysutils;
 
 type
-  tsample   = double;
-  tsamples  = array of tsample;
-  tchannels = array of tsamples;
+  TSample   = double;
+  TSamples  = array of TSample;
+  tchannels = array of TSamples;
 
   tarrayofdouble = array of double;
+  tarrayofarrayofdouble = array of tarrayofdouble;
+
   tlistofdouble  = specialize tfpglist<double>;
 
-function decibel(const asample: double): double;
-function compare(const sample1, sample2: double): longint;
-function peak(const asamples: tsamples; aindex, acount: longint): double;
-function rms2(const asamples: tsamples; aindex, acount: longint): double;
-function rms(const asamples: tsamples; aindex, acount: longint): double;
+function Decibel(const AAmplitude: double): double;
+function EnergyToDecibel(const AEnergy: double): double;
+
+function Compare(const AValue1, AValue2: double): longint;
+function Peak(const ASamples: TSamples; AIndex, ACount: longint): double;
+function Rms2(const ASamples: TSamples; AIndex, ACount: longint): double;
+function Rms(const ASamples: TSamples; AIndex, ACount: longint): double;
 
 implementation
 
 uses
   math;
 
-function decibel(const asample: double): double;
+function Decibel(const AAmplitude: double): double;
 begin
-  if asample > 1e-10 then
-    result := 20*log10(asample)
+  if AAmplitude > 1e-10 then
+    result := 20 * Log10(AAmplitude)
   else
-    result := neginfinity;
+    result := NegInfinity;
 end;
 
-function compare(const sample1, sample2: double): longint;
+function EnergyToDecibel(const AEnergy: double): double;
 begin
-  if sample2 > sample1 then
+  if AEnergy > 1e-10 then
+    result := 10 * Log10(AEnergy)
+  else
+    result := NegInfinity;
+end;
+
+function Compare(const AValue1, AValue2: double): longint;
+begin
+  if AValue2 > AValue1 then
     result := +1
   else
-    if sample2 < sample1 then
+    if AValue2 < AValue1 then
       result := -1
     else
       result := 0;
 end;
 
-function rms2(const asamples: tsamples; aindex, acount: longint): double;
+function Rms2(const ASamples: TSamples; AIndex, ACount: longint): double;
 var
   i: integer;
 begin
   result := 0.0;
-  if acount > 0 then
+  if ACount > 0 then
   begin
-    for i := aindex to (aindex + acount) -1 do
+    for i := AIndex to (AIndex + ACount) -1 do
     begin
-      result := result + sqr(asamples[i]);
+      result := result + Sqr(ASamples[i]);
     end;
-    result := result / acount;
+    result := result / ACount;
   end;
 end;
 
-function rms(const asamples: tsamples; aindex, acount: longint): double;
+function Rms(const ASamples: TSamples; AIndex, ACount: longint): double;
 begin
-  result := sqrt(rms2(asamples, aindex, acount));
+  result := sqrt(rms2(ASamples, AIndex, ACount));
 end;
 
-function peak(const asamples: tsamples; aindex, acount: longint): double;
+function Peak(const ASamples: TSamples; AIndex, ACount: longint): double;
 var
   i: integer;
 begin
   result := 0.0;
-  for i := aindex to (aindex + acount) -1 do
+  for i := AIndex to (AIndex + ACount) -1 do
   begin
-    result := max(result, abs(asamples[i]));
+    result := Max(result, Abs(ASamples[i]));
   end;
 end;
 

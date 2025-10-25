@@ -19,132 +19,241 @@
   MA 02111-1307, USA.
 }
 
-unit dynamicrange;
+unit DynamicRange;
 
-{$mode ObjFPC}{$H+}
+{$mode objfpc}{$h+}
 {$modeswitch advancedrecords}
 
 interface
 
 uses
-  classes, common, fgl, sysutils;
+  Classes, Common, Fgl, Sysutils;
 
 type
-  tblock = record
-    rms2: tarrayofdouble;
-    peak: tarrayofdouble;
-  end;
-
-  tblocks = record
+  TDynamicrangerMeter = class
   private
-    fblocks: array of tblock;
-    fblocknum: longint;
-    fblocksize: longint;
-    fdynamicrange: tarrayofdouble;
-    function getblock(index: longint): tblock;
-    function getdynamicrange: double;
+    FBlocksize: longint;
+    FBlockCount: longint;
+    FChannelCount: longint;
+    FRms2: tarrayofarrayofdouble;
+    FPeak: tarrayofarrayofdouble;
+    FDR: tarrayofdouble;
   public
-    procedure clear;
-    procedure execute(const achannels: tchannels; asamplerate: longint);
-    property blocks[index: longint]: tblock read getblock;
-    property blocknum: longint read fblocknum;
-    property dynamicrange: double read getdynamicrange;
+    constructor Create;
+    destructor Destroy; override;
+    procedure Clear;
+
+    procedure Analyze(const AChannels: TChannels; ASampleCount, ASampleRate: longint);
+
+    function Rms2(AChannel, ABlock: longint): double;
+    function Rms2(AChannel: longint): double;
+    function Rms2: double;
+
+    function Rms(AChannel: longint): double;
+    function Rms: double;
+
+    function Peak(AChannel, ABlock: longint): double;
+    function Peak(AChannel: longint): double;
+    function Peak: double;
+
+    function DR(AChannel: longint): double;
+    function DR: double;
+
+    property BlockCount: longint read FBlockCount;
+    property ChannelCount: longint read FChannelCount;
   end;
 
 
 implementation
 
 uses
-  math;
+  Math;
 
-// tblocks
+// TDynamicrangerMeter
 
-function tblocks.getblock(index: longint): tblock;
+function TDynamicrangerMeter.Rms2(AChannel, ABlock: longint): double;
 begin
-  result := fblocks[index];
+  result := FRms2[AChannel][ABlock];
 end;
 
-function tblocks.getdynamicrange: double;
+function TDynamicrangerMeter.Rms2(AChannel: longint): double;
 var
-  i: longint;
+  Block: longint;
 begin
   result := 0;
-  if length(fdynamicrange) > 0 then
+  if FBlockCount > 0 then
   begin
-    for i := low(fdynamicrange) to high(fdynamicrange) do
+    for Block := 0 to FBlockCount -1 do
     begin
-      result := result + fdynamicrange[i];
+      result := result + FRms2[AChannel][Block];
     end;
-    result := trunc(result / length(fdynamicrange) + 1);
+    result := result / FBlockCount;
   end;
 end;
 
-procedure tblocks.clear;
+function TDynamicrangerMeter.Rms2: double;
 var
-  i: longint;
+  ch: longint;
 begin
-  setlength(fdynamicrange, 0);
-  for i := low(fblocks) to high(fblocks) do
+  result := 0;
+  if FChannelCount > 0 then
   begin
-    setlength(fblocks[i].rms2, 0);
-    setlength(fblocks[i].peak, 0);
+    for ch := 0 to FChannelCount -1 do
+    begin
+      result := result + Rms2(ch);
+    end;
+    result := result / FChannelCount;
   end;
-  setlength(fblocks, 0);
-  fblocksize := 0;
-  fblocknum  := 0;
 end;
 
-procedure tblocks.execute(const achannels: tchannels; asamplerate: longint);
+function TDynamicrangerMeter.Peak(AChannel, ABlock: longint): double;
+begin
+  result := FPeak[AChannel][ABlock];
+end;
+
+function TDynamicrangerMeter.Peak(AChannel: longint): double;
 var
-  i, j, ch: longint;
-  sum2, peak, peak2nd: double;
-  rmslist: tlistofdouble;
+  Block: longint;
+begin
+  result := 0;
+  for Block := 0 to FBlockCount -1 do
+  begin
+    result := max(result, FPeak[AChannel][Block]);
+  end;
+end;
+
+function TDynamicrangerMeter.Peak: double;
+var
+  ch: longint;
+begin
+  result := 0;
+  if FChannelCount > 0 then
+  begin
+    for ch := 0 to FChannelCount -1 do
+    begin
+      result := max(result, Peak(ch));
+    end;
+  end;
+end;
+
+function TDynamicrangerMeter.Rms(AChannel: longint): double;
+begin
+  result := sqrt(Rms2(AChannel));
+end;
+
+function TDynamicrangerMeter.Rms: double;
+var
+  ch: longint;
+begin
+  result := 0;
+  if FChannelCount > 0 then
+  begin
+    for ch := 0 to FChannelCount -1 do
+      result := result + Rms2(ch);
+
+    result := sqrt(result / ChannelCount);
+  end;
+end;
+
+function TDynamicrangerMeter.DR(AChannel: longint): double;
+begin
+  result := FDR[AChannel];
+end;
+
+function TDynamicrangerMeter.DR: double;
+var
+  ch: longint;
+begin
+  result := 0;
+  if FChannelCount > 0 then
+  begin
+    for ch := 0 to FChannelCount -1 do
+      result := result + FDR[ch];
+
+    result := trunc(result / FChannelCount + 1);
+  end;
+end;
+
+constructor TDynamicrangerMeter.Create;
+begin
+  inherited create;
+end;
+
+destructor TDynamicrangerMeter.Destroy;
+begin
+  Clear;
+  inherited destroy;
+end;
+
+procedure TDynamicrangerMeter.Clear;
+var
+  j: longint;
+begin
+  FBlocksize    := 0;
+  FBlockCount   := 0;
+  FChannelCount := 0;
+
+  for j := low(FRms2) to high(FRms2) do
+    SetLength(FRms2[j], 0);
+  SetLength(FRms2, 0);
+
+  for j := low(FPeak) to high(FPeak) do
+    SetLength(FPeak[j], 0);
+  SetLength(FPeak, 0);
+  SetLength(FDR, 0);
+end;
+
+procedure TDynamicrangerMeter.Analyze(const achannels: tchannels; asamplecount, asamplerate: longint);
+var
+  index, Block, ch, num: longint;
+   rmslist: tlistofdouble;
   peaklist: tlistofdouble;
-  channelcount, num: longint;
+  peak2nd, sum2, pk: double;
 begin
-  clear;
-  channelcount := length(achannels);
-  if channelcount = 0 then exit;
+  inherited create;
+  FChannelCount := length(achannels);
+  if FChannelCount = 0 then exit;
 
-  fblocksize := 3 * asamplerate;
-  fblocknum  := length(achannels[0]) div fblocksize;
+  FBlocksize  := 3 * asamplerate;
+  FBlockCount := asamplecount div FBlocksize;
 
-  if fblocknum < 2 then exit;
+  if FBlockCount = 0 then exit;
 
-  setlength(fblocks, fblocknum);
-  for i := low(fblocks) to high(fblocks) do
+  SetLength(FRms2, FChannelCount);
+  SetLength(FPeak, FChannelCount);
+  for ch := 0 to FChannelCount -1 do
   begin
-    setlength(fblocks[i].rms2, channelcount);
-    setlength(fblocks[i].peak, channelcount);
+    SetLength(FRms2[ch], FBlockCount);
+    SetLength(FPeak[ch], FBlockCount);
   end;
 
-  for ch := 0 to channelcount -1 do
+  for ch := 0 to FChannelCount -1 do
   begin
-    for i := low(fblocks) to high(fblocks) do
+    for Block := 0 to FBlockCount -1 do
     begin
-      sum2 := 0.0;
-      peak := 0.0;
-      for j := (i * fblocksize) to ((i + 1) * fblocksize -1) do
+      sum2 := 0;
+      pk   := 0;
+      for index := (Block * FBlocksize) to ((Block + 1) * FBlocksize) -1 do
       begin
-        sum2 := sum2 + sqr(achannels[ch][j]);
-        peak := max(peak, abs(achannels[ch][j]));
+        sum2 :=  sum2 + sqr(achannels[ch][index]);
+        pk   := max(pk, abs(achannels[ch][index]));
       end;
-      fblocks[i].rms2[ch] := sum2 / fblocksize;
-      fblocks[i].peak[ch] := peak;
+      FRms2[ch][Block] := sum2 / FBlocksize;
+      FPeak[ch][Block] := pk;
     end;
   end;
 
-  setlength(fdynamicrange, channelcount);
-  for ch := 0 to channelcount -1 do
+  SetLength(FDR, FChannelCount);
+  for ch := 0 to FChannelCount -1 do
   begin
-    rmslist  := tlistofdouble.create;
+     rmslist := tlistofdouble.create;
     peaklist := tlistofdouble.create;
-    for i := low(fblocks) to high(fblocks) do
+    for Block := 0 to FBlockCount -1 do
     begin
-      rmslist.add(sqrt(2*fblocks[i].rms2[ch]));
-      peaklist.add(fblocks[i].peak[ch]);
+       rmslist.add(sqrt(2*FRms2[ch][Block]));
+      peaklist.add(       FPeak[ch][Block]);
     end;
-    rmslist.sort(@compare);
+     rmslist.sort(@compare);
     peaklist.sort(@compare);
 
     num  := trunc(0.2 * rmslist.count);
@@ -153,13 +262,13 @@ begin
       peak2nd := peaklist[1];
 
       sum2 := 0;
-      for j := 0 to num -1 do
+      for index := 0 to num -1 do
       begin
-        sum2 := sum2 + sqr(rmslist[i]);
+        sum2 := sum2 + sqr(rmslist[index]);
       end;
-      fdynamicrange[ch] := decibel(sqrt(sum2/num) / peak2nd);
+      FDR[ch] := Decibel(sqrt(sum2/num) / peak2nd);
     end;
-    rmslist.destroy;
+     rmslist.destroy;
     peaklist.destroy
   end;
 end;
