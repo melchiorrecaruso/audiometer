@@ -26,7 +26,7 @@ unit drawers;
 interface
 
 uses
-  basegraphics, classes, fpimage, graphics, soundwav, sysutils, types;
+  basegraphics, classes, fpimage, graphics, soundwav, spectrum, sysutils, types;
 
 type
   tvirtualscreens = array[0..3] of tbitmap;
@@ -190,19 +190,19 @@ begin
       fblocknum := 0;
       if ftrack.channelcount > 0 then
       begin
-        fblocknum := length(ftrack.channels[0].rms2);
+        fblocknum := ftrack.drmeter.blockcount
       end;
       fmaxdB := 6*ftrack.bitspersample;
 
       drawblocks     (fscreens[0]);
-      drawspectrum   (fscreens[1]);
-      drawspectrogram(fscreens[2]);
+      //drawspectrum   (fscreens[1]);
+      //drawspectrogram(fscreens[2]);
       drawwave       (fscreens[3]);
     end else
     begin
       drawdefaultblocks     (fscreens[0]);
-      drawdefaultspectrum   (fscreens[1]);
-      drawdefaultspectrogram(fscreens[2]);
+      //drawdefaultspectrum   (fscreens[1]);
+      //drawdefaultspectrogram(fscreens[2]);
       drawdefaultwave       (fscreens[3]);
     end;
   end;
@@ -226,7 +226,7 @@ end;
 procedure tscreendrawer.drawblocks(ascreen: tbitmap);
 var
   i, j: longint;
-  rmsi, peaki: double;
+  rms2, peak: double;
   points: array of tpointf = nil;
   chart: tchart;
 begin
@@ -256,24 +256,23 @@ begin
 
   // loop through each block
   setlength(points, 4);
-  for i := 0 to fblocknum - 1 do
+  for i := 0 to fblocknum -1 do
   begin
-    rmsi := 0;
+    rms2 := 0;
     // calculate average rms across channels
-    for j := 0 to ftrack.channelcount - 1 do
+    for j := 0 to ftrack.channelcount -1 do
     begin
-      if i < length(ftrack.channels[j].rms2) then
-        rmsi := rmsi + sqrt(max(0, ftrack.channels[j].rms2[i]));
+      rms2 := rms2 + ftrack.drmeter.rms2(j, i);
     end;
-    rmsi := rmsi / ftrack.channelcount;
+    rms2 := rms2 / ftrack.channelcount;
 
     // draw yellow block for rms level
     points[0].x := (i + 1) - 0.35;
     points[0].y := 0;
     points[1].x := (i + 1) - 0.35;
-    points[1].y := fmaxdB + decibel(rmsi);
+    points[1].y := fmaxdB + decibel(sqrt(rms2));
     points[2].x := (i + 1) + 0.35;
-    points[2].y := fmaxdB + decibel(rmsi);
+    points[2].y := fmaxdB + decibel(sqrt(rms2));
     points[3].x := (i + 1) + 0.35;
     points[3].y := 0;
 
@@ -281,24 +280,23 @@ begin
     chart.pencolor := clblack;
     chart.addpolygon(points, '');
 
-    peaki := 0;
+    peak := 0;
     // calculate average peak across channels
     for j := 0 to ftrack.channelcount - 1 do
     begin
-      if i < length(ftrack.channels[j].peak) then
-        peaki := peaki + ftrack.channels[j].peak[i];
+      peak := peak + ftrack.drmeter.peak(j, i);
     end;
-    peaki := peaki / ftrack.channelcount;
+    peak := peak / ftrack.channelcount;
 
     // draw red block from rms to peak
     points[0].x := (i + 1) - 0.35;
-    points[0].y := fmaxdB + decibel(rmsi);
+    points[0].y := fmaxdB + decibel(sqrt(rms2));
     points[1].x := (i + 1) - 0.35;
-    points[1].y := fmaxdB + decibel(peaki);
+    points[1].y := fmaxdB + decibel(peak);
     points[2].x := (i + 1) + 0.35;
-    points[2].y := fmaxdB + decibel(peaki);
+    points[2].y := fmaxdB + decibel(peak);
     points[3].x := (i + 1) + 0.35;
-    points[3].y := fmaxdB + decibel(rmsi);
+    points[3].y := fmaxdB + decibel(sqrt(rms2));
 
     chart.pencolor := clblack;
     chart.texturecolor := clred;
@@ -344,8 +342,8 @@ begin
   chart.pencolor := clyellow;
 
   // initialize frequency bin array (half of fft size)
-  windowsize  := spectrumwindowsize div 2;
-  windowcount := length(ftrack.channels[0].spectrum) div windowsize;
+  windowsize  := SPECTRUMWINDOWSIZE div 2;
+  windowcount := ftrack.spectrums.windowcount;
   factor      := 0.5 * ftrack.samplerate / (windowsize -1);
 
   setlength(points, 4);
@@ -359,7 +357,7 @@ begin
       index := j * windowsize + i;
       for k := 0 to ftrack.channelcount -1 do
       begin
-        y := max(y, fmaxdB + decibel(ftrack.channels[k].spectrum[index]));
+        y := max(y, fmaxdB + decibel(ftrack.spectrums.samples[k, index]));
       end;
     end;
 
@@ -417,7 +415,7 @@ begin
 
   // set fft analysis window size (half of total window size)
   windowsize  := spectrumwindowsize div 2;
-  windowcount := length(ftrack.channels[0].spectrum) div windowsize;
+  windowcount := ftrack.spectrums.windowcount;
   xfactor := (windowsize  -1) / (bit.width  -1);
   yfactor := (windowcount -1) / (bit.height -1);
 
@@ -434,7 +432,7 @@ begin
         // convert amplitude to dB scale and normalize
         if (index mod windowsize) <> 0 then
         begin
-          amp := max(amp, 1 + decibel(ftrack.channels[ch].spectrum[index]) / fmaxdB);
+          amp := max(amp, 1 + decibel(ftrack.spectrums.samples[ch, index] / fmaxdB));
         end;
       end;
       // map amplitude to color and set pixel
@@ -494,7 +492,7 @@ begin
     chart.texturecolor := clred;
 
     // calculate number of samples per horizontal pixel
-    windowxsize := length(ftrack.channels[ch].samples) div windowxcount;
+    windowxsize := ftrack.samplecount div windowxcount;
     // calculate vertical size per channel section
     windowysize := ascreen.height div windowycount;
 
@@ -510,8 +508,8 @@ begin
       for i := 0 to windowxsize -1 do
       begin
         sampleindex := x * windowxsize + i;
-        zmin := min(zmin, ftrack.channels[ch].samples[sampleindex]);
-        zmax := max(zmax, ftrack.channels[ch].samples[sampleindex]);
+        zmin := min(zmin, ftrack.samples[ch, sampleindex]);
+        zmax := max(zmax, ftrack.samples[ch, sampleindex]);
       end;
 
       // create a vertical line for waveform range at this segment

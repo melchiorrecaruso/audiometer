@@ -25,7 +25,7 @@ program audiometer;
 
 uses
   {$IFDEF UNIX} cthreads, {$ENDIF} interfaces, forms, mainfrm, drawers,
-  loudness, dynamicrange, common;
+  loudness, dynamicrange, common, spectrum;
 
 {$R *.res}
 
