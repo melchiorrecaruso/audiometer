@@ -80,11 +80,11 @@ type
     FTruePeak: arrayofdouble;
     FWeights: arrayofdouble;
 
-    FMomentaryEnergies: arrayofarrayofdouble;
-    FShortTermEnergies: arrayofarrayofdouble;
-    FIntegratedEnergies: arrayofdouble;
-    FEnergiesRange: arrayofdouble;
-    FEnergyRange: double;
+    FMomentaryEnergies: arrayofdouble;
+    FShortTermEnergies: arrayofdouble;
+
+    FIntegratedLoudness: double;
+    FLoudnessRange: double;
     FCrestFactors: arrayofdouble;
 
     procedure CalculateFIRCoefficients(var ACoeffs: arrayofarrayofdouble; AOverSample, ATaps: longint);
@@ -98,8 +98,8 @@ type
     procedure CalculateCrestFactor;
     procedure CalculateMomentaryEnergies;
     procedure CalculateShortTermEnergies;
-    procedure CalculateIntegratedEnergies;
-    procedure CalculateEnergyRanges;
+    procedure CalculateIntegratedLoudness;
+    procedure CalculateLoudnessRange;
   public
     constructor Create;
     destructor Destroy; override;
@@ -116,16 +116,11 @@ type
 
     function CrestFactor(AChannel: longint): double;
     function CrestFactor: double;
-    function PeakToLoudnessRatio(AChannel: longint): double;
-    function PeakToLoudnessRatio: double;
 
-    function MomentaryLoudness(const AtTime: longint; AChannel: longint): double;
-    function MomentaryLoudness(const AtTime: longint): double;
-    function ShortTermLoudness(const AtTime: longint; AChannel: longint): double;
-    function ShortTermLoudness(const AtTime: longint): double;
-    function IntegratedLoudness(AChannel: longint): double;
+    function MomentaryLoudness(AtTime: longint): double;
+    function ShortTermLoudness(AtTime: longint): double;
     function IntegratedLoudness: double;
-    function LoudnessRanges(AChannel: longint): double;
+    function PeakToLoudnessRatio: double;
     function LoudnessRange: double;
   end;
 
@@ -136,31 +131,7 @@ function EnergyToLufs(const aenergy: double): double;
 implementation
 
 uses
-  math;
-
-function Percentile(const Values: TListOfDouble; P: double): double;
-var
-  index: Double;
-  Lower, Upper: Integer;
-  Fraction: Double;
-begin
-  Values.Sort(@Common.Compare);
-
-  // Compute the exact index
-  index := P * (Values.Count - 1);
-  Lower := Floor(index);
-  Upper := Ceil(index);
-  Fraction := index - Lower;
-
-  if Upper >= Values.Count then
-    Upper := Values.Count - 1;
-
-  // Linear interpolation
-  if Lower = Upper then
-    result := Values[Lower]
-  else
-    result := Values[Lower] + Fraction * (Values[Upper] - Values[Lower]);
-end;
+  Math;
 
 function EnergyToLufs(const AEnergy: double): double;
 begin
@@ -225,8 +196,8 @@ end;
 
 procedure THighpassFilter.Init(ASampleRate: longint);
 const
-  f0 = 38.13547087602444;
-  Q  = 0.5003270373238773;
+  f0 = 38;
+  Q  = 0.5;
 var
   Omega, denom: Double;
 begin
@@ -291,22 +262,7 @@ end;
 constructor TLoudnessMeter.Create;
 begin
   inherited Create;
-  FSampleCount := 0;
-  FSampleRate  := 0;
-
-  FBlockEnergies   := nil;
-  FRms2     := nil;
-  FPeak     := nil;
-  FTruePeak := nil;
-  FWeights  := nil;
-
-
-  FMomentaryEnergies  := nil;
-  FShortTermEnergies  := nil;
-  FIntegratedEnergies := nil;
-  FEnergiesRange      := nil;
-
-  FCrestFactors := nil;
+  Clear;
 end;
 
 destructor TLoudnessMeter.Destroy;
@@ -319,22 +275,21 @@ procedure TLoudnessMeter.Clear;
 var
   ch: longint;
 begin
-  FSampleCount := 0;
-  FSampleRate  := 0;
-  FBlockSize   := 0;
-  FNumBlocks   := 0;
-  FEnergyRange := 0;
+  FSampleCount      := 0;
+  FSampleRate       := 0;
+  FBlockSize        := 0;
+  FNumBlocks        := 0;
+  FLoudnessRange      := 0;
+  FIntegratedLoudness := 0;
 
   for ch := Low(FBlockEnergies) to High(FBlockEnergies) do
   begin
     SetLength(FBlockEnergies[ch], 0);
   end;
-  SetLength(FBlockEnergies      , 0);
-  SetLength(FMomentaryEnergies  , 0);
-  SetLength(FShortTermEnergies  , 0);
-  SetLength(FIntegratedEnergies , 0);
-  SetLength(FEnergiesRange      , 0);
-  SetLength(FCrestFactors       , 0);
+  SetLength(FBlockEnergies    , 0);
+  SetLength(FMomentaryEnergies, 0);
+  SetLength(FShortTermEnergies, 0);
+  SetLength(FCrestFactors     , 0);
 
   SetLength(FPeak    , 0);
   SetLength(FRms2    , 0);
@@ -611,25 +566,31 @@ procedure TLoudnessMeter.CalculateMomentaryEnergies;
 const
   NumSteps = 4;
 var
-  ch, i, j, startIndex, stepCount: longint;
-  sumEnergy: double;
+  ch, i, j, index: longint;
+  SumEnergy: double;
+  SumCount: longint;
 begin
-  SetLength(FMomentaryEnergies, Length(FBlockEnergies));
+  SetLength(FMomentaryEnergies, FNumBlocks);
 
-  for ch := Low(FBlockEnergies) to High(FBlockEnergies) do
+  for i := 0 to FNumBlocks - 1 do
   begin
-    SetLength(FMomentaryEnergies[ch], FNumBlocks);
+    FMomentaryEnergies[i] := 0;
 
-    for i := 0 to FNumBlocks - 1 do
+    for ch := Low(FBlockEnergies) to High(FBlockEnergies) do
     begin
-      startIndex := Max(0, i - NumSteps + 1);
-      stepCount  := i - startIndex + 1;
+      SumEnergy := 0;
+      SumCount  := 0;
+      for j := 0 to NumSteps -1 do
+      begin
+        index := i + j;
+        if index < FNumBlocks then
+        begin
+          SumEnergy := SumEnergy + FBlockEnergies[ch][index];
+          SumCount  := SumCount + 1;
+        end;
+      end;
 
-      sumEnergy := 0.0;
-      for j := startIndex to i do
-        sumEnergy := sumEnergy + FBlockEnergies[ch][j];
-
-      FMomentaryEnergies[ch][i] := sumEnergy / stepCount;
+      FMomentaryEnergies[i] := FMomentaryEnergies[i] + (SumEnergy / SumCount) * FWeights[ch];
     end;
   end;
 end;
@@ -638,214 +599,138 @@ procedure TLoudnessMeter.CalculateShortTermEnergies;
 const
   NumSteps = 30;
 var
-  ch, i, j, startIndex, stepCount: longint;
-  SumEnergy: double;
-begin
-  SetLength(FShortTermEnergies, Length(FBlockEnergies));
-
-  for ch := Low(FBlockEnergies) to High(FBlockEnergies) do
-  begin
-    SetLength(FShortTermEnergies[ch], FNumBlocks);
-
-    for i := 0 to FNumBlocks - 1 do
-    begin
-      startIndex := Max(0, i - NumSteps + 1);
-      stepCount  := i - startIndex + 1;
-
-      SumEnergy := 0.0;
-      for j := startIndex to i do
-        SumEnergy := SumEnergy + FBlockEnergies[ch][j];
-
-      FShortTermEnergies[ch][i] := SumEnergy / stepCount;
-    end;
-  end;
-end;
-
-procedure TLoudnessMeter.CalculateIntegratedEnergies;
-const
-  NumSteps = 4;
-  AbsoluteGateLufs = -70.0;
-var
   ch, i, j, index: longint;
+  SumEnergy: double;
   SumCount: longint;
-  SumEnergy, L0: double;
-  Energies: arrayofdouble;
 begin
-  SetLength(FIntegratedEnergies, Length(FBlockEnergies));
+  SetLength(FShortTermEnergies, FNumBlocks);
 
-  for ch := Low(FBlockEnergies) to High(FBlockEnergies) do
+  for i := 0 to FNumBlocks - 1 do
   begin
-    // Step 1 - Build 400 ms blocks by averaging 4 × 100 ms energies
-    SetLength(Energies, FNumBlocks);
-    for i := 0 to FNumBlocks - 1 do
+    FShortTermEnergies[i] := 0;
+
+    for ch := Low(FBlockEnergies) to High(FBlockEnergies) do
     begin
       SumEnergy := 0;
       SumCount  := 0;
       for j := 0 to NumSteps -1 do
       begin
         index := i + j;
-        if index <= High(FBlockEnergies) then
+        if index < FNumBlocks then
         begin
           SumEnergy := SumEnergy + FBlockEnergies[ch][index];
           SumCount  := SumCount + 1;
         end;
       end;
 
-      if SumCount > 0 then
-        Energies[i] := SumEnergy / SumCount
-      else
-        Energies[i] := 0;
+      FShortTermEnergies[i] := FShortTermEnergies[i] + (SumEnergy / SumCount) * FWeights[ch];
     end;
+  end;
+end;
 
-    // Step 2 - Apply absolute gating (-70 LUFS)
+procedure TLoudnessMeter.CalculateIntegratedLoudness;
+const
+  AbsoluteGateLufs = -70;
+  RelativeGateLufs = -10;
+var
+  i: longint;
+  SumCount: longint;
+  SumEnergy, AvgEnergy: double;
+  Energies: TListOfDouble;
+begin
+  Energies := TListOfDouble.Create;
+
+  for i := 0 to FNumBlocks -1 do
+  begin
+    if EnergyToLufs(FMomentaryEnergies[i]) > AbsoluteGateLufs then
+    begin
+      Energies.Add(FMomentaryEnergies[i]);
+    end;
+  end;
+
+  FIntegratedLoudness := NegInfinity;
+
+  if Energies.Count > 0 then
+  begin
+    AvgEnergy := 0;
+    for i := 0 to Energies.Count -1 do
+    begin
+      AvgEnergy := AvgEnergy + Energies[i];
+    end;
+    AvgEnergy := EnergyToLufs(AvgEnergy / Energies.Count);
+
     SumEnergy := 0;
     SumCount  := 0;
-    for i := 0 to FNumBlocks - 1 do
+    for i := 0 to Energies.Count -1 do
     begin
-      if EnergyToLufs(Energies[i]) >= AbsoluteGateLufs then
+      if EnergyToLufs(Energies[i]) > AvgEnergy + RelativeGateLufs then
       begin
         SumEnergy := SumEnergy + Energies[i];
         SumCount  := SumCount + 1;
       end;
     end;
 
-    FIntegratedEnergies[ch] := 0;
-
-    // If no valid blocks remain, skip channel
     if SumCount > 0 then
-    begin
-      // Step 3 - Compute L0 (mean loudness above absolute gate)
-      L0 := EnergyToLufs(SumEnergy / SumCount);
-
-      // Step 4 - Apply relative gating (-10 LU below L0)
-      SumEnergy := 0;
-      SumCount  := 0;
-      for i := 0 to FNumBlocks - 1 do
-      begin
-        if EnergyToLufs(Energies[i]) >= L0 - 10.0 then
-        begin
-          SumEnergy := SumEnergy + Energies[i];
-          SumCount  := SumCount + 1;
-        end;
-      end;
-
-      // Step 5 - Compute final Integrated Loudness (LI) in LUFS
-      if SumCount > 0 then
-        FIntegratedEnergies[ch] := SumEnergy / SumCount;
-    end;
+      FIntegratedLoudness := EnergyToLufs(SumEnergy / SumCount);
   end;
+  Energies.Destroy;
 end;
 
-procedure TLoudnessMeter.CalculateEnergyRanges;
+procedure TLoudnessMeter.CalculateLoudnessRange;
 const
-  WindowSteps = 30;
-  StepSteps   = 10;
-  AbsoluteGateLufs = -70.0;
+  AbsoluteGateLufs = -70;
+  RelativeGateLufs = -20;
 var
-  ch, i, j, index: Integer;
-  WindowEnergy: Double;
-  ValidBlocks: TListOfDouble;
-  p95, p10: Double;
+  i: longint;
+  AvgEnergy: double;
+  Energies: TListOfDouble;
+  p95, p10: double;
 begin
-  ValidBlocks := TListOfDouble.Create;
-  SetLength(FEnergiesRange, Length(FBlockEnergies));
+  Energies := TListOfDouble.Create;
 
-  // 1 Compute LRA per channel
-  for ch := Low(FBlockEnergies) to High(FBlockEnergies) do
+  for i := 0 to FNumBlocks -1 do
   begin
-    ValidBlocks.Clear;
-
-    // 2 Sliding 3 s window, stepped every 1 s
-    i := 0;
-    while i < FNumBlocks do
+    if EnergyToLufs(FShortTermEnergies[i]) > AbsoluteGateLufs then
     begin
-
-      // 3 Average 3 s energy window
-      WindowEnergy := 0.0;
-      for j := 0 to WindowSteps - 1 do
-      begin
-        index := i + j;
-        if index < FNumBlocks then
-        begin
-          WindowEnergy := WindowEnergy + FBlockEnergies[ch][index];
-        end;
-      end;
-      WindowEnergy := WindowEnergy / Min(WindowSteps, FNumBlocks - i);
-
-      // 4 Apply absolute gate
-      if EnergyToLufs(WindowEnergy) > AbsoluteGateLufs then
-      begin
-        ValidBlocks.Add(WindowEnergy);
-      end;
-
-      Inc(i, StepSteps);
+      Energies.Add(FShortTermEnergies[i])
     end;
-
-    // 5 Compute 10th and 95th percentiles (ITU-R BS.1770-4 LRA)
-    if ValidBlocks.Count >= 2 then
-    begin
-      p95 := Percentile(ValidBlocks, 0.95);
-      p10 := Percentile(ValidBlocks, 0.10);
-      FEnergiesRange[ch] := EnergyToLufs(p95) - EnergyToLufs(p10);
-    end else
-      FEnergiesRange[ch] := EnergyToLufs(NegInfinity);
-  end;
-  ValidBlocks.Destroy;
-end;
-
-
-  // 6 Optionally compute global (channel-weighted) range
-
-  {
-  var sumWeighted: array of Double;
-  SetLength(sumWeighted, 0);
-
-  i := 0;
-  while i < FNumBlocks do
-  begin
-    if i + WindowSteps > FNumBlocks then Break;
-
-    WindowEnergy := 0.0;
-    for ch := Low(FBlockEnergies) to High(FBlockEnergies) do
-    begin
-      var temp: Double := 0.0;
-      for j := 0 to WindowSteps - 1 do
-        temp := temp + FBlockEnergies[ch][i + j];
-      temp := temp / WindowSteps;
-      if EnergyToLufs(temp) > AbsoluteGateLufs then
-        WindowEnergy := WindowEnergy + FWeights[ch] * temp;
-    end;
-
-    if WindowEnergy > 1e-12 then
-    begin
-      SetLength(sumWeighted, Length(sumWeighted) + 1);
-      sumWeighted[High(sumWeighted)] := WindowEnergy;
-    end;
-
-    Inc(i, StepSteps);
   end;
 
-  if Length(sumWeighted) >= 2 then
-  begin
-    p95 := Percentile(sumWeighted, 0.95, Length(sumWeighted));
-    p10 := Percentile(sumWeighted, 0.10, Length(sumWeighted));
-    FEnergyRange := EnergyToLufs(p95) - EnergyToLufs(p10);
-  end
-  else
-    FEnergyRange := NegInfinity;
-  }
+  FLoudnessRange := NegInfinity;
 
-function TLoudnessMeter.LoudnessRanges(AChannel: longint): double;
-begin
-  result := FEnergiesRange[AChannel];
+  if Energies.Count > 0 then
+  begin
+    AvgEnergy := 0;
+    for i := 0 to Energies.Count -1 do
+    begin
+      AvgEnergy := AvgEnergy + Energies[i];
+    end;
+    AvgEnergy := EnergyToLufs(AvgEnergy / Energies.Count);
+
+    for i := Energies.Count -1 downto 0 do
+    begin
+      if EnergyToLufs(Energies[i]) <= AvgEnergy + RelativeGateLufs then
+      begin
+        Energies.Delete(i);
+      end;
+    end;
+
+    if Energies.Count >= 2 then
+    begin
+      p95 := Percentile(Energies, 0.95);
+      p10 := Percentile(Energies, 0.10);
+      FLoudnessRange := EnergyToLufs(p95) - EnergyToLufs(p10);
+    end;
+  end;
+  Energies.Destroy;
 end;
 
 function TLoudnessMeter.LoudnessRange: double;
 begin
-  result := FEnergyRange;
+  result := FLoudnessRange;
 end;
 
-function TLoudnessMeter.MomentaryLoudness(const AtTime: longint; AChannel: longint): double;
+function TLoudnessMeter.MomentaryLoudness(AtTime: longint): double;
 const
   Stepms = 100;
 var
@@ -853,33 +738,13 @@ var
 begin
   index := AtTime div Stepms;
 
-  if index > High(FMomentaryEnergies[AChannel]) then
-    index := High(FMomentaryEnergies[AChannel]);
-
-  result := EnergyToLufs(FMomentaryEnergies[AChannel][index]);
+  if index < Length(FMomentaryEnergies) then
+    result := EnergyToLufs(FMomentaryEnergies[index])
+  else
+    result := NegInfinity
 end;
 
-function TLoudnessMeter.MomentaryLoudness(const AtTime: longint): double;
-const
-  Stepms = 100;
-var
-  index, ch: longint;
-begin
-  result := 0;
-  for ch := Low(FMomentaryEnergies) to High(FMomentaryEnergies) do
-  begin
-    index := AtTime div Stepms;
-
-    if index > High(FMomentaryEnergies[ch]) then
-      index := High(FMomentaryEnergies[ch]);
-
-    result := result + FWeights[ch] * FMomentaryEnergies[ch][index];
-  end;
-
-  result := EnergyToLufs(result);
-end;
-
-function TLoudnessMeter.ShortTermLoudness(const AtTime: longint; AChannel: longint): double;
+function TLoudnessMeter.ShortTermLoudness(AtTime: longint): double;
 const
   Stepms = 100;
 var
@@ -887,54 +752,15 @@ var
 begin
   index := AtTime div Stepms;
 
-  if index > High(FShortTermEnergies[AChannel]) then
-    index := High(FShortTermEnergies[AChannel]);
-
-  result := EnergyToLufs(FShortTermEnergies[AChannel][index]);
-end;
-
-function TLoudnessMeter.ShortTermLoudness(const AtTime: longint): double;
-const
-  Stepms = 100;
-var
-  index, ch: longint;
-begin
-  result := 0;
-  for ch := Low(FShortTermEnergies) to High(FShortTermEnergies) do
-  begin
-    index := AtTime div Stepms;
-
-    if index >= Length(FShortTermEnergies[ch]) then
-      index := High(FShortTermEnergies[ch]);
-
-    result := result + FWeights[ch] * FShortTermEnergies[ch][index];
-  end;
-  result := EnergyToLufs(result);
-end;
-
-function TLoudnessMeter.IntegratedLoudness(AChannel: longint): double;
-begin
-  result := EnergyToLufs(FIntegratedEnergies[AChannel]) + 3.01;
+  if index < Length(FShortTermEnergies) then
+    result := EnergyToLufs(FShortTermEnergies[index])
+  else
+    result := NegInfinity
 end;
 
 function TLoudnessMeter.IntegratedLoudness: double;
-var
-  ch: Integer;
-  SumEnergy, SumWeight: Double;
 begin
-  SumEnergy := 0;
-  SumWeight := 0;
-
-  for ch := Low(FIntegratedEnergies) to High(FIntegratedEnergies) do
-  begin
-    SumEnergy := SumEnergy + FWeights[ch] * FIntegratedEnergies[ch];
-    SumWeight := SumWeight + FWeights[ch];
-  end;
-
-  if SumWeight > 1e-10 then
-    Result := EnergyToLufs(SumEnergy / SumWeight) + 3.01
-  else
-    Result := NegInfinity;
+  result := FIntegratedLoudness;
 end;
 
 procedure TLoudnessMeter.Analyze(const AChannels: TChannels; ASampleCount, ASampleRate: longint);
@@ -967,8 +793,8 @@ begin
   CalculateBlockEnergies(y);
   CalculateMomentaryEnergies;
   CalculateShortTermEnergies;
-  CalculateIntegratedEnergies;
-  CalculateEnergyRanges;
+  CalculateIntegratedLoudness;
+  CalculateLoudnessRange;
   CalculateCrestFactor;
 
   for ch := Low(y) to High(y) do
@@ -1010,7 +836,7 @@ function TLoudnessMeter.Peak: double;
 var
   ch: longint;
 begin
-  result := NegInfinity;
+  result := 0;
   for ch := Low(FPeak) to High(FPeak) do
   begin
     result := Max(result, FPeak[ch]);
@@ -1027,7 +853,7 @@ function TLoudnessMeter.TruePeak: double;
 var
   ch: longint;
 begin
-  result := NegInfinity;
+  result := 0;
   for ch := Low(FTruePeak) to High(FTruePeak) do
   begin
     result := Max(result, FTruePeak[ch]);
@@ -1055,38 +881,18 @@ begin
   end;
 end;
 
-function TLoudnessMeter.PeakToLoudnessRatio(AChannel: longint): double;
-begin
-  if (FIntegratedEnergies[AChannel] > 1e-10) then
-    result := Decibel(Abs(FTruePeak[AChannel])) - EnergyToLufs(FIntegratedEnergies[AChannel])
-  else
-    result := NegInfinity;
-end;
-
 function TLoudnessMeter.PeakToLoudnessRatio: double;
 var
   ch: Integer;
   MaxTruePeak: double;
-  SumEnergy, SumWeight: double;
 begin
   MaxTruePeak := 0;
-  SumEnergy   := 0;
-  SumWeight   := 0;
-
   for ch := Low(FTruePeak) to High(FTruePeak) do
   begin
-    if FIntegratedEnergies[ch] > 1e-10 then
-    begin
-      MaxTruePeak := Max(MaxTruePeak, Abs(FTruePeak[ch]));
-      SumEnergy   := SumEnergy + FWeights[ch] * FIntegratedEnergies[ch];
-      SumWeight   := SumWeight + FWeights[ch];
-    end;
+    MaxTruePeak := Max(MaxTruePeak, FTruePeak[ch]);
   end;
 
-  if SumWeight > 1e-10 then
-    result := Decibel(MaxTruePeak) - EnergyToLufs(SumEnergy / SumWeight)
-  else
-    result := NegInfinity;
+  result := Decibel(MaxTruePeak) - FIntegratedLoudness;
 end;
 
 end.
