@@ -25,6 +25,8 @@ function Peak(const ASamples: TSamples; AIndex, ACount: longint): double;
 function Rms2(const ASamples: TSamples; AIndex, ACount: longint): double;
 function Rms(const ASamples: TSamples; AIndex, ACount: longint): double;
 
+function Percentile(var AValues: tlistofdouble; P: double): double;
+
 implementation
 
 uses
@@ -44,17 +46,6 @@ begin
     result := 10 * Log10(AEnergy)
   else
     result := NegInfinity;
-end;
-
-function Compare(const AValue1, AValue2: double): longint;
-begin
-  if AValue2 > AValue1 then
-    result := +1
-  else
-    if AValue2 < AValue1 then
-      result := -1
-    else
-      result := 0;
 end;
 
 function Rms2(const ASamples: TSamples; AIndex, ACount: longint): double;
@@ -86,6 +77,52 @@ begin
   begin
     result := Max(result, Abs(ASamples[i]));
   end;
+end;
+
+function Compare(const AValue1, AValue2: double): longint;
+begin
+  if AValue2 > AValue1 then
+    result := +1
+  else
+    if AValue2 < AValue1 then
+      result := -1
+    else
+      result := 0;
+end;
+
+function CompareInv(const AValue1, AValue2: double): longint;
+begin
+  if AValue2 < AValue1 then
+    result := +1
+  else
+    if AValue2 > AValue1 then
+      result := -1
+    else
+      result := 0;
+end;
+
+function  Percentile(var AValues: tlistofdouble; P: double): double;
+var
+  index: double;
+  Lower, Upper: longint;
+  Fraction: double;
+begin
+  AValues.Sort(@CompareInv);
+
+  // Compute the exact index
+  index := P * (AValues.Count - 1);
+  Lower := Floor(index);
+  Upper := Ceil(index);
+  Fraction := index - Lower;
+
+  if Upper >= AValues.Count then
+    Upper := AValues.Count - 1;
+
+  // Linear interpolation
+  if Lower = Upper then
+    result := AValues[Lower]
+  else
+    result := AValues[Lower] + Fraction * (AValues[Upper] - AValues[Lower]);
 end;
 
 end.
