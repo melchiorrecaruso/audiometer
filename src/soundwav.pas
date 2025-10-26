@@ -312,14 +312,19 @@ begin
 
       {$ifopt D+}
       writeln;
-      writeln('track.DR:          ', ftrack.drmeter.DR       :2:2);
-      writeln('track.Rms          ', ftrack.loudness.Rms     :2:2);
-      writeln('track.Peak         ', ftrack.loudness.Peak    :2:2);
-      writeln('track.TruePeak     ', ftrack.loudness.TruePeak:2:2);
+      writeln('track.DR:         ', ftrack.drmeter.DR       :2:2);
+      writeln('track.Rms         ', ftrack.loudness.Rms     :2:2);
+      writeln('track.Peak        ', ftrack.loudness.Peak    :2:2);
+      writeln('track.TruePeak    ', ftrack.loudness.TruePeak:2:2);
+      writeln('track.Lk          ', ftrack.loudness.IntegratedLoudness:2:2);
+      writeln('track.LRA         ', ftrack.loudness.LoudnessRange:2:2);
+      writeln('track.PLR         ', ftrack.loudness.PeakToLoudnessRatio:2:2);
       writeln;
 
-      for ch := 0 to ftrack.channelcount -1 do;
-        writeln('track.Lk', ch,  '          ', ftrack.loudness.IntegratedLoudness(ch):2:2);
+      for ch := 0 to ftrack.channelcount -1 do
+        writeln('track.Peak', ch, '       ', ftrack.loudness.Peak(ch):2:2);
+      for ch := 0 to ftrack.channelcount -1 do
+        writeln('track.TruePeak', ch, '   ', ftrack.loudness.TruePeak(ch):2:2);
 
       writeln;
       {$endif}
