@@ -1,7 +1,7 @@
 object audiofrm: Taudiofrm
-  Left = 455
+  Left = 320
   Height = 635
-  Top = 352
+  Top = 343
   Width = 916
   Caption = 'AudioMeter 0.5.0 - Dynamic Range Meter'
   ClientHeight = 635

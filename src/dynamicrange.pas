@@ -203,7 +203,7 @@ begin
   SetLength(FDR, 0);
 end;
 
-procedure TDynamicrangerMeter.Analyze(const achannels: tchannels; asamplecount, asamplerate: longint);
+procedure TDynamicrangerMeter.Analyze(const achannels: TChannels; asamplecount, asamplerate: longint);
 var
   index, Block, ch, num: longint;
    rmslist: tlistofdouble;
@@ -266,7 +266,7 @@ begin
       begin
         sum2 := sum2 + sqr(rmslist[index]);
       end;
-      FDR[ch] := Decibel(sqrt(sum2/num) / peak2nd);
+      FDR[ch] := -Decibel(sqrt(sum2/num) / peak2nd);
     end;
      rmslist.destroy;
     peaklist.destroy
