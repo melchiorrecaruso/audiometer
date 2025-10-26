@@ -350,13 +350,10 @@ begin
     if track.channelcount > 1 then rmsrightvalue  .caption := format('%0.2f', [track.loudness.rms(1)]);
     if track.channelcount > 0 then crestleftvalue .caption := format('%0.2f', [track.loudness.CrestFactor(0)]);
     if track.channelcount > 1 then crestrightvalue.caption := format('%0.2f', [track.loudness.CrestFactor(1)]);
-    if track.channelcount > 0 then plrleftvalue   .caption := format('%0.2f', [track.loudness.PeakToLoudnessRatio(0)]);
-    if track.channelcount > 1 then plrrightvalue  .caption := format('%0.2f', [track.loudness.PeakToLoudnessRatio(1)]);
+    if track.channelcount > 0 then plrleftvalue   .caption := format('%0.2f', [track.loudness.PeakToLoudnessRatio]);
 
-    if track.channelcount > 0 then IntegratedLoudnessLeftValue .caption := format('%0.2f', [track.loudness.IntegratedLoudness(0)]);
-    if track.channelcount > 1 then IntegratedLoudnessRightValue.caption := format('%0.2f', [track.loudness.IntegratedLoudness(1)]);
-    if track.channelcount > 0 then LoudnessRangeLeftValue      .caption := format('%0.2f', [track.loudness.LoudnessRanges(0)]);
-    if track.channelcount > 1 then LoudnessRangeRightValue     .caption := format('%0.2f', [track.loudness.LoudnessRanges(1)]);
+    if track.channelcount > 0 then IntegratedLoudnessLeftValue .caption := format('%0.2f', [track.loudness.IntegratedLoudness]);
+    if track.channelcount > 0 then LoudnessRangeLeftValue      .caption := format('%0.2f', [track.loudness.LoudnessRange]);
 
 
     drvalue.caption    := '--';
