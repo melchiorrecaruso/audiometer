@@ -22,7 +22,7 @@ type
     constructor create;
     destructor destroy; override;
 
-    procedure analyze(const achannels: tchannels; asamplecount, asamplerate: longint);
+    procedure analyze(const achannels: TChannels; asamplecount, asamplerate: longint);
     procedure clear;
 
     property samples[channel, index: longint]: TSample read getsample;
@@ -96,7 +96,7 @@ begin
   setlength(fspectrums, 0);
 end;
 
-procedure tspectrums.analyze(const achannels: tchannels; asamplecount, asamplerate: longint);
+procedure tspectrums.analyze(const achannels: TChannels; asamplecount, asamplerate: longint);
 var
   ch: longint;
   i: longint;

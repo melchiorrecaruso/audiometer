@@ -10,7 +10,7 @@ uses
 type
   TSample   = double;
   TSamples  = array of TSample;
-  tchannels = array of TSamples;
+  TChannels = array of TSamples;
 
   tarrayofdouble = array of double;
   tarrayofarrayofdouble = array of tarrayofdouble;
@@ -59,9 +59,9 @@ end;
 
 function Rms2(const ASamples: TSamples; AIndex, ACount: longint): double;
 var
-  i: integer;
+  i: longint;
 begin
-  result := 0.0;
+  result := 0;
   if ACount > 0 then
   begin
     for i := AIndex to (AIndex + ACount) -1 do

@@ -344,14 +344,14 @@ begin
     if track.channelcount > 1 then if decibel(track.loudness.truepeak(1)) >= 0.0 then tplrightvalue.font.color := clyellow;
     if track.channelcount > 1 then if decibel(track.loudness.truepeak(1)) >  0.5 then tplrightvalue.font.color := clred;
 
-    if track.channelcount > 0 then tplleftvalue   .caption := format('%0.1f', [decibel(track.loudness.truepeak(0))]);
-    if track.channelcount > 1 then tplrightvalue  .caption := format('%0.1f', [decibel(track.loudness.truepeak(1))]);
-    if track.channelcount > 0 then rmsleftvalue   .caption := format('%0.1f', [decibel(sqrt(track.loudness.rms2(0)))]);
-    if track.channelcount > 1 then rmsrightvalue  .caption := format('%0.1f', [decibel(sqrt(track.loudness.rms2(1)))]);
-    if track.channelcount > 0 then crestleftvalue .caption := format('%0.1f', [track.loudness.CrestFactor(0)]);
-    if track.channelcount > 1 then crestrightvalue.caption := format('%0.1f', [track.loudness.CrestFactor(1)]);
-    if track.channelcount > 0 then plrleftvalue   .caption := format('%0.1f', [track.loudness.PeakToLoudnessRatio(0)]);
-    if track.channelcount > 1 then plrrightvalue  .caption := format('%0.1f', [track.loudness.PeakToLoudnessRatio(1)]);
+    if track.channelcount > 0 then tplleftvalue   .caption := format('%0.2f', [track.loudness.truepeak(0)]);
+    if track.channelcount > 1 then tplrightvalue  .caption := format('%0.2f', [track.loudness.truepeak(1)]);
+    if track.channelcount > 0 then rmsleftvalue   .caption := format('%0.2f', [track.loudness.rms(0)]);
+    if track.channelcount > 1 then rmsrightvalue  .caption := format('%0.2f', [track.loudness.rms(1)]);
+    if track.channelcount > 0 then crestleftvalue .caption := format('%0.2f', [track.loudness.CrestFactor(0)]);
+    if track.channelcount > 1 then crestrightvalue.caption := format('%0.2f', [track.loudness.CrestFactor(1)]);
+    if track.channelcount > 0 then plrleftvalue   .caption := format('%0.2f', [track.loudness.PeakToLoudnessRatio(0)]);
+    if track.channelcount > 1 then plrrightvalue  .caption := format('%0.2f', [track.loudness.PeakToLoudnessRatio(1)]);
 
     if track.channelcount > 0 then IntegratedLoudnessLeftValue .caption := format('%0.2f', [track.loudness.IntegratedLoudness(0)]);
     if track.channelcount > 1 then IntegratedLoudnessRightValue.caption := format('%0.2f', [track.loudness.IntegratedLoudness(1)]);

@@ -89,7 +89,7 @@ type
     fnumber: longint;
     fsamplerate: longword;
     fsamplecount: longint;
-    fchannels: tchannels;
+    fchannels: TChannels;
     fchannelcount: longint;
     fbitspersample: longint;
     fbyterate: longint;
@@ -136,7 +136,7 @@ type
     fblocknum: longint;
     fblocksize: longint;
     fsamplecount: longint;
-    fchannels: tchannels;
+    fchannels: TChannels;
 
 
     //---
@@ -149,7 +149,7 @@ type
     fffton: boolean;
     function getpercentage: longint;
     procedure readheader(astream: tstream);
-    function readsamples(astream: tstream; achannels: tchannels; achannelsize: longint): longint;
+    function readsamples(astream: tstream; achannels: TChannels; achannelsize: longint): longint;
     procedure readfromstream(astream: tstream);
 
     procedure PrepareSamplesForAnalysis;
@@ -281,7 +281,7 @@ end;
 
 procedure ttrackanalyzer.execute;
 var
-  i, j: longint;
+  ch, i, j: longint;
 begin
   fpercentage := 0;
   if assigned(fonstart) then
@@ -312,10 +312,15 @@ begin
 
       {$ifopt D+}
       writeln;
-      writeln('track.DR:          ',        (ftrack.drmeter.DR       ):2:1);
-      writeln('track.Rms          ', Decibel(ftrack.drmeter.Rms      ):2:2);
-      writeln('track.Peak         ', Decibel(ftrack.drmeter.Peak     ):2:2);
-      writeln('track.TruePeak     ', Decibel(ftrack.loudness.truepeak):2:2);
+      writeln('track.DR:          ', ftrack.drmeter.DR       :2:2);
+      writeln('track.Rms          ', ftrack.loudness.Rms     :2:2);
+      writeln('track.Peak         ', ftrack.loudness.Peak    :2:2);
+      writeln('track.TruePeak     ', ftrack.loudness.TruePeak:2:2);
+      writeln;
+
+      for ch := 0 to ftrack.channelcount -1 do;
+        writeln('track.Lk', ch,  '          ', ftrack.loudness.IntegratedLoudness(ch):2:2);
+
       writeln;
       {$endif}
     end;
@@ -451,7 +456,7 @@ begin
   if fdatachunk.subck2size = 0 then fstatus := -2;
 end;
 
-function ttrackanalyzer.readsamples(astream: tstream; achannels: tchannels; achannelsize: longint): longint;
+function ttrackanalyzer.readsamples(astream: tstream; achannels: TChannels; achannelsize: longint): longint;
 var
   i, j, k: longint;
   dt : array[0..3] of byte;
