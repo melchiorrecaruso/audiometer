@@ -27,12 +27,9 @@ unit Loudness;
 interface
 
 uses
-  Classes, Common, Sysutils;
+  Classes, Common, DateUtils, Sysutils;
 
 type
-  arrayofdouble = array of double;
-  arrayofarrayofdouble = array of arrayofdouble;
-
   TShelvingFilter = record
   private
     a1, a2: double;
@@ -41,7 +38,7 @@ type
     y1, y2: double;
   public
     procedure Init(ASamplerate: longint);
-    function Run(const ASample: TSample): TSample;
+    function Process(const ASample: TSample): TSample;
     procedure Clear;
   end;
 
@@ -53,63 +50,67 @@ type
     y1, y2: double;
   public
     procedure Init(ASamplerate: longint);
-    function Run(const ASample: TSample): TSample;
+    function Process(const ASample: TSample): TSample;
     procedure Clear;
   end;
 
   TKWeightingFilter = record
   private
-    HighpassFilter: THighpassFilter;
-    ShelvingFilter: TShelvingFilter;
+    FHighpassFilter: THighpassFilter;
+    FShelvingFilter: TShelvingFilter;
   public
     procedure Init(ASamplerate: longint);
-    function Run(const ASample: TSample): TSample;
+    function Process(const ASample: TSample): TSample;
     procedure Clear;
   end;
 
-  TLoudnessMeter = class
+  TChannelMetrics = record
   private
-    FSampleCount: longint;
+    FRms2: double;
+    FPeak: double;
+    FTruePeak: double;
+    FCrestFactor: double;
+    FDynamicRange: double;
+  public
+    procedure Process(const ASamples: TSamples; ASamplecount, ASamplerate: longint);
+    property Rms2: double read FRms2;
+    property Peak: double read FPeak;
+    property TruePeak: double read FTruePeak;
+    property CrestFactor: double read FCrestFactor;
+    property DynamicRange: double read FDynamicRange;
+  end;
+
+  TLoudnessMeter = record
+  private
     FSampleRate: longint;
-    FBlockEnergies: arrayofarrayofdouble;
+    FSampleCount: longint;
+
+    FBlocks: arrayofarrayofdouble;
     FBlockSize: longint;
-    FNumBlocks: longint;
+    FBlockCount: longint;
 
-    FRms2: arrayofdouble;
-    FPeak: arrayofdouble;
-    FTruePeak: arrayofdouble;
     FWeights: arrayofdouble;
-
     FMomentaryEnergies: arrayofdouble;
     FShortTermEnergies: arrayofdouble;
-
     FIntegratedLoudness: double;
     FLoudnessRange: double;
-    FCrestFactors: arrayofdouble;
 
-    procedure CalculateFIRCoefficients(var ACoeffs: arrayofarrayofdouble; AOverSample, ATaps: longint);
-    procedure ClearFIRCoefficents(var ACoeffs: arrayofarrayofdouble);
-
-    procedure CalculateChannelWeights(const AChannels: TChannels);
-    procedure CalculateBlockEnergies(const AChannels: TChannels);
-    procedure CalculateTruePeak(const AChannels: TChannels);
-    procedure CalculatePeak(const AChannels: TChannels);
-    procedure CalculateRms2(const AChannels: TChannels);
-    procedure CalculateCrestFactor;
-    procedure CalculateMomentaryEnergies;
-    procedure CalculateShortTermEnergies;
-    procedure CalculateIntegratedLoudness;
-    procedure CalculateLoudnessRange;
+    FChannelMetrics: array of TChannelMetrics;
+    procedure UpdateWeights(const AChannels: TChannels);
+    procedure UpdateBlocks(const AChannels: TChannels);
+    procedure UpdateMomentaryEnergies;
+    procedure UpdateShortTermEnergies;
+    procedure UpdateIntegratedLoudness;
+    procedure UpdateLoudnessRange;
   public
-    constructor Create;
-    destructor Destroy; override;
-    procedure Clear;
+    procedure Init;
+    procedure Finalize;
 
-    procedure Analyze(const AChannels: TChannels; ASampleCount, ASampleRate: longint);
+    procedure Process(const AChannels: TChannels; ASamplecount, ASamplerate: longint);
 
-    function Rms(AChannel: longint): double;
-    function Rms: double;
-    function Peak(AChannel: longint): double;
+    function Rms(AChannel: longint): double;      // dB
+    function Rms: double;                         // dB
+    function Peak(AChannel: longint): double;     // dB
     function Peak: double;
     function TruePeak(AChannel: longint): double;
     function TruePeak: double;
@@ -120,12 +121,11 @@ type
     function MomentaryLoudness(AtTime: longint): double;
     function ShortTermLoudness(AtTime: longint): double;
     function IntegratedLoudness: double;
-    function PeakToLoudnessRatio: double;
     function LoudnessRange: double;
+    function PeakToLoudnessRatio: double;
+    function DynamicRange(AChannel: longint): double;
+    function DynamicRange: double;
   end;
-
-
-function EnergyToLufs(const aenergy: double): double;
 
 
 implementation
@@ -133,13 +133,8 @@ implementation
 uses
   Math;
 
-function EnergyToLufs(const AEnergy: double): double;
-begin
-  if AEnergy > 1e-10 then
-    result := -0.691 + 10*Log10(AEnergy)
-  else
-    result := NegInfinity;
-end;
+type
+  TFIRTable = arrayofarrayofdouble;
 
 // TShelvingFilter
 
@@ -181,7 +176,7 @@ begin
   y2 := 0;
 end;
 
-function TShelvingFilter.Run(const ASample: TSample): TSample;
+function TShelvingFilter.Process(const ASample: TSample): TSample;
 begin
   result := b0 * ASample + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
   // Shift state
@@ -192,7 +187,6 @@ begin
 end;
 
 // THighpassFilter
-
 
 procedure THighpassFilter.Init(ASampleRate: longint);
 const
@@ -228,7 +222,7 @@ begin
   y2 := 0;
 end;
 
-function THighpassFilter.Run(const ASample: TSample): TSample;
+function THighpassFilter.Process(const ASample: TSample): TSample;
 begin
   result := b0 * ASample + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
   // Shift state
@@ -242,83 +236,46 @@ end;
 
 procedure TKWeightingFilter.Init(ASamplerate: longint);
 begin
-  ShelvingFilter.Init(ASamplerate);
-  HighpassFilter.Init(ASamplerate);
+  FShelvingFilter.Init(ASamplerate);
+  FHighpassFilter.Init(ASamplerate);
 end;
 
-function TKWeightingFilter.Run(const ASample: TSample): TSample;
+function TKWeightingFilter.Process(const ASample: TSample): TSample;
 begin
-  result := ShelvingFilter.Run(HighpassFilter.Run(ASample));
+  result := FShelvingFilter.Process(FHighpassFilter.Process(ASample));
 end;
 
 procedure TKWeightingFilter.Clear;
 begin
-  HighpassFilter.Clear;
-  ShelvingFilter.Clear;
+  FHighpassFilter.Clear;
+  FShelvingFilter.Clear;
 end;
 
-// TLoudnessMeter
+// TFIRFilter
 
-constructor TLoudnessMeter.Create;
-begin
-  inherited Create;
-  Clear;
-end;
-
-destructor TLoudnessMeter.Destroy;
-begin
-  Clear;
-  inherited destroy;
-end;
-
-procedure TLoudnessMeter.Clear;
-var
-  ch: longint;
-begin
-  FSampleCount      := 0;
-  FSampleRate       := 0;
-  FBlockSize        := 0;
-  FNumBlocks        := 0;
-  FLoudnessRange      := 0;
-  FIntegratedLoudness := 0;
-
-  for ch := Low(FBlockEnergies) to High(FBlockEnergies) do
-  begin
-    SetLength(FBlockEnergies[ch], 0);
-  end;
-  SetLength(FBlockEnergies    , 0);
-  SetLength(FMomentaryEnergies, 0);
-  SetLength(FShortTermEnergies, 0);
-  SetLength(FCrestFactors     , 0);
-
-  SetLength(FPeak    , 0);
-  SetLength(FRms2    , 0);
-  SetLength(FTruePeak, 0);
-  SetLength(FWeights , 0);
-end;
-
-procedure TLoudnessMeter.CalculateFIRCoefficients(var ACoeffs: arrayofarrayofdouble; AOverSample, ATaps: longint);
+procedure InitFIRFilter(var ACoeffs: TFIRTable; APhases, ATaps: longint);
 var
   fc, x: double;
   i, Phase, Tap: longint;
   Coeff, Sum: double;
 begin
-  SetLength(ACoeffs, AOversample);
+  SetLength(ACoeffs, APhases);
   for i := Low(ACoeffs) to High(ACoeffs) do
     SetLength(ACoeffs[i], ATaps);
 
-  fc := 0.5 / AOversample;
+  fc := 0.5 / APhases;
 
-  for Phase := 0 to AOversample - 1 do
+  for Phase := 0 to APhases - 1 do
   begin
     Sum := 0.0;
     for Tap := 0 to ATaps - 1 do
     begin
-      x := (Tap - ((ATaps - 1) / 2)) - Phase / AOversample;
+      x := (Tap - ((ATaps - 1) / 2)) - Phase / APhases;
       if Abs(x) > 1e-10 then
         Coeff := 2.0 * fc * Sin(Pi * x) / (Pi * x)
       else
         Coeff := 2.0 * fc;
+
       // Hamming window
       Coeff := Coeff * (0.54 - 0.46 * Cos(2.0 * Pi * Tap / (ATaps - 1)));
       ACoeffs[Phase, Tap] := Coeff;
@@ -330,20 +287,62 @@ begin
   end;
 end;
 
-procedure TLoudnessMeter.ClearFIRCoefficents(var ACoeffs: arrayofarrayofdouble);
+procedure FinalizeFIRFilter(var ACoeffs: TFIRTable);
 var
-  j: longint;
+  i: longint;
 begin
-  for j := Low(ACoeffs) to High(ACoeffs) do
-    SetLength(ACoeffs[j], 0);
+  for i := Low(ACoeffs) to High(ACoeffs) do
+    SetLength(ACoeffs[i], 0);
   SetLength(ACoeffs, 0);
 end;
 
-procedure TLoudnessMeter.CalculateChannelWeights(const AChannels: TChannels);
+// TChannelMetrics
+
+procedure TChannelMetrics.Process(const ASamples: TSamples; ASamplecount, ASamplerate: longint);
+begin
+  FRms2         := Common.Rms2    (ASamples, 0, ASamplecount);
+  FPeak         := Common.Peak    (ASamples, 0, ASamplecount);
+  FTruePeak     := Common.TruePeak(ASamples, 0, ASamplecount, ASamplerate);
+  FDynamicRange := Common.DR      (ASamples, ASamplecount, ASamplerate);
+
+  if FRms2 > 1e-10 then
+    FCrestFactor := FPeak / Sqrt(FRms2)
+  else
+    FCrestFactor := NegInfinity;
+end;
+
+// TLoudnessMeter
+
+procedure TLoudnessMeter.Init;
+begin
+  Finalize;
+end;
+
+procedure TLoudnessMeter.Finalize;
 var
   ch: longint;
 begin
-  // Allocate and set the channel Weights based on the number of channels
+  FSampleRate  := 0;
+  FSamplecount := 0;
+  FBlockSize   := 0;
+  for ch := Low(FBlocks) to High(FBlocks) do
+  begin
+    FBlocks[ch] := nil;
+  end;
+  FBlocks  := nil;
+  FWeights := nil;
+
+  FMomentaryEnergies  := nil;
+  FShortTermEnergies  := nil;
+  FIntegratedLoudness := NegInfinity;
+  FLoudnessRange      := NegInfinity;
+  FChannelMetrics     := nil;
+end;
+
+procedure TLoudnessMeter.UpdateWeights(const AChannels: TChannels);
+var
+  ch: longint;
+begin
   Setlength(FWeights, Length(AChannels));
   case Length(AChannels) of
     1: begin
@@ -368,201 +367,33 @@ begin
          FWeights[4] := 1.412; // LS
          FWeights[5] := 1.412; // RS
        end;
-  else
-    // Default: assign weight 1.0 to all channels
-    for ch := Low(AChannels) to High(AChannels) do
-      FWeights[ch] := 1.0;
+  else for ch := Low(AChannels) to High(AChannels) do FWeights[ch] := 1.0;
   end;
 end;
 
-(*
-procedure TLoudnessMeter.CalculateTruePeak(const AChannels: TChannels);
-var
-  i, ch, index: longint;
-  Coeffs: arrayofarrayofdouble;
-  Phase, Tap, Taps, Oversample: longint;
-  Sample, Sum, TruePk: double;
-begin
-  Coeffs := nil;
-  case FSampleRate of
-    44100: begin Oversample := 4; Taps := 12; end;
-    48000: begin Oversample := 4; Taps := 12; end;
-    88200: begin Oversample := 2; Taps := 12; end;
-    96000: begin Oversample := 2; Taps := 12; end;
-  else     begin Oversample := 2; Taps := 12; end;
-  end;
-
-  SetLength(FTruePeak, Length(AChannels));
-
-  CalculateFIRCoefficients(Coeffs, Oversample, Taps);
-  if Length(Coeffs) > 0 then
-  begin
-    for ch := Low(AChannels) to High(AChannels) do
-    begin
-      TruePk := 0;
-      for i := Low(AChannels[ch]) to High(AChannels[ch]) do
-      begin
-        for Phase := 0 to Oversample -1 do
-        begin
-          Sum := 0;
-          for Tap := 0 to Taps -1 do
-          begin
-            index := Tap - (Taps div 2) + i;
-
-            Sample := 0;
-            if (index >= Low (AChannels[ch])) and
-               (index <= High(AChannels[ch])) then
-              Sample :=  AChannels[ch][index];
-
-            Sum := Sum + Sample * Coeffs[Phase, Tap];
-          end;
-          TruePk := Max(TruePk, Abs(Sum));
-        end;
-      end;
-      FTruePeak[ch] := TruePk;
-    end;
-
-  end else
-  begin
-    for ch := Low(AChannels) to High(AChannels) do
-    begin
-      FTruePeak[ch] := FPeak[ch];
-    end;
-  end;
-  ClearFIRCoefficents(Coeffs);
-end;
-*)
-
-procedure TLoudnessMeter.CalculateTruePeak(const AChannels: TChannels);
-const
-  // FIR coefficients
-  Coeffs: array[0..3, 0..23] of double = (
-    (-0.001780280772489,  0.003253283030257, -0.005447293390376,  0.008414568116553,
-     -0.012363296099675,  0.017436805871070, -0.024020143876810,  0.032746828420101,
-     -0.045326602900760,  0.066760686868173, -0.120643370377371,  0.989429605248410,
-      0.122160009958442, -0.046376232812786,  0.022831393004364, -0.011580897261667,
-      0.005358105753167, -0.001834671998839, -0.000103681038815,  0.001002216283171,
-     -0.001293611238062,  0.001184842429930, -0.000908719377960,  0.002061304229100),
-    (-0.001473218555432,  0.002925336766866, -0.005558126468508,  0.009521159741206,
-     -0.015296028027209,  0.023398977482278, -0.034752051245281,  0.050880967772373,
-     -0.075227488678419,  0.116949442543490, -0.212471239510148,  0.788420616540440,
-      0.460788819545818, -0.166082211358253,  0.092555759769552, -0.057854829231334,
-      0.037380809681132, -0.024098441541823,  0.015115653825711, -0.009060645712669,
-      0.005033299068467, -0.002511544062471,  0.001030723665756, -0.000694079453823),
-    (-0.000694079453823,  0.001030723665756, -0.002511544062471,  0.005033299068467,
-     -0.009060645712669,  0.015115653825711, -0.024098441541823,  0.037380809681132,
-     -0.057854829231334,  0.092555759769552, -0.166082211358253,  0.460788819545818,
-      0.788420616540440, -0.212471239510148,  0.116949442543490, -0.075227488678419,
-      0.050880967772373, -0.034752051245281,  0.023398977482278, -0.015296028027209,
-      0.009521159741206, -0.005558126468508,  0.002925336766866, -0.001473218555432),
-    ( 0.002061304229100, -0.000908719377960,  0.001184842429930, -0.001293611238062,
-      0.001002216283171, -0.000103681038815, -0.001834671998839,  0.005358105753167,
-     -0.011580897261667,  0.022831393004364, -0.046376232812786,  0.122160009958442,
-      0.989429605248410, -0.120643370377371,  0.066760686868173, -0.045326602900760,
-      0.032746828420101, -0.024020143876810,  0.017436805871070, -0.012363296099675,
-      0.008414568116553, -0.005447293390376,  0.003253283030257, -0.001780280772489));
-var
-  ch, i, Phase, Tap, Taps, Oversample: longint;
-  Sample, Sum, TruePk: double;
-  index: longint;
-begin
-  case FSampleRate of
-    44100, 48000: begin Oversample := 4; Taps := 24; end;
-    88200, 96000: begin Oversample := 2; Taps := 24; end;
-  else            begin Oversample := 2; Taps := 24; end;
-  end;
-
-  SetLength(FTruePeak, Length(AChannels));
-
-  for ch := Low(AChannels) to High(AChannels) do
-  begin
-    TruePk := 0;
-    for i := Low(AChannels[ch]) to High(AChannels[ch]) do
-    begin
-      for Phase := 0 to Oversample -1 do
-      begin
-        Sum := 0;
-        for Tap := 0 to Taps - 1 do
-        begin
-          index := Tap - (Taps div 2) + i;
-
-          if (index >= Low (AChannels[ch])) and
-             (index <= High(AChannels[ch])) then
-            Sample := AChannels[ch][index]
-          else
-            Sample := 0;
-
-          Sum := Sum + Sample * Coeffs[Phase, Tap];
-        end;
-
-        if Abs(Sum) > TruePk then
-          TruePk := Abs(Sum);
-      end;
-    end;
-    FTruePeak[ch] := TruePk;
-  end;
-end;
-
-procedure TLoudnessMeter.CalculatePeak(const AChannels: TChannels);
-var
-  ch: longint;
-begin
-  SetLength(FPeak, Length(AChannels));
-  for ch := Low(AChannels) to High(AChannels) do
-    FPeak[ch] := Common.Peak(AChannels[ch], 0, FSampleCount);
-end;
-
-procedure TLoudnessMeter.CalculateRms2(const AChannels: TChannels);
-var
-  ch: longint;
-begin
-  SetLength(FRms2, Length(AChannels));
-  for ch := Low(AChannels) to High(AChannels) do
-    FRms2[ch] := Common.Rms2(AChannels[ch], 0, FSampleCount);
-end;
-
-procedure TLoudnessMeter.CalculateCrestFactor;
-var
-  ch: longint;
-begin
-  SetLength(FCrestFactors, Length(FBlockEnergies));
-  for ch := Low(FBlockEnergies) to High(FBlockEnergies) do
-  begin
-    if FRms2[ch] > 1e-10 then
-      FCrestFactors[ch] := FPeak[ch] / Sqrt(FRms2[ch]) // FTruePeak[ch] / Sqrt(FRms2[ch])
-    else
-      FCrestFactors[ch] := NegInfinity;
-  end;
-end;
-
-procedure TLoudnessMeter.CalculateBlockEnergies(const AChannels: TChannels);
+procedure TLoudnessMeter.UpdateBlocks(const AChannels: TChannels);
 const
   BlockMs = 100;
 var
-  ch, i, OffSet: Integer;
+  ch, i, OffSet: longint;
 begin
-  FBlockSize := (FSampleRate * BlockMs) div 1000;
+  FBlockSize  := (FSampleRate * BlockMs) div 1000;
+  FBlockCount := Max(0, (FSampleCount - FBlockSize) div FBlockSize + 1);
 
-  if FSampleCount < FBlockSize then
-    FNumBlocks := 0
-  else
-    FNumBlocks := ((FSampleCount - FBlockSize) div FBlockSize) + 1;
-
-  SetLength(FBlockEnergies, Length(AChannels));
+  SetLength(FBlocks, Length(AChannels), FBlockCount);
   for ch := Low(AChannels) to High(AChannels) do
   begin
-    SetLength(FBlockEnergies[ch], FNumBlocks);
     OffSet := 0;
 
-    for i := 0 to FNumBlocks - 1 do
+    for i := 0 to FBlockCount - 1 do
     begin
-      FBlockEnergies[ch][i] := Common.Rms2(AChannels[ch], OffSet, FBlockSize);
+      FBlocks[ch][i] := Common.Rms2(AChannels[ch], OffSet, FBlockSize);
       Inc(OffSet, FBlockSize);
     end;
   end;
 end;
 
-procedure TLoudnessMeter.CalculateMomentaryEnergies;
+procedure TLoudnessMeter.UpdateMomentaryEnergies;
 const
   NumSteps = 4;
 var
@@ -570,22 +401,22 @@ var
   SumEnergy: double;
   SumCount: longint;
 begin
-  SetLength(FMomentaryEnergies, FNumBlocks);
+  SetLength(FMomentaryEnergies, FBlockCount);
 
-  for i := 0 to FNumBlocks - 1 do
+  for i := 0 to FBlockCount - 1 do
   begin
     FMomentaryEnergies[i] := 0;
 
-    for ch := Low(FBlockEnergies) to High(FBlockEnergies) do
+    for ch := Low(FBlocks) to High(FBlocks) do
     begin
       SumEnergy := 0;
       SumCount  := 0;
       for j := 0 to NumSteps -1 do
       begin
         index := i + j;
-        if index < FNumBlocks then
+        if index < FBlockCount then
         begin
-          SumEnergy := SumEnergy + FBlockEnergies[ch][index];
+          SumEnergy := SumEnergy + FBlocks[ch][index];
           SumCount  := SumCount + 1;
         end;
       end;
@@ -595,7 +426,7 @@ begin
   end;
 end;
 
-procedure TLoudnessMeter.CalculateShortTermEnergies;
+procedure TLoudnessMeter.UpdateShortTermEnergies;
 const
   NumSteps = 30;
 var
@@ -603,22 +434,22 @@ var
   SumEnergy: double;
   SumCount: longint;
 begin
-  SetLength(FShortTermEnergies, FNumBlocks);
+  SetLength(FShortTermEnergies, FBlockCount);
 
-  for i := 0 to FNumBlocks - 1 do
+  for i := 0 to FBlockCount - 1 do
   begin
     FShortTermEnergies[i] := 0;
 
-    for ch := Low(FBlockEnergies) to High(FBlockEnergies) do
+    for ch := Low(FBlocks) to High(FBlocks) do
     begin
       SumEnergy := 0;
       SumCount  := 0;
       for j := 0 to NumSteps -1 do
       begin
         index := i + j;
-        if index < FNumBlocks then
+        if index < FBlockCount then
         begin
-          SumEnergy := SumEnergy + FBlockEnergies[ch][index];
+          SumEnergy := SumEnergy + FBlocks[ch][index];
           SumCount  := SumCount + 1;
         end;
       end;
@@ -628,7 +459,7 @@ begin
   end;
 end;
 
-procedure TLoudnessMeter.CalculateIntegratedLoudness;
+procedure TLoudnessMeter.UpdateIntegratedLoudness;
 const
   AbsoluteGateLufs = -70;
   RelativeGateLufs = -10;
@@ -636,11 +467,11 @@ var
   i: longint;
   SumCount: longint;
   SumEnergy, AvgEnergy: double;
-  Energies: TListOfDouble;
+  Energies: listofdouble;
 begin
-  Energies := TListOfDouble.Create;
+  Energies := listofdouble.Create;
 
-  for i := 0 to FNumBlocks -1 do
+  for i := 0 to FBlockCount -1 do
   begin
     if EnergyToLufs(FMomentaryEnergies[i]) > AbsoluteGateLufs then
     begin
@@ -676,19 +507,19 @@ begin
   Energies.Destroy;
 end;
 
-procedure TLoudnessMeter.CalculateLoudnessRange;
+procedure TLoudnessMeter.UpdateLoudnessRange;
 const
   AbsoluteGateLufs = -70;
   RelativeGateLufs = -20;
 var
   i: longint;
   AvgEnergy: double;
-  Energies: TListOfDouble;
+  Energies: listofdouble;
   p95, p10: double;
 begin
-  Energies := TListOfDouble.Create;
+  Energies := listofdouble.Create;
 
-  for i := 0 to FNumBlocks -1 do
+  for i := 0 to FBlockCount -1 do
   begin
     if EnergyToLufs(FShortTermEnergies[i]) > AbsoluteGateLufs then
     begin
@@ -725,11 +556,6 @@ begin
   Energies.Destroy;
 end;
 
-function TLoudnessMeter.LoudnessRange: double;
-begin
-  result := FLoudnessRange;
-end;
-
 function TLoudnessMeter.MomentaryLoudness(AtTime: longint): double;
 const
   Stepms = 100;
@@ -741,7 +567,7 @@ begin
   if index < Length(FMomentaryEnergies) then
     result := EnergyToLufs(FMomentaryEnergies[index])
   else
-    result := NegInfinity
+    result := NegInfinity;
 end;
 
 function TLoudnessMeter.ShortTermLoudness(AtTime: longint): double;
@@ -755,7 +581,7 @@ begin
   if index < Length(FShortTermEnergies) then
     result := EnergyToLufs(FShortTermEnergies[index])
   else
-    result := NegInfinity
+    result := NegInfinity;
 end;
 
 function TLoudnessMeter.IntegratedLoudness: double;
@@ -763,61 +589,67 @@ begin
   result := FIntegratedLoudness;
 end;
 
-procedure TLoudnessMeter.Analyze(const AChannels: TChannels; ASampleCount, ASampleRate: longint);
-var
-  ch, i: longint;
-  y: TChannels;
-  kFilter: TKWeightingFilter;
+function TLoudnessMeter.LoudnessRange: double;
 begin
-  Clear;
-  FSampleCount := ASampleCount;
-  FSampleRate  := ASampleRate;
+  result := FLoudnessRange;
+end;
 
-  CalculatePeak(AChannels);
-  CalculateRms2(AChannels);
-  CalculateTruePeak(AChannels);
-  CalculateChannelWeights(AChannels);
-  // Apply K-weighting filter
-  SetLength(y, Length(AChannels));
-  kFilter.Init(ASampleRate);
-  for ch := Low(y) to High(y) do
+procedure TLoudnessMeter.Process(const AChannels: TChannels; ASamplecount, ASamplerate: longint);
+var
+  kwBlocks: arrayofarrayofdouble;
+  kFilter: TKWeightingFilter;
+  ch, i: longint;
+  Start: TDateTime;
+begin
+  Writeln('Loudness.START');
+  Start := Now;
+  FSamplecount := ASamplecount;
+  FSamplerate  := ASamplerate;
+  // Single channel metrics
+  SetLength(FChannelMetrics, Length(AChannels));
+  for ch := Low(FChannelMetrics) to High(FChannelMetrics) do
+    FChannelMetrics[ch].Process(AChannels[ch], ASamplecount, ASamplerate);
+  // Loudness metrics
+  kwBlocks := nil;
+  SetLength(kwBlocks, Length(AChannels), ASamplecount);
+  kFilter.Init(ASamplerate);
+  for ch := Low(kwBlocks) to High(kwBlocks) do
   begin
-    SetLength(y[ch], ASampleCount);
-
     kFilter.Clear;
-    for i := Low(y[ch]) to High(y[ch]) do
+    for i := Low(kwBlocks[ch]) to High(kwBlocks[ch]) do
     begin
-      y[ch][i] := kFilter.Run(AChannels[ch][i]);
+      kwBlocks[ch][i] := kFilter.Process(AChannels[ch][i]);
     end;
   end;
-  CalculateBlockEnergies(y);
-  CalculateMomentaryEnergies;
-  CalculateShortTermEnergies;
-  CalculateIntegratedLoudness;
-  CalculateLoudnessRange;
-  CalculateCrestFactor;
 
-  for ch := Low(y) to High(y) do
-    SetLength(y[ch], 0);
-  SetLength(y, 0);
+  UpdateWeights(AChannels);
+  UpdateBlocks(kwBlocks);
+  UpdateMomentaryEnergies;
+  UpdateShortTermEnergies;
+  UpdateIntegratedLoudness;
+  UpdateLoudnessRange;
+
+  for ch := Low(kwBlocks) to High(kwBlocks) do
+    kwBlocks[ch] := nil;
+  kwBlocks := nil;
 end;
 
 function TLoudnessMeter.Rms(AChannel: longint): double;
 begin
-  result := EnergyToDecibel(FRms2[AChannel]);
+  result := EnergyToDecibel(FChannelMetrics[AChannel].Rms2);
 end;
 
 function TLoudnessMeter.Rms: double;
 var
   ch: longint;
-  SumEnergy,
+  SumEnergy: double;
   SumWeight: double;
 begin
   SumEnergy := 0;
   SumWeight := 0;
-  for ch := Low(FRms2) to High(FRms2) do
+  for ch := Low(FChannelMetrics) to High(FChannelMetrics) do
   begin
-    SumEnergy := SumEnergy + FWeights[ch] * FRms2[ch];
+    SumEnergy := SumEnergy + FChannelMetrics[ch].Rms2 * FWeights[ch];
     SumWeight := SumWeight + FWeights[ch];
   end;
 
@@ -829,7 +661,7 @@ end;
 
 function TLoudnessMeter.Peak(AChannel: longint): double;
 begin
-  result := Decibel(FPeak[AChannel]);
+  result := Decibel(FChannelMetrics[AChannel].Peak);
 end;
 
 function TLoudnessMeter.Peak: double;
@@ -837,16 +669,16 @@ var
   ch: longint;
 begin
   result := 0;
-  for ch := Low(FPeak) to High(FPeak) do
+  for ch := Low(FChannelMetrics) to High(FChannelMetrics) do
   begin
-    result := Max(result, FPeak[ch]);
+    result := Max(result, FChannelMetrics[ch].Peak);
   end;
   result := Decibel(result);
 end;
 
 function TLoudnessMeter.TruePeak(AChannel: longint): double;
 begin
-  result := Decibel(FTruePeak[AChannel]);
+  result := Decibel(FChannelMetrics[AChannel].TruePeak);
 end;
 
 function TLoudnessMeter.TruePeak: double;
@@ -854,16 +686,16 @@ var
   ch: longint;
 begin
   result := 0;
-  for ch := Low(FTruePeak) to High(FTruePeak) do
+  for ch := Low(FChannelMetrics) to High(FChannelMetrics) do
   begin
-    result := Max(result, FTruePeak[ch]);
+    result := Max(result, FChannelMetrics[ch].TruePeak);
   end;
   result := Decibel(result);
 end;
 
 function TLoudnessMeter.CrestFactor(AChannel: longint): double;
 begin
-  result := Decibel(FCrestFactors[AChannel]);
+  result := Decibel(FChannelMetrics[AChannel].CrestFactor);
 end;
 
 function TLoudnessMeter.CrestFactor: double;
@@ -871,28 +703,38 @@ var
   ch: longint;
 begin
   result := 0;
-  if Length(FCrestFactors) > 0 then
+  if Length(FChannelMetrics) > 0 then
   begin
-    for ch := Low(FCrestFactors) to High(FCrestFactors) do
+    for ch := Low(FChannelMetrics) to High(FChannelMetrics) do
     begin
-      result := result + FCrestFactors[ch];
+      result := result + FChannelMetrics[ch].CrestFactor;
     end;
-    result := Decibel(result / Length(FCrestFactors));
+    result := Decibel(result / Length(FChannelMetrics));
   end;
 end;
 
 function TLoudnessMeter.PeakToLoudnessRatio: double;
 var
-  ch: Integer;
+  ch: longint;
   MaxTruePeak: double;
 begin
   MaxTruePeak := 0;
-  for ch := Low(FTruePeak) to High(FTruePeak) do
+  for ch := Low(FChannelMetrics) to High(FChannelMetrics) do
   begin
-    MaxTruePeak := Max(MaxTruePeak, FTruePeak[ch]);
+    MaxTruePeak := Max(MaxTruePeak, FChannelMetrics[ch].TruePeak);
   end;
-
   result := Decibel(MaxTruePeak) - FIntegratedLoudness;
+end;
+
+function TLoudnessMeter.DynamicRange(AChannel: longint): double;
+begin
+
+end;
+
+function TLoudnessMeter.DynamicRange: double;
+begin
+
+
 end;
 
 end.
