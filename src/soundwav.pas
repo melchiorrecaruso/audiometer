@@ -94,12 +94,12 @@ type
     fbitspersample: longint;
     fbyterate: longint;
     fduration: longint;
-    // dynamicrange
-    fdrmeter: TDynamicrangerMeter;
     // spectrum
     fspectrums: TSpectrums;
     // loudness
     floudness: TLoudnessMeter;
+    // dynamicrange
+    fdrmeter: TDynamicRangeMeter;
 
     function getsample(channel, index: longint): TSample;
   public
@@ -117,9 +117,9 @@ type
     property byterate: longint read fbyterate;
     property duration: longint read fduration;
 
-    property drmeter: TDynamicrangerMeter read fdrmeter;
     property spectrums: tspectrums read fspectrums;
     property loudness: TLoudnessMeter read floudness;
+    property drmeter: TDynamicRangeMeter read fdrmeter;
 
     property samples[channel, index: longint]: TSample read getsample;
   end;
@@ -237,14 +237,14 @@ begin
   fbitspersample := 0;
   fbyterate      := 0;
 
-  fDRmeter  := TDynamicrangerMeter.Create;
-  fLoudness := TLoudnessMeter.Create;
+  FDRMeter.Init;
+  FLoudness.Init;
 end;
 
 destructor ttrack.destroy;
 begin
-  fdrmeter.Destroy;
-  floudness.destroy;
+  FDRMeter.Finalize;
+  FLoudness.Finalize;
   inherited destroy;
 end;
 
@@ -313,11 +313,11 @@ begin
       {$ifopt D+}
       writeln;
       writeln('track.DR:         ', ftrack.drmeter.DR       :2:2);
-      writeln('track.Rms         ', ftrack.loudness.Rms     :2:2);
-      writeln('track.Peak        ', ftrack.loudness.Peak    :2:2);
-      writeln('track.TruePeak    ', ftrack.loudness.TruePeak:2:2);
-      writeln('track.Lk          ', ftrack.loudness.IntegratedLoudness:2:2);
-      writeln('track.LRA         ', ftrack.loudness.LoudnessRange:2:2);
+      writeln('track.Rms         ', ftrack.loudness.Rms                :2:2);
+      writeln('track.Peak        ', ftrack.loudness.Peak               :2:2);
+      writeln('track.TruePeak    ', ftrack.loudness.TruePeak           :2:2);
+      writeln('track.Lk          ', ftrack.loudness.IntegratedLoudness :2:2);
+      writeln('track.LRA         ', ftrack.loudness.LoudnessRange      :2:2);
       writeln('track.PLR         ', ftrack.loudness.PeakToLoudnessRatio:2:2);
       writeln;
 
@@ -325,6 +325,9 @@ begin
         writeln('track.Peak', ch, '       ', ftrack.loudness.Peak(ch):2:2);
       for ch := 0 to ftrack.channelcount -1 do
         writeln('track.TruePeak', ch, '   ', ftrack.loudness.TruePeak(ch):2:2);
+
+      for i := 0 to ftrack.duration * 10 + 1 do
+        writeln('track.S@',i * 100, 'ms       ', ftrack.loudness.ShortTermLoudness(i*100):2:2);
 
       writeln;
       {$endif}
@@ -370,8 +373,9 @@ begin
   end;
   readsamples(astream, fchannels, fsamplecount);
 
-  ftrack.fdrmeter .Analyze(fchannels, fsamplecount, ftrack.fsamplerate);
-  ftrack.floudness.Analyze(fchannels, fsamplecount, ftrack.fsamplerate);
+  FTrack.FDRMeter .Process(fchannels, fsamplecount, ftrack.fsamplerate);
+  FTrack.FLoudness.Process(fchannels, fsamplecount, ftrack.fsamplerate);
+
 
   // calculate spectrum (FFT)
   if fffton then
@@ -629,8 +633,8 @@ begin
       track := gettrack(i);
       s.add(format('DR%2.0f %7.2f dB %7.2f dB %4.0d %4.0d %7.0d %-s     %s', [
                (track.drmeter.DR),
-        decibel(track.drmeter.Peak),
-        decibel(track.drmeter.Rms),
+        decibel(track.loudness.Peak),
+        decibel(track.loudness.Rms),
         track.bitspersample,
         track.channelcount,
         track.samplerate,
