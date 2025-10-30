@@ -27,7 +27,7 @@ unit Loudness;
 interface
 
 uses
-  Classes, Common, DateUtils, Sysutils;
+  Common, Sysutils;
 
 type
   TShelvingFilter = record
@@ -70,14 +70,12 @@ type
     FPeak: double;
     FTruePeak: double;
     FCrestFactor: double;
-    FDynamicRange: double;
   public
     procedure Process(const ASamples: TSamples; ASamplecount, ASamplerate: longint);
     property Rms2: double read FRms2;
     property Peak: double read FPeak;
     property TruePeak: double read FTruePeak;
     property CrestFactor: double read FCrestFactor;
-    property DynamicRange: double read FDynamicRange;
   end;
 
   TLoudnessMeter = record
@@ -123,8 +121,6 @@ type
     function IntegratedLoudness: double;
     function LoudnessRange: double;
     function PeakToLoudnessRatio: double;
-    function DynamicRange(AChannel: longint): double;
-    function DynamicRange: double;
   end;
 
 
@@ -300,10 +296,9 @@ end;
 
 procedure TChannelMetrics.Process(const ASamples: TSamples; ASamplecount, ASamplerate: longint);
 begin
-  FRms2         := Common.Rms2    (ASamples, 0, ASamplecount);
-  FPeak         := Common.Peak    (ASamples, 0, ASamplecount);
-  FTruePeak     := Common.TruePeak(ASamples, 0, ASamplecount, ASamplerate);
-  FDynamicRange := Common.DR      (ASamples, ASamplecount, ASamplerate);
+  FRms2         := Common.Rms2        (@ASamples[0], ASamplecount);
+  FPeak         := Common.Peak        (@ASamples[0], ASamplecount);
+  FTruePeak     := Common.TruePeak    (@ASamples[0], ASamplecount, ASamplerate);
 
   if FRms2 > 1e-10 then
     FCrestFactor := FPeak / Sqrt(FRms2)
@@ -387,7 +382,7 @@ begin
 
     for i := 0 to FBlockCount - 1 do
     begin
-      FBlocks[ch][i] := Common.Rms2(AChannels[ch], OffSet, FBlockSize);
+      FBlocks[ch][i] := Common.Rms2(@AChannels[ch][OffSet], FBlockSize);
       Inc(OffSet, FBlockSize);
     end;
   end;
@@ -599,10 +594,8 @@ var
   kwBlocks: arrayofarrayofdouble;
   kFilter: TKWeightingFilter;
   ch, i: longint;
-  Start: TDateTime;
 begin
-  Writeln('Loudness.START');
-  Start := Now;
+  Finalize;
   FSamplecount := ASamplecount;
   FSamplerate  := ASamplerate;
   // Single channel metrics
@@ -724,17 +717,6 @@ begin
     MaxTruePeak := Max(MaxTruePeak, FChannelMetrics[ch].TruePeak);
   end;
   result := Decibel(MaxTruePeak) - FIntegratedLoudness;
-end;
-
-function TLoudnessMeter.DynamicRange(AChannel: longint): double;
-begin
-
-end;
-
-function TLoudnessMeter.DynamicRange: double;
-begin
-
-
 end;
 
 end.
