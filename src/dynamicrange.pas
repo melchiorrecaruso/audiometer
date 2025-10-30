@@ -27,23 +27,22 @@ unit DynamicRange;
 interface
 
 uses
-  Classes, Common, Fgl, Sysutils;
+  Common, Sysutils;
 
 type
-  TDynamicrangerMeter = class
+  TDynamicRangeMeter = record
   private
     FBlocksize: longint;
     FBlockCount: longint;
     FChannelCount: longint;
-    FRms2: tarrayofarrayofdouble;
-    FPeak: tarrayofarrayofdouble;
-    FDR: tarrayofdouble;
+    FRms2: arrayofarrayofdouble;
+    FPeak: arrayofarrayofdouble;
+    FDynamicRange: arrayofdouble;
   public
-    constructor Create;
-    destructor Destroy; override;
-    procedure Clear;
+    procedure Init;
+    procedure Finalize;
 
-    procedure Analyze(const AChannels: TChannels; ASampleCount, ASampleRate: longint);
+    procedure Process(const AChannels: TChannels; ASamplecount, ASamplerate: longint);
 
     function Rms2(AChannel, ABlock: longint): double;
     function Rms2(AChannel: longint): double;
@@ -69,49 +68,47 @@ implementation
 uses
   Math;
 
-// TDynamicrangerMeter
+// TDynamicRangeMeter
 
-function TDynamicrangerMeter.Rms2(AChannel, ABlock: longint): double;
+function TDynamicRangeMeter.Rms2(AChannel, ABlock: longint): double;
 begin
   result := FRms2[AChannel][ABlock];
 end;
 
-function TDynamicrangerMeter.Rms2(AChannel: longint): double;
+function TDynamicRangeMeter.Rms2(AChannel: longint): double;
 var
   Block: longint;
 begin
+  if FBlockCount = 0 then Exit(0);
+
   result := 0;
-  if FBlockCount > 0 then
+  for Block := 0 to FBlockCount -1 do
   begin
-    for Block := 0 to FBlockCount -1 do
-    begin
-      result := result + FRms2[AChannel][Block];
-    end;
-    result := result / FBlockCount;
+    result := result + FRms2[AChannel][Block];
   end;
+  result := result / FBlockCount;
 end;
 
-function TDynamicrangerMeter.Rms2: double;
+function TDynamicRangeMeter.Rms2: double;
 var
   ch: longint;
 begin
+  if FChannelCount = 0 then Exit(0);
+
   result := 0;
-  if FChannelCount > 0 then
+  for ch := 0 to FChannelCount -1 do
   begin
-    for ch := 0 to FChannelCount -1 do
-    begin
-      result := result + Rms2(ch);
-    end;
-    result := result / FChannelCount;
+    result := result + Rms2(ch);
   end;
+  result := result / FChannelCount;
 end;
 
-function TDynamicrangerMeter.Peak(AChannel, ABlock: longint): double;
+function TDynamicRangeMeter.Peak(AChannel, ABlock: longint): double;
 begin
   result := FPeak[AChannel][ABlock];
 end;
 
-function TDynamicrangerMeter.Peak(AChannel: longint): double;
+function TDynamicRangeMeter.Peak(AChannel: longint): double;
 var
   Block: longint;
 begin
@@ -122,70 +119,61 @@ begin
   end;
 end;
 
-function TDynamicrangerMeter.Peak: double;
+function TDynamicRangeMeter.Peak: double;
 var
   ch: longint;
 begin
   result := 0;
-  if FChannelCount > 0 then
+  for ch := 0 to FChannelCount -1 do
   begin
-    for ch := 0 to FChannelCount -1 do
-    begin
-      result := max(result, Peak(ch));
-    end;
+    result := max(result, Peak(ch));
   end;
 end;
 
-function TDynamicrangerMeter.Rms(AChannel: longint): double;
+function TDynamicRangeMeter.Rms(AChannel: longint): double;
 begin
   result := sqrt(Rms2(AChannel));
 end;
 
-function TDynamicrangerMeter.Rms: double;
+function TDynamicRangeMeter.Rms: double;
 var
   ch: longint;
 begin
+  if FChannelCount = 0 then Exit(0);
+
   result := 0;
-  if FChannelCount > 0 then
+  for ch := 0 to FChannelCount -1 do
   begin
-    for ch := 0 to FChannelCount -1 do
-      result := result + Rms2(ch);
-
-    result := sqrt(result / ChannelCount);
+    result := result + Rms2(ch);
   end;
+  result := sqrt(result / ChannelCount);
 end;
 
-function TDynamicrangerMeter.DR(AChannel: longint): double;
+function TDynamicRangeMeter.DR(AChannel: longint): double;
 begin
-  result := FDR[AChannel];
+  result := FDynamicRange[AChannel];
 end;
 
-function TDynamicrangerMeter.DR: double;
+function TDynamicRangeMeter.DR: double;
 var
   ch: longint;
 begin
+  if FChannelCount = 0 then Exit(0);
+
   result := 0;
-  if FChannelCount > 0 then
+  for ch := 0 to FChannelCount -1 do
   begin
-    for ch := 0 to FChannelCount -1 do
-      result := result + FDR[ch];
-
-    result := trunc(result / FChannelCount + 1);
+    result := result + FDynamicRange[ch];
   end;
+  result := RoundTo(result / FChannelCount, -1);
 end;
 
-constructor TDynamicrangerMeter.Create;
+procedure TDynamicRangeMeter.Init;
 begin
-  inherited create;
+  Finalize;
 end;
 
-destructor TDynamicrangerMeter.Destroy;
-begin
-  Clear;
-  inherited destroy;
-end;
-
-procedure TDynamicrangerMeter.Clear;
+procedure TDynamicRangeMeter.Finalize;
 var
   j: longint;
 begin
@@ -200,76 +188,101 @@ begin
   for j := low(FPeak) to high(FPeak) do
     SetLength(FPeak[j], 0);
   SetLength(FPeak, 0);
-  SetLength(FDR, 0);
+  SetLength(FDynamicRange, 0);
 end;
 
-procedure TDynamicrangerMeter.Analyze(const achannels: TChannels; asamplecount, asamplerate: longint);
+procedure TDynamicRangeMeter.Process(const AChannels: TChannels; ASamplecount, ASamplerate: longint);
 var
-  index, Block, ch, num: longint;
-   rmslist: tlistofdouble;
-  peaklist: tlistofdouble;
-  peak2nd, sum2, pk: double;
+  ch, i, j, k, index, Num: longint;
+  CurrEnergy, CurrPeak, Peak2nd, CurrSample: double;
+  Rms2Vec, PeakVec: array of double;
+  TailSize: longint;
 begin
-  inherited create;
-  FChannelCount := length(achannels);
-  if FChannelCount = 0 then exit;
+  Finalize;
+  FChannelCount := Length(AChannels);
+  if FChannelCount = 0 then Exit;
 
-  FBlocksize  := 3 * asamplerate;
-  FBlockCount := asamplecount div FBlocksize;
+  FBlockSize  := 3 * ASamplerate;
+  FBlockCount := ASamplecount div FBlockSize;
+  TailSize    := ASampleCount mod FBlockSize;
 
-  if FBlockCount = 0 then exit;
+  if FBlockCount = 0 then Exit;
 
-  SetLength(FRms2, FChannelCount);
-  SetLength(FPeak, FChannelCount);
-  for ch := 0 to FChannelCount -1 do
+  SetLength(FRms2, FChannelCount, FBlockCount + Ord(TailSize > 0));
+  SetLength(FPeak, FChannelCount, FBlockCount + Ord(TailSize > 0));
+  SetLength(FDynamicRange, FChannelCount);
+
+  for ch := 0 to FChannelCount - 1 do
   begin
-    SetLength(FRms2[ch], FBlockCount);
-    SetLength(FPeak[ch], FBlockCount);
+    for i := 0 to FBlockCount - 1 do
+    begin
+      CurrEnergy := 0;
+      CurrPeak   := 0;
+      k := i * FBlockSize;
+      for j := 0 to FBlockSize - 1 do
+      begin
+        index := k + j;
+        CurrSample := AChannels[ch][index];
+        CurrEnergy := CurrEnergy + Sqr(CurrSample);
+        CurrPeak   := Max(CurrPeak, Abs(CurrSample));
+      end;
+      FRms2[ch][i] := CurrEnergy / FBlockSize;
+      FPeak[ch][i] := CurrPeak;
+    end;
   end;
 
-  for ch := 0 to FChannelCount -1 do
+  if TailSize > 0 then
   begin
-    for Block := 0 to FBlockCount -1 do
+    for ch := 0 to FChannelCount - 1 do
     begin
-      sum2 := 0;
-      pk   := 0;
-      for index := (Block * FBlocksize) to ((Block + 1) * FBlocksize) -1 do
+      CurrEnergy := 0;
+      CurrPeak   := 0;
+      k := FBlockCount * FBlockSize;
+      for j := 0 to TailSize - 1 do
       begin
-        sum2 :=  sum2 + sqr(achannels[ch][index]);
-        pk   := max(pk, abs(achannels[ch][index]));
+        index := k + j;
+
+        CurrEnergy := CurrEnergy + Sqr(AChannels[ch][index]);
+        CurrPeak   := Max(CurrPeak, Abs(AChannels[ch][index]));
       end;
-      FRms2[ch][Block] := sum2 / FBlocksize;
-      FPeak[ch][Block] := pk;
+      FRms2[ch][FBlockCount] := CurrEnergy / TailSize;
+      FPeak[ch][FBlockCount] := CurrPeak;
     end;
   end;
 
-  SetLength(FDR, FChannelCount);
-  for ch := 0 to FChannelCount -1 do
+  for ch := 0 to FChannelCount - 1 do
   begin
-     rmslist := tlistofdouble.create;
-    peaklist := tlistofdouble.create;
-    for Block := 0 to FBlockCount -1 do
-    begin
-       rmslist.add(sqrt(2*FRms2[ch][Block]));
-      peaklist.add(       FPeak[ch][Block]);
-    end;
-     rmslist.sort(@compare);
-    peaklist.sort(@compare);
+    SetLength(Rms2Vec, FBlockCount + Ord(TailSize > 0));
+    SetLength(PeakVec, FBlockCount + Ord(TailSize > 0));
 
-    num  := trunc(0.2 * rmslist.count);
-    if num > 1 then
+    for i := 0 to High(Rms2Vec) do
     begin
-      peak2nd := peaklist[1];
-
-      sum2 := 0;
-      for index := 0 to num -1 do
-      begin
-        sum2 := sum2 + sqr(rmslist[index]);
-      end;
-      FDR[ch] := -Decibel(sqrt(sum2/num) / peak2nd);
+      Rms2Vec [i] := Sqrt(2 * FRms2[ch][i]);
+      PeakVec[i]  := FPeak[ch][i];
     end;
-     rmslist.destroy;
-    peaklist.destroy
+
+    QuickSort(Rms2Vec, 0, High(Rms2Vec));
+    QuickSort(PeakVec, 0, High(PeakVec));
+
+    Num := Trunc(0.2 * Length(Rms2Vec));
+    if Num < 1 then Num := 1;
+
+    if High(PeakVec) >= 1 then
+      Peak2nd := PeakVec[High(PeakVec) - 1]
+    else
+      Peak2nd := PeakVec[0];
+
+    CurrEnergy := 0;
+    for index := Length(Rms2Vec) - Num to High(Rms2Vec) do
+    begin
+      CurrEnergy := CurrEnergy + Sqr(Rms2Vec[index]);
+    end;
+    CurrEnergy := CurrEnergy / Num;
+
+    if Peak2nd <> 0 then
+      FDynamicRange[ch] := -Decibel(Sqrt(CurrEnergy) / Peak2nd)
+    else
+      FDynamicRange[ch] := 0;
   end;
 end;
 
