@@ -67,15 +67,16 @@ type
   tdoublelist  = specialize tfpglist<double>;
 
 
-function decibel(const asample: double): double;
-function peak(const asamples: arrayofdouble; aindex, acount: longint): double;
-function rms2(const asamples: arrayofdouble; aindex, acount: longint): double;
-function rms2tolufs(const aenergy: double): double;
+function Decibel(const asample: double): double;
+function Peak(const asamples: arrayofdouble; aindex, acount: longint): double;
+function Rms2(const asamples: arrayofdouble; aindex, acount: longint): double;
+function Rms2ToLuFS(const aenergy: double): double;
 
-function truepeak(const asamples: arrayofdouble; aoversample, ataps: longint): double;
-function lufs(const asamples: arrayofdouble; asamplerate: longint): double;
-function lra(const asamples: arrayofdouble; asamplerate: longint): double;
-function plr(const sample, energy: double): double;
+function TruePeak(const asamples: arrayofdouble; aoversample, ataps: longint): double;
+function LuFS(const asamples: arrayofdouble; asamplerate: longint): double;
+function Lu(const asamples: arrayofdouble; asamplerate: longint): double;
+function LRA(const asamples: arrayofdouble; asamplerate: longint): double;
+function PLR(const sample, energy: double): double;
 
 function compare(const value1, value2: double): longint;
 
@@ -84,7 +85,7 @@ implementation
 uses
   math;
 
-function decibel(const asample: double): double;
+function Decibel(const asample: double): double;
 begin
   if asample > 1e-10 then
     result := 20*log10(asample)
@@ -126,12 +127,12 @@ begin
   end;
 end;
 
-function plr(const sample, energy: double): double;
+function PLR(const sample, energy: double): double;
 begin
-  result := decibel(sample) - rms2tolufs(energy);
+  result := Decibel(sample) - rms2tolufs(energy);
 end;
 
-function truepeak(const asamples: arrayofdouble; aoversample, ataps: longint): double;
+function TruePeak(const asamples: arrayofdouble; aoversample, ataps: longint): double;
 var
   fc, x: double;
   i, phase, tap: longint;
@@ -182,7 +183,7 @@ begin
   setlength(coeffs, 0);
 end;
 
-function lufs(const asamples: arrayofdouble; asamplerate: integer): double;
+function LuFS(const ASamples: arrayofdouble; ASamplerate: integer): double;
 const
   blockms = 400;
   stepms  = 100;
@@ -238,6 +239,11 @@ begin
   e1 := e1 / e1count;
 
   result := rms2tolufs(e1);
+end;
+
+function LU(const asamples: arrayofdouble; asamplerate: integer): double;
+begin
+  result := LuFS(ASamples, ASamplerate) + 23;
 end;
 
 function compare(const value1, value2: double): longint;

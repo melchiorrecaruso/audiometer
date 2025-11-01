@@ -38,7 +38,7 @@ type
     y1, y2: double;
   public
     procedure Init(ASamplerate: longint);
-    function Process(const ASample: TSample): TSample;
+    function Process(const ASample: TDouble): TDouble;
     procedure Clear;
   end;
 
@@ -50,7 +50,7 @@ type
     y1, y2: double;
   public
     procedure Init(ASamplerate: longint);
-    function Process(const ASample: TSample): TSample;
+    function Process(const ASample: TDouble): TDouble;
     procedure Clear;
   end;
 
@@ -60,7 +60,7 @@ type
     FShelvingFilter: TShelvingFilter;
   public
     procedure Init(ASamplerate: longint);
-    function Process(const ASample: TSample): TSample;
+    function Process(const ASample: TDouble): TDouble;
     procedure Clear;
   end;
 
@@ -71,7 +71,7 @@ type
     FTruePeak: double;
     FCrestFactor: double;
   public
-    procedure Process(const ASamples: TSamples; ASamplecount, ASamplerate: longint);
+    procedure Process(const ASamples: TDoubleVector; ASampleCount, ASampleRate: longint);
     property Rms2: double read FRms2;
     property Peak: double read FPeak;
     property TruePeak: double read FTruePeak;
@@ -83,19 +83,19 @@ type
     FSampleRate: longint;
     FSampleCount: longint;
 
-    FBlocks: arrayofarrayofdouble;
+    FBlocks: TDoubleMatrix;
     FBlockSize: longint;
     FBlockCount: longint;
 
-    FWeights: arrayofdouble;
-    FMomentaryEnergies: arrayofdouble;
-    FShortTermEnergies: arrayofdouble;
+    FWeights: TDoubleVector;
+    FMomentaryEnergies: TDoubleVector;
+    FShortTermEnergies: TDoubleVector;
     FIntegratedLoudness: double;
     FLoudnessRange: double;
 
     FChannelMetrics: array of TChannelMetrics;
-    procedure UpdateWeights(const AChannels: TChannels);
-    procedure UpdateBlocks(const AChannels: TChannels);
+    procedure UpdateWeights(const AChannels: TDoubleMatrix);
+    procedure UpdateBlocks(const AChannels: TDoubleMatrix);
     procedure UpdateMomentaryEnergies;
     procedure UpdateShortTermEnergies;
     procedure UpdateIntegratedLoudness;
@@ -104,7 +104,7 @@ type
     procedure Init;
     procedure Finalize;
 
-    procedure Process(const AChannels: TChannels; ASamplecount, ASamplerate: longint);
+    procedure Process(const AChannels: TDoubleMatrix; ASampleCount, ASampleRate: longint);
 
     function Rms(AChannel: longint): double;      // dB
     function Rms: double;                         // dB
@@ -130,7 +130,7 @@ uses
   Math;
 
 type
-  TFIRTable = arrayofarrayofdouble;
+  TFIRTable = TDoubleMatrix;
 
 // TShelvingFilter
 
@@ -172,7 +172,7 @@ begin
   y2 := 0;
 end;
 
-function TShelvingFilter.Process(const ASample: TSample): TSample;
+function TShelvingFilter.Process(const ASample: TDouble): TDouble;
 begin
   result := b0 * ASample + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
   // Shift state
@@ -218,7 +218,7 @@ begin
   y2 := 0;
 end;
 
-function THighpassFilter.Process(const ASample: TSample): TSample;
+function THighpassFilter.Process(const ASample: TDouble): TDouble;
 begin
   result := b0 * ASample + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
   // Shift state
@@ -236,7 +236,7 @@ begin
   FHighpassFilter.Init(ASamplerate);
 end;
 
-function TKWeightingFilter.Process(const ASample: TSample): TSample;
+function TKWeightingFilter.Process(const ASample: TDouble): TDouble;
 begin
   result := FShelvingFilter.Process(FHighpassFilter.Process(ASample));
 end;
@@ -294,7 +294,7 @@ end;
 
 // TChannelMetrics
 
-procedure TChannelMetrics.Process(const ASamples: TSamples; ASamplecount, ASamplerate: longint);
+procedure TChannelMetrics.Process(const ASamples: TDoubleVector; ASampleCount, ASampleRate: longint);
 begin
   FRms2         := Common.Rms2        (@ASamples[0], ASamplecount);
   FPeak         := Common.Peak        (@ASamples[0], ASamplecount);
@@ -334,7 +334,7 @@ begin
   FChannelMetrics     := nil;
 end;
 
-procedure TLoudnessMeter.UpdateWeights(const AChannels: TChannels);
+procedure TLoudnessMeter.UpdateWeights(const AChannels: TDoubleMatrix);
 var
   ch: longint;
 begin
@@ -366,7 +366,7 @@ begin
   end;
 end;
 
-procedure TLoudnessMeter.UpdateBlocks(const AChannels: TChannels);
+procedure TLoudnessMeter.UpdateBlocks(const AChannels: TDoubleMatrix);
 const
   BlockMs = 100;
 var
@@ -462,9 +462,9 @@ var
   i: longint;
   SumCount: longint;
   SumEnergy, AvgEnergy: double;
-  Energies: listofdouble;
+  Energies: TListOfDouble;
 begin
-  Energies := listofdouble.Create;
+  Energies := TListOfDouble.Create;
 
   for i := 0 to FBlockCount -1 do
   begin
@@ -509,10 +509,10 @@ const
 var
   i: longint;
   AvgEnergy: double;
-  Energies: listofdouble;
+  Energies: TListOfDouble;
   p95, p10: double;
 begin
-  Energies := listofdouble.Create;
+  Energies := TListOfDouble.Create;
 
   for i := 0 to FBlockCount -1 do
   begin
@@ -589,23 +589,23 @@ begin
   result := FLoudnessRange;
 end;
 
-procedure TLoudnessMeter.Process(const AChannels: TChannels; ASamplecount, ASamplerate: longint);
+procedure TLoudnessMeter.Process(const AChannels: TDoubleMatrix; ASampleCount, ASampleRate: longint);
 var
-  kwBlocks: arrayofarrayofdouble;
+  kwBlocks: TDoubleMatrix;
   kFilter: TKWeightingFilter;
   ch, i: longint;
 begin
   Finalize;
-  FSamplecount := ASamplecount;
-  FSamplerate  := ASamplerate;
+  FSamplecount := ASampleCount;
+  FSamplerate  := ASampleRate;
   // Single channel metrics
   SetLength(FChannelMetrics, Length(AChannels));
   for ch := Low(FChannelMetrics) to High(FChannelMetrics) do
-    FChannelMetrics[ch].Process(AChannels[ch], ASamplecount, ASamplerate);
+    FChannelMetrics[ch].Process(AChannels[ch], ASampleCount, ASampleRate);
   // Loudness metrics
   kwBlocks := nil;
-  SetLength(kwBlocks, Length(AChannels), ASamplecount);
-  kFilter.Init(ASamplerate);
+  SetLength(kwBlocks, Length(AChannels), ASampleCount);
+  kFilter.Init(ASampleRate);
   for ch := Low(kwBlocks) to High(kwBlocks) do
   begin
     kFilter.Clear;

@@ -35,14 +35,14 @@ type
     FBlocksize: longint;
     FBlockCount: longint;
     FChannelCount: longint;
-    FRms2: arrayofarrayofdouble;
-    FPeak: arrayofarrayofdouble;
-    FDynamicRange: arrayofdouble;
+    FRms2: TDoubleMatrix;
+    FPeak: TDoubleMatrix;
+    FDynamicRange: TDoubleVector;
   public
     procedure Init;
     procedure Finalize;
 
-    procedure Process(const AChannels: TChannels; ASamplecount, ASamplerate: longint);
+    procedure Process(const AChannels: TDoubleMatrix; ASampleCount, ASampleRate: longint);
 
     function Rms2(AChannel, ABlock: longint): double;
     function Rms2(AChannel: longint): double;
@@ -191,7 +191,7 @@ begin
   SetLength(FDynamicRange, 0);
 end;
 
-procedure TDynamicRangeMeter.Process(const AChannels: TChannels; ASamplecount, ASamplerate: longint);
+procedure TDynamicRangeMeter.Process(const AChannels: TDoubleMatrix; ASampleCount, ASampleRate: longint);
 var
   ch, i, j, k, index, Num: longint;
   CurrEnergy, CurrPeak, Peak2nd, CurrSample: double;
@@ -202,8 +202,8 @@ begin
   FChannelCount := Length(AChannels);
   if FChannelCount = 0 then Exit;
 
-  FBlockSize  := 3 * ASamplerate;
-  FBlockCount := ASamplecount div FBlockSize;
+  FBlockSize  := 3 * ASampleRate;
+  FBlockCount := ASampleCount div FBlockSize;
   TailSize    := ASampleCount mod FBlockSize;
 
   if FBlockCount = 0 then Exit;
