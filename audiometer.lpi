@@ -53,7 +53,6 @@
           <Linking>
             <Debugging>
               <GenerateDebugInfo Value="False"/>
-              <RunWithoutDebug Value="True"/>
               <DebugInfoType Value="dsDwarf2Set"/>
               <UseLineInfoUnit Value="False"/>
             </Debugging>
@@ -117,6 +116,7 @@
       <Unit>
         <Filename Value="src/drawers.pas"/>
         <IsPartOfProject Value="True"/>
+        <UnitName Value="Drawers"/>
       </Unit>
       <Unit>
         <Filename Value="src/loudness.pas"/>
@@ -136,6 +136,7 @@
       <Unit>
         <Filename Value="src/spectrum.pas"/>
         <IsPartOfProject Value="True"/>
+        <UnitName Value="Spectrum"/>
       </Unit>
     </Units>
   </ProjectOptions>

@@ -8,38 +8,27 @@ uses
   Classes, Fgl, SysUtils;
 
 type
-  PSample   = ^TSample;
-  TSample   = double;
-  TSamples  = array of TSample;
-  TChannels = array of TSamples;
+  TSingle       = single;
+  TSingleVector = array of TSingle;
+  TSingleMatrix = array of TSingleVector;
 
-  TValue    = double;
-  TVector   = array of TValue;
-  TMatrix   = array of TVector;
+  TDouble = double;
+  TDoubleVector = array of TDouble;
+  TDoubleMatrix = array of TDoubleVector;
 
-  // TAudioSample = Single;
-  //PAudioSample = ^TAudioSample;
+  TListOfDouble = specialize TFPGList<double>;
 
-  TAudioMetric = Double;
-  PAudioMetric = ^TAudioMetric;
+function Decibel(const AAmplitude: TDouble): TDouble;
+function EnergyToDecibel(const AEnergy: TDouble): TDouble;
+function EnergyToLufs(const AEnergy: TDouble): TDouble;
 
+function Peak(ASamples: PDouble; ASampleCount: longint): TDouble;
+function Rms2(ASamples: PDouble; ASampleCount: longint): TDouble;
+function Rms (ASamples: PDouble; ASampleCount: longint): TDouble;
+function TruePeak(ASamples: PDouble; ASampleCount, ASampleRate: longint): TDouble;
 
-  arrayofdouble = array of double;
-  arrayofarrayofdouble = array of arrayofdouble;
-
-  listofdouble = specialize tfpglist<double>;
-
-function Decibel(const AAmplitude: double): double;
-function EnergyToDecibel(const AEnergy: double): double;
-function EnergyToLufs(const AEnergy: double): double;
-
-function Peak(ASamples: PSample; ASamplecount: longint): double;
-function Rms2(ASamples: PSample; ASamplecount: longint): double;
-function Rms(ASamples: PSample; ASamplecount: longint): double;
-function TruePeak(ASamples: PSample; ASamplecount, ASamplerate: longint): double;
-
-procedure QuickSort(var A: arrayofdouble; Low, High: Integer);
-function Percentile(var AValues: listofdouble; P: double): double;
+procedure QuickSort(var AValues: TDoubleVector; Low, High: longint);
+function Percentile(var AValues: TListOfDouble; P: double): TDouble;
 
 
 implementation
@@ -47,34 +36,54 @@ implementation
 uses
   Math;
 
-procedure QuickSort(var A: arrayofdouble; Low, High: Integer);
+function ComputeEnergyBlocks(const ASamples: TDoubleMatrix; ASampleCount, AWindowSize: longint): TDoubleMatrix;
+var
+  ch, i, OffSet, WindowCount: longint;
+begin
+  WindowCount := Max(0, (ASampleCount - AWindowSize) div AWindowSize + 1);
+
+  result := nil;
+  SetLength(result, Length(ASamples), WindowCount);
+  for ch := Low(ASamples) to High(ASamples) do
+  begin
+    OffSet := 0;
+
+    for i := 0 to WindowCount - 1 do
+    begin
+      result[ch][i] := Rms2(@ASamples[ch][OffSet], AWindowSize);
+      Inc(OffSet, AWindowSize);
+    end;
+  end;
+end;
+
+procedure QuickSort(var AValues: TDoubleVector; Low, High: longint);
 var
   i, j: Integer;
-  pivot, temp: Double;
+  pivot, temp: TDouble;
 begin
   i := Low;
   j := High;
-  pivot := A[(Low + High) div 2];
+  pivot := AValues[(Low + High) div 2];
 
   repeat
-    while A[i] < pivot do
+    while AValues[i] < pivot do
       Inc(i);
-    while A[j] > pivot do
+    while AValues[j] > pivot do
       Dec(j);
     if i <= j then
     begin
-      temp := A[i];
-      A[i] := A[j];
-      A[j] := temp;
+      temp := AValues[i];
+      AValues[i] := AValues[j];
+      AValues[j] := temp;
       Inc(i);
       Dec(j);
     end;
   until i > j;
 
   if Low < j then
-    QuickSort(A, Low, j);
+    QuickSort(AValues, Low, j);
   if i < High then
-    QuickSort(A, i, High);
+    QuickSort(AValues, i, High);
 end;
 
 function Compare(const AValue1, AValue2: double): longint;
@@ -82,7 +91,7 @@ begin
   result := Sign(AValue1 - AValue2);
 end;
 
-function  Percentile(var AValues: listofdouble; P: double): double;
+function  Percentile(var AValues: TListOfDouble; P: double): TDouble;
 var
   index: double;
   Lower, Upper: longint;
@@ -106,7 +115,7 @@ begin
     result := AValues[Lower] + Fraction * (AValues[Upper] - AValues[Lower]);
 end;
 
-function Decibel(const AAmplitude: double): double;
+function Decibel(const AAmplitude: TDouble): TDouble;
 begin
   if AAmplitude > 1e-10 then
     result := 20 * Log10(AAmplitude)
@@ -114,7 +123,7 @@ begin
     result := NegInfinity;
 end;
 
-function EnergyToDecibel(const AEnergy: double): double;
+function EnergyToDecibel(const AEnergy: TDouble): TDouble;
 begin
   if AEnergy > 1e-10 then
     result := 10 * Log10(AEnergy)
@@ -122,7 +131,7 @@ begin
     result := NegInfinity;
 end;
 
-function EnergyToLufs(const AEnergy: double): double;
+function EnergyToLufs(const AEnergy: TDouble): TDouble;
 begin
   if AEnergy > 1e-10 then
     result := -0.691 + 10*Log10(AEnergy)
@@ -130,41 +139,41 @@ begin
     result := NegInfinity;
 end;
 
-function Peak(ASamples: PSample; ASamplecount: longint): double;
+function Peak(ASamples: PDouble; ASampleCount: longint): TDouble;
 var
   i: longint;
 begin
   result := 0.0;
-  for i := 0 to ASamplecount -1  do
+  for i := 0 to ASampleCount -1  do
   begin
     result := Max(result, Abs(ASamples^));
     Inc(ASamples);
   end;
 end;
 
-function Rms2(ASamples: PSample; ASamplecount: longint): double;
+function Rms2(ASamples: PDouble; ASampleCount: longint): TDouble; inline;
 var
   i: longint;
 begin
-  if ASamplecount = 0 then Exit(0);
+  if ASampleCount = 0 then Exit(0);
 
   result := 0;
-  for i := 0 to ASamplecount -1 do
+  for i := 0 to ASampleCount -1 do
   begin
     result := result + Sqr(ASamples^);
     Inc(ASamples);
   end;
-  result := result / ASamplecount;
+  result := result / ASampleCount;
 end;
 
-function Rms(ASamples: PSample; ASamplecount: longint): double;
+function Rms(ASamples: PDouble; ASampleCount: longint): TDouble; inline;
 begin
-  result := sqrt(Rms2(ASamples, ASamplecount));
+  result := Sqrt(Rms2(ASamples, ASampleCount));
 end;
 
-function TruePeak(ASamples: PSample; ASamplecount, ASamplerate: longint): double;
+function TruePeak(ASamples: PDouble; ASampleCount, ASampleRate: longint): TDouble;
 const
-  Coeffs: array[0..3, 0..23] of double = (
+  Coeffs: array[0..3, 0..23] of TDouble = (
   (-0.001780280772489,  0.003253283030257, -0.005447293390376,  0.008414568116553,
    -0.012363296099675,  0.017436805871070, -0.024020143876810,  0.032746828420101,
    -0.045326602900760,  0.066760686868173, -0.120643370377371,  0.989429605248410,
@@ -190,12 +199,12 @@ const
     0.032746828420101, -0.024020143876810,  0.017436805871070, -0.012363296099675,
     0.008414568116553, -0.005447293390376,  0.003253283030257, -0.001780280772489));
 const
-     Taps  = 24;
+  Taps = 24;
   HalfTaps = Taps div 2;
 var
   i, Phase, Phases, PadLen, Tap: longint;
-  PadSamples: arrayofdouble;
-  Sum, Sample: double;
+  PadSamples: TDoubleVector;
+  Sum, Sample: TDouble;
 begin
   Result := NegInfinity;
 
@@ -209,15 +218,15 @@ begin
 
   // Add zero padding at both ends to avoid out-of-bound reads
   PadLen := HalfTaps;
-  SetLength(PadSamples, ASamplecount + 2 * PadLen);
+  SetLength(PadSamples, ASampleCount + 2 * PadLen);
 
-  // Copy the selected range of samples (AIndex .. AIndex+ASamplecount-1)
-  FillChar(PadSamples[0], PadLen * SizeOf(double), 0);
-  Move(ASamples^, PadSamples[PadLen], ASamplecount * SizeOf(double));
-  FillChar(PadSamples[PadLen + ASamplecount], PadLen * SizeOf(double), 0);
+  // Copy the selected range of samples (AIndex .. AIndex+ASampleCount-1)
+  FillChar(PadSamples[0], PadLen * SizeOf(TDouble), 0);
+  Move(ASamples^, PadSamples[PadLen], ASampleCount * SizeOf(TDouble));
+  FillChar(PadSamples[PadLen + ASampleCount], PadLen * SizeOf(TDouble), 0);
 
   // Compute the true peak value
-  for i := PadLen to PadLen + ASamplecount - 1 do
+  for i := PadLen to PadLen + ASampleCount - 1 do
   begin
     for Phase := 0 to Phases - 1 do
     begin

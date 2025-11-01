@@ -29,7 +29,7 @@ uses
   classes, sysutils, uplaysound, forms, controls, graphics, dialogs, buttons,
   stdctrls, extctrls, comctrls, bufstream, soundwav, bcradialprogressbar,
   bclistbox, bcbutton, process, inifiles, bgrabitmap, bgrabitmaptypes, bctypes,
-  bgravirtualscreen, drawers;
+  bgravirtualscreen, drawers, Common;
 
 type
   { taudiofrm }
@@ -72,8 +72,7 @@ type
     TPMPanel: TPanel;
     Panel2: TPanel;
     Panel3: TPanel;
-    screenprogressbar: TBCRadialProgressBar;
-    screenpanel: TPanel;
+    ScreenPanel: TPanel;
     blocksbtn: TBCButton;
 
     btnplay: TImage;
@@ -150,7 +149,6 @@ type
     procedure onstopanalyzer;
 
     procedure onstartdrawer;
-    procedure ontickdrawer;
     procedure onstopdrawer;
     procedure onwaitdrawer;
 
@@ -158,22 +156,23 @@ type
     procedure enablebuttons;
     procedure disablepanel;
     procedure enablepanel;
-    procedure screenpanelresize(Sender: TObject);
 
 
 
     procedure virtualscreenredraw(Sender: TObject; Bitmap: TBGRABitmap);
 
   private
-    virtualscreens: tvirtualscreens;
+    virtualscreens: TVirtualScreens;
     buffer:      treadbufstream;
     stream:      tfilestream;
     trackindex:  longword;
 
-    track:       ttrack;
-    tracklist:   ttracklist;
+    track:       TTrack;
+
+    tracklist:   TTrackList;
     trackfile:   string;
     tempfile:    string;
+
 
 
     isneededupdatescreens: boolean;
@@ -214,7 +213,7 @@ begin
   // ---
   track := nil;
   trackindex := 0;
-  tracklist  := ttracklist.create;
+  tracklist  := TTrackList.create;
   // load openfile button icon
   loadbuttonicon(btnfile, 1, 0, 0);
   btnfile.onmousemove := @btnfilemousemove;
@@ -259,7 +258,7 @@ procedure taudiofrm.formclosequery(sender: tobject; var canclose: boolean);
 begin
   isneededkillanalyzer := true;
   canclose := (audioanalyzer = nil) and
-              (screendrawer  = nil);
+              (ScreenDrawer  = nil);
 end;
 
 procedure taudiofrm.formresize(sender: tobject);
@@ -271,13 +270,12 @@ begin
 
   isneededupdatescreens := true;
   if audioanalyzer <> nil then exit;
-  if screendrawer  <> nil then exit;
-  screendrawer := tscreendrawer.create(track);
-  screendrawer.onstart := @onstartdrawer;
-  screendrawer.ontick  := @ontickdrawer;
-  screendrawer.onstop  := @onstopdrawer;
-  screendrawer.onwait  := @onwaitdrawer;
-  screendrawer.start;
+  if ScreenDrawer  <> nil then exit;
+  ScreenDrawer := TScreenDrawer.create(Track);
+  ScreenDrawer.OnStart := @onstartdrawer;
+  ScreenDrawer.OnStop  := @onstopdrawer;
+  ScreenDrawer.OnWait  := @onwaitdrawer;
+  ScreenDrawer.start;
 end;
 
 // track analyzer events
@@ -288,7 +286,7 @@ begin
   if assigned(track) then
   begin
     audio.font.color := clwhite;
-    audio.caption    := extractfilename(track.filename);
+    audio.caption    := extractfilename(track.Filename);
     while (audio.left + audio.width) > (btnfolder.left + btnfolder.width) do
     begin
       audio.caption := cutoff(audio.caption);
@@ -300,7 +298,7 @@ end;
 
 procedure taudiofrm.ontickanalyzer;
 begin
-  progressbar.value := audioanalyzer.percentage;
+  progressbar.value := audioanalyzer.Percentage;
 end;
 
 procedure taudiofrm.onstopanalyzer;
@@ -308,11 +306,11 @@ begin
   freeandnil(buffer);
   freeandnil(stream);
 
-  if audioanalyzer.status <> 0 then
+  if audioanalyzer.Status <> 0 then
   begin
     trackindex := tracklist.count;
     audio.font.color := clred;
-    case audioanalyzer.status of
+    case audioanalyzer.Status of
       -1: audio.caption := 'file format error!';
       -2: audio.caption := 'file is empty!';
       -3: audio.caption := 'file is too short!';
@@ -322,38 +320,38 @@ begin
   end else
   begin
     pcm   .font.color  := clwhite;
-    bit8  .font.color  := clgray; if track.bitspersample = 8      then bit8  .font.color := clwhite;
-    bit16 .font.color  := clgray; if track.bitspersample = 16     then bit16 .font.color := clwhite;
-    bit24 .font.color  := clgray; if track.bitspersample = 24     then bit24 .font.color := clwhite;
+    bit8  .font.color  := clgray; if track.Bitspersample = 8      then bit8  .font.color := clwhite;
+    bit16 .font.color  := clgray; if track.Bitspersample = 16     then bit16 .font.color := clwhite;
+    bit24 .font.color  := clgray; if track.Bitspersample = 24     then bit24 .font.color := clwhite;
 
-    khz44 .font.color  := clgray; if track.samplerate    = 44100  then khz44 .font.color := clwhite;
-    khz48 .font.color  := clgray; if track.samplerate    = 48000  then khz48 .font.color := clwhite;
-    khz88 .font.color  := clgray; if track.samplerate    = 88000  then khz88 .font.color := clwhite;
-    khz96 .font.color  := clgray; if track.samplerate    = 96000  then khz96 .font.color := clwhite;
-    khz176.font.color  := clgray; if track.samplerate    = 176400 then khz176.font.color := clwhite;
-    khz192.font.color  := clgray; if track.samplerate    = 192000 then khz192.font.color := clwhite;
+    khz44 .font.color  := clgray; if track.Samplerate    = 44100  then khz44 .font.color := clwhite;
+    khz48 .font.color  := clgray; if track.Samplerate    = 48000  then khz48 .font.color := clwhite;
+    khz88 .font.color  := clgray; if track.Samplerate    = 88000  then khz88 .font.color := clwhite;
+    khz96 .font.color  := clgray; if track.Samplerate    = 96000  then khz96 .font.color := clwhite;
+    khz176.font.color  := clgray; if track.Samplerate    = 176400 then khz176.font.color := clwhite;
+    khz192.font.color  := clgray; if track.Samplerate    = 192000 then khz192.font.color := clwhite;
 
-    mono  .font.color  := clgray; if track.channelcount  = 1      then mono  .font.color := clwhite;
-    stereo.font.color  := clgray; if track.channelcount  = 2      then stereo.font.color := clwhite;
+    mono  .font.color  := clgray; if track.Channelcount  = 1      then mono  .font.color := clwhite;
+    stereo.font.color  := clgray; if track.Channelcount  = 2      then stereo.font.color := clwhite;
 
-    if track.channelcount > 0 then if decibel(track.loudness.truepeak(0)) <  0.0 then tplleftvalue .font.color := cllime;
-    if track.channelcount > 0 then if decibel(track.loudness.truepeak(0)) >= 0.0 then tplleftvalue .font.color := clyellow;
-    if track.channelcount > 0 then if decibel(track.loudness.truepeak(0)) >  0.5 then tplleftvalue .font.color := clred;
+    if track.Channelcount > 0 then if Decibel(track.loudness.truepeak(0)) <  0.0 then tplleftvalue .font.color := cllime;
+    if track.Channelcount > 0 then if Decibel(track.loudness.truepeak(0)) >= 0.0 then tplleftvalue .font.color := clyellow;
+    if track.Channelcount > 0 then if Decibel(track.loudness.truepeak(0)) >  0.5 then tplleftvalue .font.color := clred;
 
-    if track.channelcount > 1 then if decibel(track.loudness.truepeak(1)) <  0.0 then tplrightvalue.font.color := cllime;
-    if track.channelcount > 1 then if decibel(track.loudness.truepeak(1)) >= 0.0 then tplrightvalue.font.color := clyellow;
-    if track.channelcount > 1 then if decibel(track.loudness.truepeak(1)) >  0.5 then tplrightvalue.font.color := clred;
+    if track.Channelcount > 1 then if Decibel(track.loudness.truepeak(1)) <  0.0 then tplrightvalue.font.color := cllime;
+    if track.Channelcount > 1 then if Decibel(track.loudness.truepeak(1)) >= 0.0 then tplrightvalue.font.color := clyellow;
+    if track.Channelcount > 1 then if Decibel(track.loudness.truepeak(1)) >  0.5 then tplrightvalue.font.color := clred;
 
-    if track.channelcount > 0 then tplleftvalue   .caption := format('%0.2f', [track.loudness.truepeak(0)]);
-    if track.channelcount > 1 then tplrightvalue  .caption := format('%0.2f', [track.loudness.truepeak(1)]);
-    if track.channelcount > 0 then rmsleftvalue   .caption := format('%0.2f', [track.loudness.rms(0)]);
-    if track.channelcount > 1 then rmsrightvalue  .caption := format('%0.2f', [track.loudness.rms(1)]);
-    if track.channelcount > 0 then crestleftvalue .caption := format('%0.2f', [track.loudness.CrestFactor(0)]);
-    if track.channelcount > 1 then crestrightvalue.caption := format('%0.2f', [track.loudness.CrestFactor(1)]);
-    if track.channelcount > 0 then plrleftvalue   .caption := format('%0.2f', [track.loudness.PeakToLoudnessRatio]);
+    if track.Channelcount > 0 then tplleftvalue   .caption := format('%0.2f', [track.loudness.truepeak(0)]);
+    if track.Channelcount > 1 then tplrightvalue  .caption := format('%0.2f', [track.loudness.truepeak(1)]);
+    if track.Channelcount > 0 then rmsleftvalue   .caption := format('%0.2f', [track.loudness.rms(0)]);
+    if track.Channelcount > 1 then rmsrightvalue  .caption := format('%0.2f', [track.loudness.rms(1)]);
+    if track.Channelcount > 0 then crestleftvalue .caption := format('%0.2f', [track.loudness.CrestFactor(0)]);
+    if track.Channelcount > 1 then crestrightvalue.caption := format('%0.2f', [track.loudness.CrestFactor(1)]);
+    if track.Channelcount > 0 then plrleftvalue   .caption := format('%0.2f', [track.loudness.PeakToLoudnessRatio]);
 
-    if track.channelcount > 0 then IntegratedLoudnessLeftValue .caption := format('%0.2f', [track.loudness.IntegratedLoudness]);
-    if track.channelcount > 0 then LoudnessRangeLeftValue      .caption := format('%0.2f', [track.loudness.LoudnessRange]);
+    if track.Channelcount > 0 then IntegratedLoudnessLeftValue .caption := format('%0.2f', [track.loudness.IntegratedLoudness]);
+    if track.Channelcount > 0 then LoudnessRangeLeftValue      .caption := format('%0.2f', [track.loudness.LoudnessRange]);
 
 
     drvalue.caption    := '--';
@@ -385,19 +383,18 @@ begin
   if trackindex = tracklist.count then
   begin
     // save text report
-    tracklist.savetofile(trackfile);
+    tracklist.SaveToFile(trackfile);
     // ---
     audioanalyzer := nil;
-    screendrawer := tscreendrawer.create(track);
-    screendrawer.onstart := @onstartdrawer;
-    screendrawer.ontick  := @ontickdrawer;
-    screendrawer.onstop  := @onstopdrawer;
-    screendrawer.onwait  := @onwaitdrawer;
-    screendrawer.start;
+    ScreenDrawer := TScreenDrawer.Create(Track);
+    ScreenDrawer.OnStart := @onstartdrawer;
+    ScreenDrawer.OnStop  := @onstopdrawer;
+    ScreenDrawer.OnWait  := @onwaitdrawer;
+    ScreenDrawer.start;
   end else
-    if assigned(track) then
+    if Assigned(Track) then
     begin
-      track.clearchannels;
+      Track.ClearChannels;
     end;
   execute;
 end;
@@ -410,37 +407,31 @@ begin
   application.processmessages;
 end;
 
-procedure taudiofrm.ontickdrawer;
-begin
-  screenprogressbar.value := screenprogressbar.value + 1;
-end;
-
 procedure taudiofrm.onstopdrawer;
 begin
   if isneededupdatescreens then
   begin
-    screendrawer := tscreendrawer.create(track);
-    screendrawer.onstart := @onstartdrawer;
-    screendrawer.ontick  := @ontickdrawer;
-    screendrawer.onstop  := @onstopdrawer;
-    screendrawer.onwait  := @onwaitdrawer;
-    screendrawer.start;
+    ScreenDrawer := TScreenDrawer.create(Track);
+    ScreenDrawer.OnStart := @onstartdrawer;
+    ScreenDrawer.OnStop  := @onstopdrawer;
+    ScreenDrawer.OnWait  := @onwaitdrawer;
+    ScreenDrawer.start;
   end else
   begin
-    virtualscreens[0].setsize(screendrawer.screenwidth, screendrawer.screenheight);
-    virtualscreens[1].setsize(screendrawer.screenwidth, screendrawer.screenheight);
-    virtualscreens[2].setsize(screendrawer.screenwidth, screendrawer.screenheight);
-    virtualscreens[3].setsize(screendrawer.screenwidth, screendrawer.screenheight);
+    virtualscreens[0].setsize(ScreenDrawer.ScreenWidth, ScreenDrawer.screenheight);
+    virtualscreens[1].setsize(ScreenDrawer.ScreenWidth, ScreenDrawer.screenheight);
+    virtualscreens[2].setsize(ScreenDrawer.ScreenWidth, ScreenDrawer.ScreenHeight);
+    virtualscreens[3].setsize(ScreenDrawer.ScreenWidth, ScreenDrawer.ScreenHeight);
 
-    if (screendrawer.screenwidth  > 0) and
-       (screendrawer.screenheight > 0) then
+    if (ScreenDrawer.ScreenWidth  > 0) and
+       (ScreenDrawer.ScreenHeight > 0) then
     begin
-      virtualscreens[0].canvas.draw(0, 0, screendrawer.screens[0]);
-      virtualscreens[1].canvas.draw(0, 0, screendrawer.screens[1]);
-      virtualscreens[2].canvas.draw(0, 0, screendrawer.screens[2]);
-      virtualscreens[3].canvas.draw(0, 0, screendrawer.screens[3]);
+      virtualscreens[0].canvas.draw(0, 0, ScreenDrawer.Screens[0]);
+      virtualscreens[1].canvas.draw(0, 0, ScreenDrawer.Screens[1]);
+      virtualscreens[2].canvas.draw(0, 0, ScreenDrawer.Screens[2]);
+      virtualscreens[3].canvas.draw(0, 0, ScreenDrawer.Screens[3]);
     end;
-    screendrawer := nil;
+    ScreenDrawer := nil;
     enablebuttons;
     enablepanel;
 
@@ -453,8 +444,8 @@ procedure taudiofrm.onwaitdrawer;
 begin
   if not isneededupdatescreens then
   begin
-    screendrawer.screenwidth  := screenpanel.width;
-    screendrawer.screenheight := screenpanel.height;
+    ScreenDrawer.ScreenWidth  := ScreenPanel.width;
+    ScreenDrawer.ScreenHeight := ScreenPanel.height;
   end;
   isneededupdatescreens := false;
 end;
@@ -473,9 +464,9 @@ begin
   if (trackindex >= tracklist.count) then exit;
   if isneededkillanalyzer then trackindex := tracklist.count -1;
 
-  track := tracklist.tracks[trackindex];
+  track := tracklist.Tracks[trackindex];
   try
-    if extractfileext(track.filename) <> '.wav' then
+    if extractfileext(track.Filename) <> '.wav' then
     begin
       tempfile := includetrailingbackslash(
         gettempdir(false)) + 'audiometer-tmp.wav';
@@ -484,13 +475,13 @@ begin
       process := tprocess.create(nil);
       try
         process.parameters.clear;
-        process.currentdirectory := extractfiledir(track.filename);
+        process.currentdirectory := extractfiledir(track.Filename);
         process.executable := 'ffprobe';
         process.parameters.add('-show_streams');
         process.parameters.add('-hide_banner');
         process.parameters.add('-print_format');
         process.parameters.add('ini');
-        process.parameters.add(extractfilename(track.filename));
+        process.parameters.add(extractfilename(track.Filename));
         process.options := [ponoconsole, pousepipes];
         process.execute;
 
@@ -528,12 +519,12 @@ begin
       process := tprocess.create(nil);
       try
         process.parameters.clear;
-        process.currentdirectory := extractfiledir(track.filename);
+        process.currentdirectory := extractfiledir(track.Filename);
         process.executable := 'ffmpeg';
         process.parameters.add('-y');
         process.parameters.add('-hide_banner');
         process.parameters.add('-i');
-        process.parameters.add(extractfilename(track.filename));
+        process.parameters.add(extractfilename(track.Filename));
 
         if bit4sample = 24 then
         begin
@@ -555,7 +546,7 @@ begin
       process.destroy;
 
     end else
-      tempfile := track.filename;
+      tempfile := track.Filename;
 
     stream := tfilestream.create(tempfile, fmopenread or fmshareexclusive);
   except
@@ -565,10 +556,10 @@ begin
   if assigned(stream) then
   begin
     buffer := treadbufstream.create(stream);
-    audioanalyzer := ttrackanalyzer.create(track, buffer, trackindex = tracklist.count -1);
-    audioanalyzer.onstart := @onstartanalyzer;
-    audioanalyzer.ontick  := @ontickanalyzer;
-    audioanalyzer.onstop  := @onstopanalyzer;
+    audioanalyzer := TTrackAnalyzer.create(track, buffer, trackindex = tracklist.count -1);
+    audioanalyzer.OnStart := @onstartanalyzer;
+    audioanalyzer.OnTick  := @ontickanalyzer;
+    audioanalyzer.OnStop  := @onstopanalyzer;
     audioanalyzer.start;
   end else
   begin
@@ -615,9 +606,9 @@ begin
   begin
     playsound.stopsound;
     btnplay.imageindex := 5;
-    if filesupported(extractfileext(filedialog.filename)) then
+    if IsFileSupported(extractfileext(filedialog.filename)) then
     begin
-      tracklist.add(filedialog.filename);
+      tracklist.Add(filedialog.filename);
       trackfile  := changefileext(filedialog.filename, '.md');
       isneededkillanalyzer  := false;
       trackindex := 0;
@@ -647,13 +638,13 @@ begin
     begin
       if sr.attr and (fadirectory) = 0 then
       begin
-        if filesupported(extractfileext(sr.name)) then
-          tracklist.add(path + sr.name);
+        if IsFileSupported(ExtractFileExt(sr.name)) then
+          tracklist.Add(path + sr.name);
       end;
       err := findnext(sr);
     end;
     sysutils.findclose(sr);
-    tracklist.sort;
+    tracklist.Sort;
     trackfile  := path + extractfilename(dirdialog.filename) + '.md';
     isneededkillanalyzer  := false;
     trackindex := 0;
@@ -696,7 +687,7 @@ var
   btn4: tbcbutton;
 begin
   if (audioanalyzer <> nil) then exit;
-  if (screendrawer  <> nil) then exit;
+  if (ScreenDrawer  <> nil) then exit;
 
   btn1 := sender as tbcbutton;
 
@@ -905,10 +896,6 @@ begin
   spectrogrambtn.enabled := false;
   spectrumbtn   .enabled := false;
   wavebtn       .enabled := false;
-
-  virtualscreen    .visible := false;
-  screenprogressbar.value   := 0;
-  screenprogressbar.visible := true;
 end;
 
 procedure taudiofrm.enablepanel;
@@ -920,22 +907,12 @@ begin
   spectrogrambtn.enabled := true;
   spectrumbtn   .enabled := true;
   wavebtn       .enabled := true;
-
-  screenprogressbar.value   := 0;
-  screenprogressbar.visible := false;
-  virtualscreen    .visible := true;
-end;
-
-procedure taudiofrm.screenpanelresize(Sender: TObject);
-begin
-  screenprogressbar.left := (screenpanel.width  - screenprogressbar.width ) div 2;
-  screenprogressbar.top  := (screenpanel.height - screenprogressbar.height) div 2;
 end;
 
 procedure taudiofrm.virtualscreenredraw(sender: tobject; bitmap: tbgrabitmap);
 begin
   if (audioanalyzer <> nil) then exit;
-  if (screendrawer  <> nil) then exit;
+  if (ScreenDrawer  <> nil) then exit;
   if isneededupdatescreens  then exit;
 
   bitmap.filltransparent;

@@ -975,11 +975,10 @@ object audiofrm: Taudiofrm
     ClientWidth = 916
     ParentBackground = False
     TabOrder = 2
-    OnResize = screenpanelresize
     object virtualscreen: TBGRAVirtualScreen
-      Left = 76
+      Left = 152
       Height = 115
-      Top = 154
+      Top = 88
       Width = 115
       OnRedraw = virtualscreenredraw
       Alignment = taLeftJustify
@@ -987,30 +986,6 @@ object audiofrm: Taudiofrm
       Color = clBlack
       ParentColor = False
       TabOrder = 0
-    end
-    object screenprogressbar: TBCRadialProgressBar
-      AnchorSideLeft.Control = Owner
-      AnchorSideTop.Control = blocksbtn
-      AnchorSideTop.Side = asrBottom
-      AnchorSideRight.Control = Owner
-      AnchorSideRight.Side = asrBottom
-      AnchorSideBottom.Control = Owner
-      AnchorSideBottom.Side = asrBottom
-      Left = 253
-      Height = 115
-      Top = 154
-      Width = 115
-      Anchors = []
-      Value = 50
-      Color = clBlack
-      LineColor = clSilver
-      LineBkgColor = clBlack
-      LineWidth = 6
-      FontShadowOffsetX = 0
-      FontShadowOffsetY = 0
-      FontShadowRadius = 0
-      Font.Color = clBlack
-      Font.Height = 20
     end
   end
   object TPMPanel: TPanel

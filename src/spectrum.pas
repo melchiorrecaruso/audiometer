@@ -1,119 +1,113 @@
-unit spectrum;
+unit Spectrum;
 
 {$mode objfpc}{$h+}
+{$modeswitch advancedrecords}
 
 interface
 
 uses
-  classes, common, sysutils, ufft, utypes;
+  Common, SysUtils, ufft, utypes;
 
 const
   SPECTRUMWINDOWSIZE = 1024;
 
 type
-  tspectrums = class
+  TSpectrums = record
   private
-    fspectrums: tarrayofarrayofdouble;
-    fwindowcount: longint;
-    fwindowsize: longint;
-
-    function getsample(const channel, index: longint): TSample;
+    FChannels: TDoubleMatrix;
+    FWindowCount: longint;
+    FWindowSize: longint;
+    FHopSize: longint;
+    FOutBins: longint;
   public
-    constructor create;
-    destructor destroy; override;
+    procedure Init(AWindowSize, AHopSize: LongInt);
+    procedure Finalize;
 
-    procedure analyze(const achannels: TChannels; asamplecount, asamplerate: longint);
-    procedure clear;
+    procedure Process(const AChannels: TDoubleMatrix; ASampleCount, ASampleRate: longint);
 
-    property samples[channel, index: longint]: TSample read getsample;
+    property WindowSize: longint read FWindowSize;
+    property WindowCount: longint read FWindowCount;
+    property HopSize: longint read FhopSize;
+    property OutBins: longint read FOutBins;
 
-    property windowsize: longint read fwindowsize;
-    property windowcount: longint read fwindowcount;
+    property Channels: TDoubleMatrix read FChannels;
   end;
 
 
 implementation
 
-procedure getspectrum(asamples: pdouble; count: longint; aspectrum: pdouble);
+uses
+  Math;
+
+procedure GetSpectrum(ASamples: PDouble; Count: longint; ASpectrum: PDouble);
 var
   i: longint;
-  buff: tcompvector = nil;
-  freq: tcompvector = nil;
-  window: double;
+  Buff: TCompVector = nil;
+  Freq: TCompVector = nil;
+  Window: TDouble;
 begin
-  if count > 0 then
+  if Count > 0 then
   begin
-    setlength(buff, count);
-    for i := 0 to count -1 do
+    SetLength(Buff, Count);
+    for i := 0 to Count -1 do
     begin
-      window := 0.5 - 0.5 * cos(2 * pi * i / (count - 1));
-      buff[i].x := window * asamples^;
-      buff[i].y := 0;
-      inc(asamples);
+      Window := 0.5 - 0.5 * cos(2 * pi * i / (Count - 1));
+      Buff[i].x := Window * ASamples^;
+      Buff[i].y := 0;
+      inc(ASamples);
     end;
-    freq := FFT(count, buff);
+    Freq := FFT(Count, Buff);
 
     // bin 0 (DC)
-    aspectrum^ := abs(freq[0].x)/count;
-    inc(aspectrum);
+    ASpectrum^ := abs(Freq[0].x)/Count;
+    Inc(ASpectrum);
     // bin da 1 a N/2 - 1
-    for i := 1 to (count div 2) -1 do
+    for i := 1 to (Count div 2) -1 do
     begin
-      aspectrum^ := 2*sqrt(sqr(freq[i].x) + sqr(freq[i].y))/count;
-      inc(aspectrum);
+      ASpectrum^ := 2*Sqrt(sqr(Freq[i].x) + Sqr(Freq[i].y))/Count;
+      inc(ASpectrum);
     end;
     // bin N/2 (Nyquist), if N is even
-    if (count mod 2 = 0) then
+    if (Count mod 2 = 0) then
     begin
-      aspectrum^ := abs(freq[count div 2].x)/count;
-    //inc(aspectrum);
+      ASpectrum^ := Abs(Freq[Count div 2].x)/Count;
+    //Inc(ASpectrum);
     end;
-
-    freq := nil;
-    buff := nil;
   end;
 end;
 
-constructor tspectrums.create;
+// TSpectrum
+
+procedure TSpectrums.Init(AWindowSize, AHopSize: LongInt);
 begin
-  inherited create;
+  Finalize;
+  FWindowSize := AWindowSize;
+  FHopSize    := AHopSize;
 end;
 
-destructor tspectrums.destroy;
+procedure TSpectrums.Finalize;
 begin
-  clear;
-  inherited destroy;
+  SetLength(FChannels, 0, 0);
 end;
 
-procedure tspectrums.clear;
+procedure TSpectrums.Process(const AChannels: TDoubleMatrix; ASampleCount, ASampleRate: longint);
 var
-  i: longint;
+  ch, i: longint;
 begin
-  for i := low(fspectrums) to high(fspectrums) do
-  begin
-    setlength(fspectrums[i], 0);
-  end;
-  setlength(fspectrums, 0);
-end;
+  FWindowCount := (ASampleCount - FWindowSize) div FHopSize + 1;
+  FOutBins     := FWindowSize div 2 + 1;
 
-procedure tspectrums.analyze(const achannels: TChannels; asamplecount, asamplerate: longint);
-var
-  ch: longint;
-  i: longint;
-begin
-  for ch := low(achannels) to high(achannels) do
+  if FwindowCount > 0 then
   begin
-     for i := 0 to (asamplecount div SPECTRUMWINDOWSIZE) -1 do
-     begin
-       getspectrum(@achannels [ch][(i * spectrumwindowsize)], spectrumwindowsize,
-                   @fspectrums[ch][(i * spectrumwindowsize) div 2]);
+    SetLength(FChannels, Length(AChannels), FWindowCount * OutBins);
+    for ch := Low(AChannels) to High(AChannels) do
+    begin
+       for i := 0 to FWindowCount -1 do
+       begin
+         GetSpectrum(@AChannels[ch][(i * FHopSize)], FWindowSize,  @FChannels[ch][(i * OutBins)]);
+       end;
      end;
-   end;
-end;
-
-function tspectrums.getsample(const channel, index: longint): TSample;
-begin
-  result := fspectrums[channel][index];
+  end;
 end;
 
 end.

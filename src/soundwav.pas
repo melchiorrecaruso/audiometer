@@ -26,170 +26,162 @@ unit Soundwav;
 interface
 
 uses
-  classes, common, dynamicrange, spectrum, sysutils, math, loudness, ufft, utypes;
+  Classes, Common, dynamicrange, spectrum, SysUtils, Math, loudness, ufft, utypes;
 
-// WAVE utils
+  // WAVE utils
 
 type
   // WAV is formed by the following structures in this order
   // all items are in little endian order, except the char arrays
   // items might be in big endian order if the RIFF identifier is RIFX
 
-  triffheader = packed record
-    ckid   : array [0..3] of char; // should be "RIFF"
-    cksize : longword;             // 4 + (8 + subchunk1size) + (8 + subchunk2size).
-                                   // the entire file size excluding triffheader.id and .size
-    waveid : array [0..3] of char; // should be "WAVE"
+  TRiffheader = packed record
+    ckid: array [0..3] of char; // should be "RIFF"
+    cksize: longword;             // 4 + (8 + subchunk1size) + (8 + subchunk2size).
+    // the entire file size excluding TRiffheader.id and .size
+    waveid: array [0..3] of char; // should be "WAVE"
   end;
 
-  tfmtchunk = packed record
-    ckid               : array [0..3] of char;  // should be "fmt "
-    cksize             : longword;              // subchunk1size: 16, 18 or 40
-    formattag          : word;                  // pcm = 1 (linear quantization), values > 1 indicate a compressed format
-    channels           : word;                  // mono = 1, stereo = 2, etc
-    samplespersec      : longword;              // 8000, 44100, etc
-    bytespersec        : longword;              // = samplerate * numchannels * bitspersample/8
-    blockalign         : word;                  // = numchannels * bitspersample/8
-    bitspersample      : word;                  // examples: 8 bits, 16 bits, etc
+  TFmtchunk = packed record
+    ckid: array [0..3] of char;  // should be "fmt "
+    cksize: longword;              // subchunk1size: 16, 18 or 40
+    formattag: word;
+    // pcm = 1 (linear quantization), values > 1 indicate a compressed format
+    channels: word;                  // mono = 1, stereo = 2, etc
+    samplespersec: longword;              // 8000, 44100, etc
+    bytespersec: longword;
+    // = samplerate * numchannels * bitspersample/8
+    blockalign: word;                  // = numchannels * bitspersample/8
+    bitspersample: word;                  // examples: 8 bits, 16 bits, etc
   end;
 
-  tfmtchunkext = packed record
-    cbsize             : word;                  // size of the extension (0 or 22)
-    validbitspersample : word;                  // number of valid bits
-    channelmask        : longword;              // speaker position mask
-    subcode            : word;                  // GUID data format code
-    subformat          : array [0..13] of byte; // GUID
+  TFmtchunkext = packed record
+    cbsize: word;                  // size of the extension (0 or 22)
+    validbitspersample: word;                  // number of valid bits
+    channelmask: longword;              // speaker position mask
+    subcode: word;                  // GUID data format code
+    subformat: array [0..13] of byte; // GUID
   end;
 
-  tfactchunk = packed record
-    ckid               : array [0..3] of char;  // should be "fact"
-    cksize             : longword;              // chunk size: minimum 4
-    samplelength       : longword;              // Number of samples (per channel)
+  TFactchunk = packed record
+    ckid: array [0..3] of char;  // should be "fact"
+    cksize: longword;              // chunk size: minimum 4
+    samplelength: longword;              // Number of samples (per channel)
   end;
 
 const
-  WAVE_FORMAT_PCM        = $0001;
+  WAVE_FORMAT_PCM = $0001;
   WAVE_FORMAT_IEEE_FLOAT = $0003;
-  WAVE_FORMAT_ALAW       = $0006;
-  WAVE_FORMAT_MULAW      = $0007;
+  WAVE_FORMAT_ALAW = $0006;
+  WAVE_FORMAT_MULAW = $0007;
   WAVE_FORMAT_EXTENSIBLE = $fffe;
 
 type
-  tdatachunk = packed record
-    subck2id   : array [0..3] of char; // should be "data"
-    subck2size : longword;             // == numsamples * numchannels * bitspersample/8
+  TDatachunk = packed record
+    subck2id: array [0..3] of char; // should be "data"
+    subck2size: longword;             // == numsamples * numchannels * bitspersample/8
   end;
 
-  // ttrack
+  // TTrack
 
-  ttrack = class
+  TTrack = class
   private
-    ffilename: string;
-    falbum: string;
-    fnumber: longint;
-    fsamplerate: longword;
-    fsamplecount: longint;
-    fchannels: TChannels;
-    fchannelcount: longint;
-    fbitspersample: longint;
-    fbyterate: longint;
-    fduration: longint;
+    FFilename: string;
+    FAlbum: string;
+    FNumber: longint;
+    FSamplerate: longword;
+    FSamplecount: longint;
+    FChannelcount: longint;
+    FChannels: TDoubleMatrix;
+    FBitsPerSample: longint;
+    FByterate: longint;
+    FDuration: longint;
     // spectrum
-    fspectrums: TSpectrums;
+    FSpectrums: TSpectrums;
     // loudness
-    floudness: TLoudnessMeter;
+    FLoudness: TLoudnessMeter;
     // dynamicrange
-    fdrmeter: TDynamicRangeMeter;
-
-    function getsample(channel, index: longint): TSample;
+    FDRMeter: TDynamicRangeMeter;
   public
-    constructor create(const afilename: string);
-    destructor destroy; override;
-    procedure clearchannels;
+    constructor Create(const AFilename: string);
+    destructor Destroy; override;
+    procedure ClearChannels;
   public
-    property filename: string read ffilename;
-    property album: string read falbum;
-    property number: longint read fnumber;
-    property samplecount: longint read fsamplecount;
-    property samplerate: longword read fsamplerate;
-    property channelcount: longint read fchannelcount;
-    property bitspersample: longint read fbitspersample;
-    property byterate: longint read fbyterate;
-    property duration: longint read fduration;
+    property Filename: string read FFilename;
+    property Album: string read FAlbum;
+    property Number: longint read FNumber;
+    property Samplecount: longint read FSamplecount;
+    property Samplerate: longword read FSamplerate;
+    property Channelcount: longint read FChannelcount;
+    property Channels: TDoubleMatrix read FChannels;
+    property BitsPerSample: longint read FBitsPerSample;
+    property Byterate: longint read FByterate;
+    property Duration: longint read FDuration;
 
-    property spectrums: tspectrums read fspectrums;
-    property loudness: TLoudnessMeter read floudness;
-    property drmeter: TDynamicRangeMeter read fdrmeter;
-
-    property samples[channel, index: longint]: TSample read getsample;
+    property Spectrums: TSpectrums read FSpectrums;
+    property Loudness: TLoudnessMeter read FLoudness;
+    property DRMeter: TDynamicRangeMeter read FDRMeter;
   end;
 
-  { ttrackanalyzer }
-  
-  ttrackanalyzer = class(tthread)
+  { TTrackAnalyzer }
+
+  TTrackAnalyzer = class(tthread)
   private
-    ffmt: tfmtchunk;
-    ffmtext: tfmtchunkext;
-    fdatachunk: tdatachunk;
+    FFmt: TFmtchunk;
+    FFmtext: TFmtchunkext;
+    FDatachunk: TDatachunk;
     //---
-    ftrack: ttrack;
-    fblocknum: longint;
-    fblocksize: longint;
-    fsamplecount: longint;
-    fchannels: TChannels;
-
-
+    FTrack: TTrack;
     //---
-    fstatus: longint;
-    fstream : tstream;
-    fpercentage: double;
-    fonstart: tthreadmethod;
-    fonstop: tthreadmethod;
-    fontick: tthreadmethod;
-    fffton: boolean;
-    function getpercentage: longint;
-    procedure readheader(astream: tstream);
-    function readsamples(astream: tstream; achannels: TChannels; achannelsize: longint): longint;
-    procedure readfromstream(astream: tstream);
-
+    FStatus: longint;
+    FStream: tstream;
+    FPercentage: double;
+    FOnStart: tthreadmethod;
+    FOnStop: tthreadmethod;
+    FOnTick: tthreadmethod;
+    FFFTOn: boolean;
+    function GetPercentage: longint;
+    procedure ReadHeader(AStream: TStream);
+    procedure ReadStream(AStream: TStream);
+    function ReadChannels(AStream: TStream;
+      AChannels: TDoubleMatrix; ASampleCount: longint): longint;
     procedure PrepareSamplesForAnalysis;
-    procedure clearsamples;
   public
-    constructor create(atrack: ttrack; astream: tstream; aFFTOn: boolean);
-    destructor destroy; override;
-    procedure execute; override;
+    constructor Create(ATrack: TTrack; AStream: TStream; AFFTOn: boolean);
+    destructor Destroy; override;
+    procedure Execute; override;
   public
-    property onstart:    tthreadmethod write fonstart;
-    property onstop:     tthreadmethod write fonstop;
-    property ontick:     tthreadmethod write fontick;
-    property percentage: longint read getpercentage;
-    property status:     longint read fstatus;
+    property OnStart: tthreadmethod write FOnStart;
+    property OnStop: tthreadmethod write FOnStop;
+    property OnTick: tthreadmethod write FOnTick;
+    property Percentage: longint read GetPercentage;
+    property Status: longint read FStatus;
   end;
 
   // ttracklist
 
-  ttracklist = class
+  TTrackList = class
   private
-    flist: tlist;
-    function getcount: longint;
-    function gettrack(index: longint): ttrack;
+    FList: TList;
+    function GetCount: longint;
+    function GetTrack(AIndex: longint): TTrack;
   public
-    constructor create;
-    destructor destroy; override;
-    procedure add(const trackname: string);
-    procedure delete(index: longint);
-    procedure clear;
-    procedure sort;
-    procedure savetofile(const filename: string);
+    constructor Create;
+    destructor Destroy; override;
+    procedure Add(const ATrackname: string);
+    procedure Delete(AIndex: longint);
+    procedure Clear;
+    procedure Sort;
+    procedure SaveToFile(const AFilename: string);
   public
-    property count: longint read getcount;
-    property tracks[index: longint]: ttrack read gettrack; default;
+    property Count: longint read GetCount;
+    property Tracks[AIndex: longint]: TTrack read GetTrack; default;
   end;
 
-  function filesupported(fileext: string): boolean;
+function IsFileSupported(AFileExtension: string): boolean;
 
 var
-  audioanalyzer: ttrackanalyzer = nil;
+  AudioAnalyzer: TTrackAnalyzer = nil;
 
 
 implementation
@@ -200,294 +192,286 @@ uses
 const
   idriff = 'RIFF';
   idwave = 'WAVE';
-  idfmt  = 'fmt ';
+  idfmt = 'fmt ';
   iffact = 'fact';
   iddata = 'data';
   idlist = 'LIST';
 
 // usefull routines
 
-function filesupported(fileext: string): boolean;
+function IsFileSupported(AFileExtension: string): boolean;
 begin
-  fileext := lowercase(fileext);
-  if fileext = '.wav'  then exit(true);
-  if fileext = '.flac' then exit(true);
-  if fileext = '.mp3'  then exit(true);
-  if fileext = '.ape'  then exit(true);
-  if fileext = '.ogg'  then exit(true);
-  if fileext = '.m4a'  then exit(true);
-  if fileext = '.ac3'  then exit(true);
-  result := false;
+  AFileExtension := lowercase(AFileExtension);
+  if AFileExtension = '.wav'  then exit(True);
+  if AFileExtension = '.flac' then exit(True);
+  if AFileExtension = '.mp3'  then exit(True);
+  if AFileExtension = '.ape'  then exit(True);
+  if AFileExtension = '.ogg'  then exit(True);
+  if AFileExtension = '.m4a'  then exit(True);
+  if AFileExtension = '.ac3'  then exit(True);
+  Result := False;
 end;
 
-function comparetrackname(item1, item2: pointer): longint;
+function CompareTrackName(item1, item2: pointer): longint;
 begin
-  result := ansicomparefilename(ttrack(item1).ffilename, ttrack(item2).ffilename);
+  Result := AnsiCompareFileName(TTrack(item1).FFilename, TTrack(item2).FFilename);
 end;
 
-// ttrack
+// TTrack
 
-constructor ttrack.create(const afilename: string);
+constructor TTrack.Create(const AFilename: string);
 begin
-  inherited create;
-  ffilename      := afilename;
-  falbum         := '';
-  fnumber        := 0;
-  fsamplerate    := 0;
-  fbitspersample := 0;
-  fbyterate      := 0;
+  inherited Create;
+  FFilename := AFilename;
+  FAlbum := '';
+  FNumber := 0;
+  FSamplerate := 0;
+  FBitsPerSample := 0;
+  FByterate := 0;
 
   FDRMeter.Init;
   FLoudness.Init;
+  FSpectrums.Init(SPECTRUMWINDOWSIZE, SPECTRUMWINDOWSIZE);
 end;
 
-destructor ttrack.destroy;
+destructor TTrack.Destroy;
 begin
+  ClearChannels;
   FDRMeter.Finalize;
   FLoudness.Finalize;
-  inherited destroy;
+  FSpectrums.Finalize;
+  inherited Destroy;
 end;
 
-function ttrack.getsample(channel, index: longint): TSample;
+procedure TTrack.ClearChannels;
 begin
-  result := fchannels[channel][index];
+  SetLength(FChannels, 0, 0);
 end;
 
-procedure ttrack.clearchannels;
-var
-  ch: longint;
+// TTrackAnalyzer
+
+constructor TTrackAnalyzer.Create(atrack: TTrack; astream: tstream; aFFTOn: boolean);
 begin
-  for ch := low(fchannels) to high(fchannels) do
-    setlength(fchannels[ch], 0);
-  setlength(fchannels, 0);
+  FFFTOn := affton;
+  FTrack := atrack;
+  FStream := astream;
+  FreeOnTerminate := False;
+
+  inherited Create(True);
 end;
 
-// ttrackanalyzer
-
-constructor ttrackanalyzer.create(atrack: ttrack; astream: tstream; aFFTOn: boolean);
+destructor TTrackAnalyzer.Destroy;
 begin
-  fffton := affton;
-  ftrack := atrack;
-  fstream := astream;
-  freeonterminate := false;
-
-  inherited create(true);
+  inherited Destroy;
 end;
 
-destructor ttrackanalyzer.destroy;
-begin
-  inherited destroy;
-end;
-
-procedure ttrackanalyzer.execute;
+procedure TTrackAnalyzer.Execute;
 var
   ch, i, j: longint;
 begin
-  fpercentage := 0;
-  if assigned(fonstart) then
-    synchronize(fonstart);
+  FPercentage := 0;
+  if assigned(FOnStart) then
+    synchronize(FOnStart);
 
-  readfromstream(fstream);
-  if fstatus = 0 then
-    if ffmt.channels > 0 then
+  ReadStream(FStream);
+  if FStatus = 0 then
+    if FFmt.channels > 0 then
     begin
-      for i := 0 to ffmt.channels -1 do
+      for i := 0 to FFmt.channels - 1 do
       begin
         (*
-        ftrack.fchannels[i].dr       := getdr(i);
-        ftrack.fchannels[i].rms      := getrms(i);
-        ftrack.fchannels[i].peak     := getpeak(i);
-        ftrack.fchannels[i].truepeak := gettruepeak(i);
-        ftrack.fchannels[i].lufs     := lufs(ftrack.fchannels[i].samples, ftrack.samplerate);
-        ftrack.fchannels[i].lra      := lra (ftrack.fchannels[i].samples, ftrack.samplerate);
+        FTrack.fchannels[i].dr       := getdr(i);
+        FTrack.fchannels[i].rms      := getrms(i);
+        FTrack.fchannels[i].peak     := getpeak(i);
+        FTrack.fchannels[i].truepeak := gettruepeak(i);
+        FTrack.fchannels[i].lufs     := lufs(FTrack.fchannels[i].samples, FTrack.Samplerate);
+        FTrack.fchannels[i].lra      := lra (FTrack.fchannels[i].samples, FTrack.Samplerate);
         {$ifopt D+}
         writeln;
-        writeln('track.DR  [', i,'] ',         ftrack.fchannels[i].dr       :2:1);
-        writeln('track.Rms [', i,'] ', decibel(ftrack.fchannels[i].rms     ):2:2);
-        writeln('track.Peak[', i,'] ', decibel(ftrack.fchannels[i].peak    ):2:2);
-        writeln('track.TPL [', i,'] ', decibel(ftrack.fchannels[i].truepeak):2:2);
+        writeln('track.DR  [', i,'] ',         FTrack.fchannels[i].dr       :2:1);
+        writeln('track.Rms [', i,'] ', decibel(FTrack.fchannels[i].rms     ):2:2);
+        writeln('track.Peak[', i,'] ', decibel(FTrack.fchannels[i].peak    ):2:2);
+        writeln('track.TPL [', i,'] ', decibel(FTrack.fchannels[i].truepeak):2:2);
         {$endif}
         *)
       end;
 
       {$ifopt D+}
       writeln;
-      writeln('track.DR:         ', ftrack.drmeter.DR       :2:2);
-      writeln('track.Rms         ', ftrack.loudness.Rms                :2:2);
-      writeln('track.Peak        ', ftrack.loudness.Peak               :2:2);
-      writeln('track.TruePeak    ', ftrack.loudness.TruePeak           :2:2);
-      writeln('track.Lk          ', ftrack.loudness.IntegratedLoudness :2:2);
-      writeln('track.LRA         ', ftrack.loudness.LoudnessRange      :2:2);
-      writeln('track.PLR         ', ftrack.loudness.PeakToLoudnessRatio:2:2);
+      writeln('track.DR:         ', FTrack.drmeter.DR       :2:2);
+      writeln('track.Rms         ', FTrack.loudness.Rms                :2:2);
+      writeln('track.Peak        ', FTrack.loudness.Peak               :2:2);
+      writeln('track.TruePeak    ', FTrack.loudness.TruePeak           :2:2);
+      writeln('track.Lk          ', FTrack.loudness.IntegratedLoudness :2:2);
+      writeln('track.LRA         ', FTrack.loudness.LoudnessRange      :2:2);
+      writeln('track.PLR         ', FTrack.loudness.PeakToLoudnessRatio:2:2);
       writeln;
 
-      for ch := 0 to ftrack.channelcount -1 do
-        writeln('track.Peak', ch, '       ', ftrack.loudness.Peak(ch):2:2);
-      for ch := 0 to ftrack.channelcount -1 do
-        writeln('track.TruePeak', ch, '   ', ftrack.loudness.TruePeak(ch):2:2);
+      for ch := 0 to FTrack.Channelcount -1 do
+        writeln('track.Peak', ch, '       ', FTrack.loudness.Peak(ch):2:2);
+      for ch := 0 to FTrack.Channelcount -1 do
+        writeln('track.TruePeak', ch, '   ', FTrack.loudness.TruePeak(ch):2:2);
 
-      for i := 0 to ftrack.duration * 10 + 1 do
-        writeln('track.S@',i * 100, 'ms       ', ftrack.loudness.ShortTermLoudness(i*100):2:2);
+      for i := 0 to FTrack.Duration * 10 + 1 do
+        writeln('track.S@',i * 100, 'ms       ', FTrack.loudness.ShortTermLoudness(i*100):2:2);
 
       writeln;
       {$endif}
     end;
 
-  fpercentage := 100;
-  if assigned(fonstop) then
-    synchronize(fonstop);
+  FPercentage := 100;
+  if assigned(FOnStop) then
+    synchronize(FOnStop);
 end;
 
-procedure ttrackanalyzer.readfromstream(astream:tstream);
+procedure TTrackAnalyzer.ReadStream(AStream: TStream);
 var
   ch, i, j, k: longint;
   step, steps: longint;
   ticktime: tdatetime;
 begin
   {$ifopt D+}
-  writeln('track.name         ', ftrack.filename);
+  writeln('track.name         ', FTrack.Filename);
   {$endif}
   //read headers
-  readheader(astream);
-  if status <> 0 then exit;
+  ReadHeader(astream);
+  if Status <> 0 then exit;
   // update track details
-  ftrack.falbum         := '';
-  ftrack.fnumber        := 0;
-  ftrack.fsamplerate    := ffmt.samplespersec;
-  ftrack.fbitspersample := ffmt.bitspersample;
-  ftrack.fchannelcount  := ffmt.channels;
-  ftrack.fsamplerate    := ffmt.samplespersec;
-  ftrack.fbyterate      := ffmt.bytespersec;
-  ftrack.fduration      := 0;
+  FTrack.FAlbum := '';
+  FTrack.FNumber := 0;
+  FTrack.FSamplerate := FFmt.samplespersec;
+  FTrack.FBitsPerSample := FFmt.bitspersample;
+  FTrack.FChannelcount := FFmt.channels;
+  FTrack.FSamplerate := FFmt.samplespersec;
+  FTrack.FByterate := FFmt.bytespersec;
+  FTrack.FDuration := 0;
 
-  if ftrack.fsamplerate > 0 then
+  if FTrack.FSamplerate > 0 then
   begin
-    ftrack.fduration := (fdatachunk.subck2size div ffmt.blockalign) div ftrack.fsamplerate;
+    FTrack.FDuration := (FDatachunk.subck2size div FFmt.blockalign) div
+      FTrack.FSamplerate;
   end;
-  fsamplecount := fdatachunk.subck2size div ffmt.blockalign;
+  FTrack.FSamplecount := FDatachunk.subck2size div FFmt.blockalign;
 
-  setlength(fchannels, ftrack.fchannelcount);
-  for ch := low(fchannels) to high(fchannels) do
-  begin
-    setlength(fchannels[ch], fsamplecount);
-  end;
-  readsamples(astream, fchannels, fsamplecount);
+  SetLength(FTrack.FChannels, FTrack.FChannelcount, FTrack.FSamplecount);
+  ReadChannels(AStream, FTrack.FChannels, FTrack.FSamplecount);
 
-  FTrack.FDRMeter .Process(fchannels, fsamplecount, ftrack.fsamplerate);
-  FTrack.FLoudness.Process(fchannels, fsamplecount, ftrack.fsamplerate);
+  FTrack.FDRMeter.Process(FTrack.FChannels, FTrack.FSamplecount, FTrack.FSamplerate);
+  FTrack.FLoudness.Process(FTrack.FChannels, FTrack.FSamplecount, FTrack.FSamplerate);
 
 
   // calculate spectrum (FFT)
-  if fffton then
+  if FFFTOn then
   begin
-
-
-
+    FTrack.Spectrums.Process(FTrack.FChannels, FTrack.FSamplecount, FTrack.FSamplerate);
   end;
 end;
 
-procedure ttrackanalyzer.readheader(astream: tstream);
+procedure TTrackAnalyzer.ReadHeader(AStream: tstream);
 var
   marker: array[0..3] of char;
-  riff: triffheader;
+  riff: TRiffheader;
 begin
-  if astream.read(riff, sizeof(riff)) <> sizeof(riff) then fstatus := -1;
-  if riff.ckid   <> idriff then fstatus := -1;
-  if riff.waveid <> idwave then fstatus := -1;
+  if AStream.Read(riff, sizeof(riff)) <> sizeof(riff) then FStatus := -1;
+  if riff.ckid <> idriff then FStatus := -1;
+  if riff.waveid <> idwave then FStatus := -1;
   riff.cksize := leton(riff.cksize);
   {$ifopt D+}
   writeln('riff.ckid          ', riff.ckid);
   writeln('riff.cksize        ', riff.cksize);
   writeln('riff.format        ', riff.waveid);
   {$endif}
-  if astream.read(ffmt, sizeof(ffmt)) <> sizeof(ffmt) then fstatus := -1;
-  if ffmt.ckid <> idfmt then fstatus := -1;
+  if AStream.Read(FFmt, sizeof(FFmt)) <> sizeof(FFmt) then FStatus := -1;
+  if FFmt.ckid <> idfmt then FStatus := -1;
 
-  ffmt.cksize        := leton(ffmt.cksize);
-  ffmt.formattag     := leton(ffmt.formattag);
-  ffmt.channels      := leton(ffmt.channels);
-  ffmt.samplespersec := leton(ffmt.samplespersec);
-  ffmt.bytespersec   := leton(ffmt.bytespersec);
-  ffmt.blockalign    := leton(ffmt.blockalign);
-  ffmt.bitspersample := leton(ffmt.bitspersample);
+  FFmt.cksize := leton(FFmt.cksize);
+  FFmt.formattag := leton(FFmt.formattag);
+  FFmt.channels := leton(FFmt.channels);
+  FFmt.samplespersec := leton(FFmt.samplespersec);
+  FFmt.bytespersec := leton(FFmt.bytespersec);
+  FFmt.blockalign := leton(FFmt.blockalign);
+  FFmt.bitspersample := leton(FFmt.bitspersample);
 
-  if ffmt.channels       = 0  then fstatus := -2;
-  if ffmt.bitspersample  = 0  then fstatus := -1;
-  if ffmt.bitspersample  = 32 then fstatus := -1;
+  if FFmt.channels = 0 then FStatus := -2;
+  if FFmt.bitspersample = 0 then FStatus := -1;
+  if FFmt.bitspersample = 32 then FStatus := -1;
 
   {$ifopt D+}
-  writeln('ffmt.subckid       ', ffmt.ckid);
-  writeln('ffmt.subcksize     ', ffmt.cksize);
-  writeln('ffmt.formattag     ', ffmt.formattag);
-  writeln('ffmt.channels      ', ffmt.channels);
-  writeln('ffmt.samplerate    ', ffmt.samplespersec);
-  writeln('ffmt.byterate      ', ffmt.bytespersec);
-  writeln('ffmt.blockalign    ', ffmt.blockalign);
-  writeln('ffmt.bitspersample ', ffmt.bitspersample);
+  writeln('ffmt.subckid       ', FFmt.ckid);
+  writeln('ffmt.subcksize     ', FFmt.cksize);
+  writeln('ffmt.formattag     ', FFmt.formattag);
+  writeln('ffmt.channels      ', FFmt.channels);
+  writeln('ffmt.samplerate    ', FFmt.samplespersec);
+  writeln('ffmt.byterate      ', FFmt.bytespersec);
+  writeln('ffmt.blockalign    ', FFmt.blockalign);
+  writeln('ffmt.bitspersample ', FFmt.bitspersample);
   {$endif}
 
-  if ffmt.cksize = 40 then
+  if FFmt.cksize = 40 then
   begin
-    if astream.read(ffmtext, sizeof(ffmtext)) <> sizeof(ffmtext) then fstatus := -1;
+    if AStream.Read(FFmtext, sizeof(FFmtext)) <> sizeof(FFmtext) then FStatus := -1;
 
-    ffmtext.cbsize             := leton(ffmtext.cbsize);
-    ffmtext.validbitspersample := leton(ffmtext.validbitspersample);
-    ffmtext.channelmask        := leton(ffmtext.channelmask);
+    FFmtext.cbsize := leton(FFmtext.cbsize);
+    FFmtext.validbitspersample := leton(FFmtext.validbitspersample);
+    FFmtext.channelmask := leton(FFmtext.channelmask);
     {$ifopt D+}
     writeln;
-    writeln('ffmtext.cbsize             ', ffmtext.cbsize);
-    writeln('ffmtext.validbitspersample ', ffmtext.validbitspersample);
-    writeln('ffmtext.channelmask        ', ffmtext.channelmask);
+    writeln('ffmtext.cbsize             ', FFmtext.cbsize);
+    writeln('ffmtext.validbitspersample ', FFmtext.validbitspersample);
+    writeln('ffmtext.channelmask        ', FFmtext.channelmask);
     writeln;
     {$endif}
   end;
 
   // search data section by scanning
   fillchar(marker, sizeof(marker), ' ');
-  while astream.read(marker[3], 1) = 1 do
+  while AStream.Read(marker[3], 1) = 1 do
   begin
     if marker = iddata then
     begin
-      fdatachunk.subck2id := iddata;
-      astream.read(fdatachunk.subck2size,
-        sizeof(fdatachunk.subck2size));
+      FDatachunk.subck2id := iddata;
+      AStream.Read(FDatachunk.subck2size,
+        sizeof(FDatachunk.subck2size));
       break;
     end;
-    move(marker[1], marker[0], sizeof(marker) -1);
+    move(marker[1], marker[0], sizeof(marker) - 1);
   end;
 
-  if fdatachunk.subck2id <> iddata then fstatus := -1;
-  fdatachunk.subck2size := leton(fdatachunk.subck2size);
+  if FDatachunk.subck2id <> iddata then FStatus := -1;
+  FDatachunk.subck2size := leton(FDatachunk.subck2size);
   {$ifopt D+}
-  writeln('data.subck2id      ', fdatachunk.subck2id);
-  writeln('data.subck2size    ', fdatachunk.subck2size);
+  writeln('data.subck2id      ', FDatachunk.subck2id);
+  writeln('data.subck2size    ', FDatachunk.subck2size);
   {$endif}
-  if fdatachunk.subck2size = 0 then fstatus := -2;
+  if FDatachunk.subck2size = 0 then FStatus := -2;
 end;
 
-function ttrackanalyzer.readsamples(astream: tstream; achannels: TChannels; achannelsize: longint): longint;
+function TTrackAnalyzer.ReadChannels(AStream: TStream; AChannels: TDoubleMatrix;
+  ASampleCount: longint): longint;
 var
   i, j, k: longint;
-  dt : array[0..3] of byte;
+  dt: array[0..3] of byte;
 begin
-  result := 0;
-  for i := 0 to achannelsize -1 do
+  Result := 0;
+  for i := 0 to ASampleCount - 1 do
   begin
-    for j := 0 to ffmt.channels -1 do
+    for j := 0 to FFmt.channels - 1 do
     begin
-      if ffmt.bitspersample = 8 then
+      if FFmt.bitspersample = 8 then
       begin
-        if astream.read(dt[0], 1) <> 1 then fstatus := -1;
-        achannels[j][i] := pbyte(@dt[0])^;
-      end else
-      if ffmt.bitspersample = 16 then
+        if AStream.Read(dt[0], 1) <> 1 then FStatus := -1;
+        AChannels[j][i] := pbyte(@dt[0])^;
+      end
+      else
+      if FFmt.bitspersample = 16 then
       begin
-        if astream.read(dt[0], 2) <> 2 then fstatus := -1;
-        achannels[j][i] := psmallint(@dt[0])^;
-      end else
-      if ffmt.bitspersample = 24 then
+        if AStream.Read(dt[0], 2) <> 2 then FStatus := -1;
+        AChannels[j][i] := psmallint(@dt[0])^;
+      end
+      else
+      if FFmt.bitspersample = 24 then
       begin
-        if astream.read(dt[0], 3) <> 3 then fstatus := -1;
+        if AStream.Read(dt[0], 3) <> 3 then FStatus := -1;
 
         if dt[2] > 127 then
           k := longint($FFFFFFFF)
@@ -498,124 +482,114 @@ begin
         k := (k shl 8) or dt[1];
         k := (k shl 8) or dt[0];
 
-        achannels[j][i] := k;
-      end else
-      if ffmt.bitspersample = 32 then
+        AChannels[j][i] := k;
+      end
+      else
+      if FFmt.bitspersample = 32 then
       begin
-        if astream.read(dt[0], 4) <> 4 then fstatus := -1;
-        achannels[j][i] := plongint(@dt[0])^;
+        if AStream.Read(dt[0], 4) <> 4 then FStatus := -1;
+        AChannels[j][i] := plongint(@dt[0])^;
       end;
     end;
   end;
   PrepareSamplesForAnalysis;
 end;
 
-procedure ttrackanalyzer.PrepareSamplesForAnalysis;
+procedure TTrackAnalyzer.PrepareSamplesForAnalysis;
 var
   i, j: longint;
-  minvalue, maxvalue: double;
-  meanvalue: double;
-  norm: double;
+  MinValue, MaxValue: double;
+  Meanvalue: double;
+  Morm: double;
 begin
-  norm := 1 shl (ftrack.fbitspersample -1);
+  Morm := 1 shl (FTrack.FBitsPerSample - 1);
 
-  for i := low(fchannels) to high(fchannels) do
+  for i := low(FTrack.FChannels) to high(FTrack.FChannels) do
   begin
-    minvalue :=  maxfloat;
-    maxvalue := -maxfloat;
-    for j := low(fchannels[i]) to high(fchannels[i]) do
+    MinValue := maxfloat;
+    MaxValue := -maxfloat;
+    for j := low(FTrack.FChannels[i]) to high(FTrack.FChannels[i]) do
     begin
-      minvalue := min(minvalue, fchannels[i][j]);
-      maxvalue := max(maxvalue, fchannels[i][j]);
+      MinValue := min(MinValue, FTrack.FChannels[i][j]);
+      MaxValue := max(MaxValue, FTrack.FChannels[i][j]);
     end;
 
-    meanvalue := (maxvalue + minvalue) / 2;
-    for j := low(fchannels[i]) to high(fchannels[i]) do
+    Meanvalue := (MaxValue + MinValue) / 2;
+    for j := low(FTrack.FChannels[i]) to high(FTrack.FChannels[i]) do
     begin
-      fchannels[i][j] := (fchannels[i][j] - meanvalue) / norm;
+      FTrack.FChannels[i][j] := (FTrack.FChannels[i][j] - Meanvalue) / Morm;
     end;
   end;
 end;
 
-procedure ttrackanalyzer.clearsamples;
+function TTrackAnalyzer.GetPercentage: longint;
+begin
+  Result := Round(FPercentage);
+end;
+
+// TTrackList
+
+constructor TTrackList.Create;
+begin
+  inherited Create;
+  FList := TList.Create;
+end;
+
+destructor TTrackList.Destroy;
+begin
+  Clear;
+  FList.Destroy;
+  inherited Destroy;
+end;
+
+procedure TTrackList.Add(const ATrackname: string);
 var
-  ch: longint;
+  track: TTrack;
 begin
-  for ch := low(fchannels) to high(fchannels) do
-  begin
-    setlength(fchannels[ch], 0);
-  end;
-  setlength(fchannels, 0);
+  track := TTrack.Create(ATrackname);
+  FList.add(track);
 end;
 
-function ttrackanalyzer.getpercentage: longint;
+procedure TTrackList.Delete(AIndex: longint);
 begin
-  result := round(fpercentage);
+  TTrack(FList[AIndex]).Destroy;
+  FList.Delete(AIndex);
 end;
 
-// ttracklist
-
-constructor ttracklist.create;
-begin
-  inherited create;
-  flist := tlist.create;
-end;
-
-destructor ttracklist.destroy;
-begin
-  clear;
-  flist.destroy;
-  inherited destroy;
-end;
-
-procedure ttracklist.add(const trackname: string);
-var
-  track: ttrack;
-begin
-  track := ttrack.create(trackname);
-  flist.add(track);
-end;
-
-procedure ttracklist.delete(index: longint);
-begin
-  ttrack(flist[index]).destroy;
-  flist.delete(index);
-end;
-
-procedure ttracklist.clear;
+procedure TTrackList.Clear;
 var
   i: longint;
 begin
-  for i := 0 to flist.count -1 do
-    ttrack(flist[i]).destroy;
-  flist.clear;
+  for i := 0 to FList.Count - 1 do
+    TTrack(FList[i]).Destroy;
+  FList.Clear;
 end;
 
-procedure ttracklist.sort;
+procedure TTrackList.Sort;
 begin
-  flist.sort(@comparetrackname);
+  FList.sort(@comparetrackname);
 end;
 
-function ttracklist.getcount: longint;
+function TTrackList.GetCount: longint;
 begin
-  result := flist.count;
+  Result := FList.Count;
 end;
 
-function ttracklist.gettrack(index: longint): ttrack;
+function TTrackList.GetTrack(AIndex: longint): TTrack;
 begin
-  result := ttrack(flist[index]);
+  Result := TTrack(FList[AIndex]);
 end;
 
-procedure ttracklist.savetofile(const filename: string);
+procedure TTrackList.SaveToFile(const AFilename: string);
 const
   splitter = '--------------------------------------------------------------------------------';
 var
   dr: double;
   i: longint;
-  s: tstringlist;
-  track: ttrack;
+  s: TStringList;
+  track: TTrack;
 begin
-  s := tstringlist.create;
+  s := TStringList.Create;
   s.add('AudioMeter 0.5.0 - Dynamic Range Meter');
   s.add(splitter);
   s.add(format('Log date : %s', [datetimetostr(now)]));
@@ -623,40 +597,36 @@ begin
   s.add('');
 
   dr := 0;
-  if count > 0 then
+  if Count > 0 then
   begin
-    track := gettrack(0);
+    track := GetTrack(0);
     s.add('DR      Peak        RMS     bps  chs      SR  Duration  Track');
     s.add(splitter);
-    for i := 0 to count -1 do
+    for i := 0 to Count - 1 do
     begin
-      track := gettrack(i);
-      s.add(format('DR%2.0f %7.2f dB %7.2f dB %4.0d %4.0d %7.0d %-s     %s', [
-               (track.drmeter.DR),
-        decibel(track.loudness.Peak),
-        decibel(track.loudness.Rms),
-        track.bitspersample,
-        track.channelcount,
-        track.samplerate,
-        format('%3.2d:%2.2d', [track.fduration div (60), track.fduration mod (60)]),
-        extractfilename(track.ffilename)]));
+      track := GetTrack(i);
+      s.add(format('DR%2.0f %7.2f dB %7.2f dB %4.0d %4.0d %7.0d %-s     %s',
+        [(track.drmeter.DR), decibel(track.loudness.Peak),
+        decibel(track.loudness.Rms), track.Bitspersample,
+        track.Channelcount, track.Samplerate,
+        format('%3.2d:%2.2d', [track.FDuration div (60), track.FDuration mod (60)]),
+        extractfilename(track.FFilename)]));
 
       dr := dr + track.drmeter.DR;
     end;
-    dr := dr/count;
+    dr := dr / Count;
 
     s.add(splitter);
     s.add('');
-    s.add('Number of tracks:  %d', [count]);
-    if dr  >  0 then s.add('Official DR value: %1.0f', [dr ]);
-    if dr  <= 0 then s.add('Official DR value: ---');
+    s.add('Number of tracks:  %d', [Count]);
+    if dr > 0 then s.add('Official DR value: %1.0f', [dr]);
+    if dr <= 0 then s.add('Official DR value: ---');
 
     s.add('');
     s.add(splitter);
   end;
-  s.savetofile(filename);
-  s.destroy;
+  s.savetofile(AFilename);
+  s.Destroy;
 end;
 
 end.
-
