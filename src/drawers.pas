@@ -40,7 +40,7 @@ type
     FScreenHeight: longint;
     FScreenWidth: longint;
     FTrack: TTrack;
-    function GetScreen(aindex: longint):TBitmap;
+    function GetScreen(AIndex: longint):TBitmap;
   public
     constructor Create(ATrack: TTrack);
     destructor Destroy; override;
@@ -102,59 +102,50 @@ implementation
 uses
   Math, DateUtils, SoundUtils;
 
+
 function GetColor(AFactor: double): TColor;
+const
+  BaseColors: array[0..5] of TColor = (clBlack, clNavy, clPurple, clRed, clYellow, clWhite);
 var
-  r1, g1, b1, r2, g2, b2: word;
-  color1: tcolor;
-  color2: tcolor;
-  color3: tfpcolor;
+  FPBase: array[0..5] of TFPColor;
+  Seg: longint;
+  Fraction: Double;
+  R1, G1, B1, R2, G2, B2: Word;
+  Color3: TFPColor;
 begin
-  if AFactor < 0 then exit(clblack);
-  if AFactor > 1 then exit(clwhite);
+  if AFactor < 0 then AFactor := 0;
+  if AFactor > 1 then AFactor := 1;
 
-  if AFactor < 1/5 then
-  begin
-    color1 := clblack;
-    color2 := clnavy;
-    AFactor := (AFactor -   0) / (1/5);
-  end else
-  if AFactor < 2/5 then
-  begin
-    color1 := clnavy;
-    color2 := clpurple;
-    AFactor := (AFactor - 1/5) / (1/5);
-  end else
-  if AFactor < 3/5 then
-  begin
-    color1 := clpurple;
-    color2 := clred;
-    AFactor := (AFactor - 2/5) / (1/5);
-  end else
-  if AFactor < 4/5 then
-  begin
-    color1 := clred;
-    color2 := clyellow;
-    AFactor := (AFactor - 3/5) / (1/5);
-  end else
-  begin
-    color1 := clyellow;
-    color2 := clwhite;
-    AFactor := (AFactor - 4/5) / (1/5);
-  end;
+  // Gamma correction per migliorare visibilità nelle basse ampiezze
+  AFactor := Power(AFactor, 0.95);
 
-  r1 := TColorToFPColor(color1).red;
-  g1 := TColorToFPColor(color1).green;
-  b1 := TColorToFPColor(color1).blue;
+  // Prepara i colori base (una sola volta sarebbe ancora meglio in una variabile globale)
+  FPBase[0] := TColorToFPColor(BaseColors[0]);
+  FPBase[1] := TColorToFPColor(BaseColors[1]);
+  FPBase[2] := TColorToFPColor(BaseColors[2]);
+  FPBase[3] := TColorToFPColor(BaseColors[3]);
+  FPBase[4] := TColorToFPColor(BaseColors[4]);
+  FPBase[5] := TColorToFPColor(BaseColors[5]);
 
-  r2 := TColorToFPColor(color2).red;
-  g2 := TColorToFPColor(color2).green;
-  b2 := TColorToFPColor(color2).blue;
+  // Determina in quale segmento di colore ci troviamo
+  Seg  := Floor(AFactor * 5);
+  if Seg > 4 then Seg := 4;
 
-  color3.red   := trunc(r1 + (r2 - r1) * AFactor);
-  color3.green := trunc(g1 + (g2 - g1) * AFactor);
-  color3.blue  := trunc(b1 + (b2 - b1) * AFactor);
-  result := FPColorToTColor(color3);
+  Fraction := Frac(AFactor * 5); // posizione fra i due colori
+
+  // Interpolazione RGB lineare
+  R1 := FPBase[Seg].Red;   R2 := FPBase[Seg + 1].Red;
+  G1 := FPBase[Seg].Green; G2 := FPBase[Seg + 1].Green;
+  B1 := FPBase[Seg].Blue;  B2 := FPBase[Seg + 1].Blue;
+
+  Color3.Red   := Round(R1 + (R2 - R1) * Fraction);
+  Color3.Green := Round(G1 + (G2 - G1) * Fraction);
+  Color3.Blue  := Round(B1 + (B2 - B1) * Fraction);
+  Color3.Alpha := $FFFF;
+
+  result := FPColorToTColor(Color3);
 end;
+
 
 // TScreenDrawer
 
@@ -466,7 +457,7 @@ begin
   Chart.PenColor := clYellow;
 
   // initialize frequency bin array (half of fft size)
-  WindowSize  := SPECTRUMWINDOWSIZE div 2;
+  WindowSize  := DEFAULTWINDOWSIZE div 2;
   WindowCount := FTrack.Spectrums.WindowCount;
   Factor      := 0.5 * ftrack.Samplerate / (WindowSize -1);
 
@@ -533,7 +524,7 @@ begin
   setlength(Points, 2);
   Points[0].x := 0;
   Points[0].y := 0;
-  Points[1].x := 44000;
+  Points[1].x := 22050;
   Points[1].y := 96;
   Chart.addpolygon(Points, '');
   setlength(Points, 0);
@@ -545,7 +536,7 @@ end;
 procedure TSpectrogramDrawer.Draw;
 var
   Chart: TChart;
-  index: longint;
+  TimeIndex, FreqIndex: longint;
   X, Y, ch: longint;
   Amp: double;
   WindowCount: longint;
@@ -554,28 +545,31 @@ var
   maxDB, XFactor, YFactor: TDouble;
 begin
   // create chart
-  Chart := TChart.create;
-  Chart.legendenabled := false;
-  Chart.title := '';
-  Chart.xaxislabel := 'freq [Hz]';
-  Chart.yaxislabel := 'time [s]';
-  Chart.xgridlinewidth := 0;
-  Chart.ygridlinewidth := 0;
-  Chart.scale := 1.0;
-  Chart.backgroundcolor := clblack;
-  Chart.xaxisfontcolor := clwhite;
-  Chart.yaxisfontcolor := clwhite;
-  Chart.xaxislinecolor := clwhite;
-  Chart.yaxislinecolor := clwhite;
+  Chart := TChart.Create;
+  Chart.LegendEnabled := False;
+  Chart.Title := '';
+  Chart.XAxisLabel := 'freq [Hz]';
+  Chart.YAxisLabel := 'time [s]';
+  Chart.XGridLineWidth := 0;
+  Chart.YGridLineWidth := 0;
+  Chart.Scale := 1.0;
+  Chart.BackgroundColor := clBlack;
+  Chart.XAxisFontColor := clWhite;
+  Chart.YAxisFontColor := clWhite;
+  Chart.XAxisLineColor := clWhite;
+  Chart.YAxisLineColor := clWhite;
   Chart.XMinF   := 0;
   Chart.YMinF   := 0;
-  Chart.addpixel(FTrack.Samplerate div 2, FTrack.Duration, clblack);
+  Chart.AddPixel(FTrack.Samplerate div 2, FTrack.Duration, clblack);
   Chart.Draw(FScreen.Canvas, FScreen.Width, FScreen.Height, True);
 
   Bit := TBitmap.create;
   Bit.SetSize(
     Trunc(Chart.GetDrawingRect.Width *((FTrack.Samplerate div 2) / (Chart.XMaxF - Chart.XMinF))),
     Trunc(Chart.GetDrawingRect.Height*((FTrack.Duration        ) / (Chart.YMaxf - Chart.YMinF))));
+
+  Bit.Canvas.Brush.Color := clNavy;
+  Bit.Canvas.FillRect(0, 0, Bit.Width -1, Bit.Height -1);
 
   // set fft analysis window size (half of total window size)
   WindowCount := FTrack.Spectrums.WindowCount;
@@ -589,29 +583,27 @@ begin
   // loop over output bitmap pixels
   for Y := 0 to Bit.Height -1 do
   begin
+    TimeIndex  := Trunc(Y * YFactor);
+
     for X := 0 to Bit.Width -1 do
     begin
-      index := Trunc(Y * YFactor) + OutBins + Trunc(X * XFactor);
+      FreqIndex  :=  Trunc(X * XFactor);
 
       // compute fft bin index for this pixel
       Amp := 0;
-      for ch := 0 to FTrack.ChannelCount - 1 do
+      for ch := 0 to FTrack.ChannelCount -1 do
       begin
-        Amp := Max(Amp, 1 + Decibel(FTrack.Spectrums.Channels[ch, index] / maxDB));
+        Amp := Max(Amp, FTrack.Spectrums.Channels[ch, TimeIndex * OutBins + FreqIndex]);
       end;
       // map amplitude to color and set pixel
-      if Amp <> 0 then
-      begin
-        Bit.Canvas.Pixels[X, Bit.Height - 1 - Y] := GetColor(Amp);
-      end;
+      Bit.Canvas.Pixels[X, Bit.Height - 1 - Y] := GetColor((Decibel(Amp) + maxDB) / maxDB);
     end;
   end;
   FScreen.Canvas.Draw(
     Chart.GetDrawingRect.Left,
     Chart.GetDrawingRect.Top + (Chart.GetDrawingRect.Height - Bit.Height), Bit);
-
-  Chart.Destroy;
   Bit.Destroy;
+  Chart.Destroy;
 end;
 
 // TWaveDrawer

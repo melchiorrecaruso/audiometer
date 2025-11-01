@@ -89,9 +89,9 @@ type
     FFilename: string;
     FAlbum: string;
     FNumber: longint;
-    FSamplerate: longword;
-    FSamplecount: longint;
-    FChannelcount: longint;
+    FSampleRate: longword;
+    FSampleCount: longint;
+    FChannelCount: longint;
     FChannels: TDoubleMatrix;
     FBitsPerSample: longint;
     FByterate: longint;
@@ -110,9 +110,9 @@ type
     property Filename: string read FFilename;
     property Album: string read FAlbum;
     property Number: longint read FNumber;
-    property Samplecount: longint read FSamplecount;
-    property Samplerate: longword read FSamplerate;
-    property Channelcount: longint read FChannelcount;
+    property Samplecount: longint read FSampleCount;
+    property Samplerate: longword read FSampleRate;
+    property Channelcount: longint read FChannelCount;
     property Channels: TDoubleMatrix read FChannels;
     property BitsPerSample: longint read FBitsPerSample;
     property Byterate: longint read FByterate;
@@ -225,13 +225,13 @@ begin
   FFilename := AFilename;
   FAlbum := '';
   FNumber := 0;
-  FSamplerate := 0;
+  FSampleRate := 0;
   FBitsPerSample := 0;
   FByterate := 0;
 
   FDRMeter.Init;
   FLoudness.Init;
-  FSpectrums.Init(SPECTRUMWINDOWSIZE, SPECTRUMWINDOWSIZE);
+  FSpectrums.Init(DEFAULTWINDOWSIZE, DEFAULTWINDOWSIZE div 2);
 end;
 
 destructor TTrack.Destroy;
@@ -339,31 +339,30 @@ begin
   // update track details
   FTrack.FAlbum := '';
   FTrack.FNumber := 0;
-  FTrack.FSamplerate := FFmt.samplespersec;
+  FTrack.FSampleRate := FFmt.samplespersec;
   FTrack.FBitsPerSample := FFmt.bitspersample;
-  FTrack.FChannelcount := FFmt.channels;
-  FTrack.FSamplerate := FFmt.samplespersec;
+  FTrack.FChannelCount := FFmt.channels;
+  FTrack.FSampleRate := FFmt.samplespersec;
   FTrack.FByterate := FFmt.bytespersec;
   FTrack.FDuration := 0;
 
-  if FTrack.FSamplerate > 0 then
+  if FTrack.FSampleRate > 0 then
   begin
     FTrack.FDuration := (FDatachunk.subck2size div FFmt.blockalign) div
-      FTrack.FSamplerate;
+      FTrack.FSampleRate;
   end;
-  FTrack.FSamplecount := FDatachunk.subck2size div FFmt.blockalign;
+  FTrack.FSampleCount := FDatachunk.subck2size div FFmt.blockalign;
 
-  SetLength(FTrack.FChannels, FTrack.FChannelcount, FTrack.FSamplecount);
-  ReadChannels(AStream, FTrack.FChannels, FTrack.FSamplecount);
+  SetLength(FTrack.FChannels, FTrack.FChannelCount, FTrack.FSampleCount);
+  ReadChannels(AStream, FTrack.FChannels, FTrack.FSampleCount);
 
-  FTrack.FDRMeter.Process(FTrack.FChannels, FTrack.FSamplecount, FTrack.FSamplerate);
-  FTrack.FLoudness.Process(FTrack.FChannels, FTrack.FSamplecount, FTrack.FSamplerate);
-
+  FTrack.FDRMeter.Process(FTrack.FChannels, FTrack.FSampleCount, FTrack.FSampleRate);
+  FTrack.FLoudness.Process(FTrack.FChannels, FTrack.FSampleCount, FTrack.FSampleRate);
 
   // calculate spectrum (FFT)
   if FFFTOn then
   begin
-    FTrack.Spectrums.Process(FTrack.FChannels, FTrack.FSamplecount, FTrack.FSamplerate);
+    FTrack.Spectrums.Process(FTrack.FChannels, FTrack.FSampleCount, FTrack.FSampleRate);
   end;
 end;
 
