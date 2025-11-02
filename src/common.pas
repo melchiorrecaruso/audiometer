@@ -21,11 +21,13 @@ type
 function Decibel(const AAmplitude: TDouble): TDouble;
 function EnergyToDecibel(const AEnergy: TDouble): TDouble;
 function EnergyToLufs(const AEnergy: TDouble): TDouble;
+function EnergyToLu(const AEnergy: TDouble): TDouble;
 
-function Peak(ASamples: PDouble; ASampleCount: longint): TDouble;
-function Rms2(ASamples: PDouble; ASampleCount: longint): TDouble;
-function Rms (ASamples: PDouble; ASampleCount: longint): TDouble;
+function Peak(ASamples: PDouble; ASampleCount: longint): TDouble; inline;
+function Rms2(ASamples: PDouble; ASampleCount: longint): TDouble; inline;
+function Rms (ASamples: PDouble; ASampleCount: longint): TDouble; inline;
 function TruePeak(ASamples: PDouble; ASampleCount, ASampleRate: longint): TDouble;
+function CrestFactor(const APeak, ARms2: TDouble): TDouble; inline;
 
 procedure QuickSort(var AValues: TDoubleVector; Low, High: longint);
 function Percentile(var AValues: TListOfDouble; P: double): TDouble;
@@ -35,26 +37,6 @@ implementation
 
 uses
   Math;
-
-function ComputeEnergyBlocks(const ASamples: TDoubleMatrix; ASampleCount, AWindowSize: longint): TDoubleMatrix;
-var
-  ch, i, OffSet, WindowCount: longint;
-begin
-  WindowCount := Max(0, (ASampleCount - AWindowSize) div AWindowSize + 1);
-
-  result := nil;
-  SetLength(result, Length(ASamples), WindowCount);
-  for ch := Low(ASamples) to High(ASamples) do
-  begin
-    OffSet := 0;
-
-    for i := 0 to WindowCount - 1 do
-    begin
-      result[ch][i] := Rms2(@ASamples[ch][OffSet], AWindowSize);
-      Inc(OffSet, AWindowSize);
-    end;
-  end;
-end;
 
 procedure QuickSort(var AValues: TDoubleVector; Low, High: longint);
 var
@@ -139,11 +121,19 @@ begin
     result := NegInfinity;
 end;
 
+function EnergyToLu(const AEnergy: TDouble): TDouble;
+begin
+  if AEnergy > 1e-10 then
+    result := 23 + EnergyToLufs(AEnergy)
+  else
+    result := NegInfinity;
+end;
+
 function Peak(ASamples: PDouble; ASampleCount: longint): TDouble;
 var
   i: longint;
 begin
-  result := 0.0;
+  result := 0;
   for i := 0 to ASampleCount -1  do
   begin
     result := Max(result, Abs(ASamples^));
@@ -275,6 +265,14 @@ begin
       if Sum > result then result := Sum;
     end;
   end;
+end;
+
+function CrestFactor(const APeak, ARms2: TDouble): TDouble;
+begin
+  if ARms2 > 1e-10 then
+    result := APeak / Sqrt(ARms2)
+  else
+    result := NegInfinity;
 end;
 
 end.
