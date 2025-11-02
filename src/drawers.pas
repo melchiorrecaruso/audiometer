@@ -166,7 +166,7 @@ begin
     FScreens[i] := TBitmap.create;
   end;
   FreeOnTerminate := True;
-  inherited create(true);
+  inherited Create(True);
 end;
 
 destructor TScreenDrawer.Destroy;
@@ -250,7 +250,7 @@ constructor TCustomDrawer.Create(ATrack: TTrack; AScreen: TBitmap);
 begin
   FTrack   := ATrack;
   FScreen  := AScreen;
-  FreeOnTerminate := True;
+  FreeOnTerminate := False;
   inherited Create(False);
 end;
 
