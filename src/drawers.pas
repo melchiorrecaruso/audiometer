@@ -303,7 +303,7 @@ begin
   result.YCount := 4;
 
   result.XAxisLabelLen := 0;
-  result.YAxisLabelLen := 75;
+  result.YAxisLabelLen := result.GetXAxisLabelSize('Amplitude [dB]').Width;
 end;
 
 // TBlockDrawer
