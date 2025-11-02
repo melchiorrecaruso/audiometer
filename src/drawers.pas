@@ -210,9 +210,9 @@ begin
     while BlockDrawer.Working do Sleep(10);
     BlockDrawer.Destroy;
 
-  //SpectrumDrawer := TSpectrumDrawer.Create(FTrack, FScreens[1]);
-  //while SpectrumDrawer.Working do Sleep(10);
-  //SpectrumDrawer.Destroy;
+    SpectrumDrawer := TSpectrumDrawer.Create(FTrack, FScreens[1]);
+    while SpectrumDrawer.Working do Sleep(10);
+    SpectrumDrawer.Destroy;
 
     SpectrogramDrawer := TSpectrogramDrawer.Create(FTrack, FScreens[2]);
     while SpectrogramDrawer.Working do Sleep(10);
@@ -426,14 +426,14 @@ end;
 procedure TSpectrumDrawer.Draw;
 var
   Chart: TChart;
-  i, j, k: longint;
-  WindowSize: longint;
+  ch, i, j: longint;
   WindowCount: longint;
+  OutBins: longint;
   Points: array of TPointF = nil;
   index: longint;
-  x, y: single;
+  FreqIndex, Amp: single;
   Factor: single;
-  OffSet: TDouble;
+  MaxDB: TDouble;
 begin
   // create and configure the chart
   Chart := TChart.Create;
@@ -456,41 +456,41 @@ begin
   Chart.TextureColor := clYellow;
   Chart.PenColor := clYellow;
 
-  // initialize frequency bin array (half of fft size)
-  WindowSize  := DEFAULTWINDOWSIZE div 2;
   WindowCount := FTrack.Spectrums.WindowCount;
-  Factor      := 0.5 * ftrack.Samplerate / (WindowSize -1);
+  OutBins     := FTrack.Spectrums.OutBins;
+  Factor      := (0.5 * FTrack.Samplerate) / (OutBins - 1);
+  MaxDB       := 6 * FTrack.BitsPerSample;
 
-  OffSet := 6 * FTrack.BitsPerSample;
-
-  setlength(Points, 4);
-  for i := 1 to WindowSize -1 do
+  SetLength(Points, 4);
+  for i := 1 to OutBins - 1 do
   begin
-    x := i * Factor;
-    y := 0;
+    FreqIndex := i * Factor;
 
-    for j := 0 to WindowCount -1 do
+    Amp := 0;
+    for j := 0 to WindowCount - 1 do
     begin
-      index := j * WindowSize + i;
-      for k := 0 to ftrack.Channelcount -1 do
+      Index := j * OutBins + i;
+      for ch := 0 to FTrack.ChannelCount - 1 do
       begin
-        y := max(y, OffSet + Decibel(FTrack.Spectrums.Channels[k, index]));
+        Amp := Max(Amp, FTrack.Spectrums.Channels[ch, Index]);
       end;
     end;
 
-    Points[0].x := x -0.25 * Factor;
-    Points[0].y := 0;
-    Points[1].x := x -0.25 * Factor;
-    Points[1].y := y;
-    Points[2].x := x +0.25 * Factor;
-    Points[2].y := y;
-    Points[3].x := x +0.25 * Factor;
-    Points[3].y := 0;
-    Chart.addpolygon(Points, '');
+    Amp := (Decibel(Amp) + MaxDB);
+    if Amp < 0 then Amp := 0;
+
+    Points[0].X := FreqIndex -0.25 * Factor;
+    Points[0].Y := 0;
+    Points[1].X := FreqIndex -0.25 * Factor;
+    Points[1].Y := Amp;
+    Points[2].X := FreqIndex +0.25 * Factor;
+    Points[2].Y := Amp;
+    Points[3].X := FreqIndex +0.25 * Factor;
+    Points[3].Y := 0;
+    Chart.AddPolygon(Points, '');
   end;
-  setlength(Points, 0);
-  // Draw Chart on screen
-  Chart.Draw(FScreen.canvas, FScreen.Width, FScreen.Height, True);
+  // draw chart on screen
+  Chart.Draw(FScreen.Canvas, FScreen.Width, FScreen.Height, True);
   Chart.Destroy;
 end;
 
@@ -542,7 +542,7 @@ var
   WindowCount: longint;
   OutBins: LongInt;
   Bit: TBitmap;
-  maxDB, XFactor, YFactor: TDouble;
+  MaxDB, XFactor, YFactor: TDouble;
 begin
   // create chart
   Chart := TChart.Create;
@@ -578,7 +578,7 @@ begin
   XFactor := (OutBins      - 1) / (Bit.Width  - 1);
   YFactor := (WindowCount  - 1) / (Bit.Height - 1);
 
-  maxDB := 6 * FTrack.BitsPerSample;
+  MaxDB := 6 * FTrack.BitsPerSample;
 
   // loop over output bitmap pixels
   for Y := 0 to Bit.Height -1 do
@@ -596,7 +596,7 @@ begin
         Amp := Max(Amp, FTrack.Spectrums.Channels[ch, TimeIndex * OutBins + FreqIndex]);
       end;
       // map amplitude to color and set pixel
-      Bit.Canvas.Pixels[X, Bit.Height - 1 - Y] := GetColor((Decibel(Amp) + maxDB) / maxDB);
+      Bit.Canvas.Pixels[X, Bit.Height - 1 - Y] := GetColor((Decibel(Amp) + MaxDB) / MaxDB);
     end;
   end;
   FScreen.Canvas.Draw(
