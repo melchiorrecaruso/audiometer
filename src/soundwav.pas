@@ -110,9 +110,9 @@ type
     property Filename: string read FFilename;
     property Album: string read FAlbum;
     property Number: longint read FNumber;
-    property Samplecount: longint read FSampleCount;
-    property Samplerate: longword read FSampleRate;
-    property Channelcount: longint read FChannelCount;
+    property SampleCount: longint read FSampleCount;
+    property SampleRate: longword read FSampleRate;
+    property ChannelCount: longint read FChannelCount;
     property Channels: TDoubleMatrix read FChannels;
     property BitsPerSample: longint read FBitsPerSample;
     property Byterate: longint read FByterate;
