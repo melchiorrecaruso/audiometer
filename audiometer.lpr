@@ -34,7 +34,7 @@ begin
   Application.Title:='AudioMeter';
   Application.Scaled:=True;
   application.initialize;
-  application.createform(TAudioFrm, audiofrm);
+  application.createform(TAudioFrm, AudioFrm);
   application.run;
 end.
 
