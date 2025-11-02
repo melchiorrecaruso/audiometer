@@ -1,7 +1,7 @@
 object audiofrm: Taudiofrm
-  Left = 280
+  Left = 462
   Height = 642
-  Top = 52
+  Top = 298
   Width = 891
   Caption = 'AudioMeter 0.5.0 - Dynamic Range Meter'
   ClientHeight = 642
@@ -14,7 +14,7 @@ object audiofrm: Taudiofrm
   Font.Style = [fsBold]
   ParentDoubleBuffered = False
   Position = poDesktopCenter
-  LCLVersion = '4.0.0.4'
+  LCLVersion = '4.99.0.0'
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
@@ -590,7 +590,7 @@ object audiofrm: Taudiofrm
       Align = alClient
       Alignment = taLeftJustify
       Anchors = []
-      Color = clYellow
+      Color = clBlack
       ParentColor = False
       TabOrder = 0
     end

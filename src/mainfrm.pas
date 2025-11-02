@@ -106,7 +106,7 @@ type
 
     procedure FormCreate(sender: tobject);
     procedure formclosequery(sender: tobject; var canclose: boolean);
-    procedure formresize(sender: tobject);
+    procedure FormResize(sender: tobject);
     procedure FormDestroy(sender: tobject);
     // file button
     procedure BtnFileClick(sender: tobject);
@@ -164,7 +164,7 @@ type
   end;
 
 var
-  audiofrm: TAudioFrm;
+  AudioFrm: TAudioFrm;
 
 implementation
 
@@ -226,7 +226,7 @@ begin
               (ScreenDrawer  = nil);
 end;
 
-procedure TAudioFrm.formresize(sender: tobject);
+procedure TAudioFrm.FormResize(sender: tobject);
 begin
   while (audio.left + audio.width) > (BtnFolder.left + BtnFolder.width) do
   begin
@@ -236,11 +236,11 @@ begin
   IsNeededUpdateScreens := true;
   if audioanalyzer <> nil then exit;
   if ScreenDrawer  <> nil then exit;
-  ScreenDrawer := TScreenDrawer.create(Track);
+  ScreenDrawer := TScreenDrawer.Create(Track);
   ScreenDrawer.OnStart := @OnStartDrawer;
   ScreenDrawer.OnStop  := @OnStopDrawer;
   ScreenDrawer.OnWait  := @OnWaitDrawer;
-  ScreenDrawer.start;
+  ScreenDrawer.Start;
 end;
 
 // track analyzer events
@@ -355,7 +355,7 @@ begin
     ScreenDrawer.OnStart := @OnStartDrawer;
     ScreenDrawer.OnStop  := @OnStopDrawer;
     ScreenDrawer.OnWait  := @OnWaitDrawer;
-    ScreenDrawer.start;
+    ScreenDrawer.Start;
   end else
     if Assigned(Track) then
     begin
@@ -379,7 +379,7 @@ begin
     ScreenDrawer.OnStart := @OnStartDrawer;
     ScreenDrawer.OnStop  := @OnStopDrawer;
     ScreenDrawer.OnWait  := @OnWaitDrawer;
-    ScreenDrawer.start;
+    ScreenDrawer.Start;
   end else
   begin
     VirtualScreens[0].SetSize(ScreenDrawer.Screens[0].Width, ScreenDrawer.Screens[0].Height);
