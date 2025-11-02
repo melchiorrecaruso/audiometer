@@ -255,7 +255,7 @@ begin
   FFFTOn := affton;
   FTrack := atrack;
   FStream := astream;
-  FreeOnTerminate := False;
+  FreeOnTerminate := True;
 
   inherited Create(True);
 end;
@@ -267,7 +267,7 @@ end;
 
 procedure TTrackAnalyzer.Execute;
 var
-  ch, i, j: longint;
+  i: longint;
 begin
   FPercentage := 0;
   if Assigned(FOnStart) then
