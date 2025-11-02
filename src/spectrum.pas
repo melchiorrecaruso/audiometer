@@ -103,9 +103,9 @@ procedure TSpectrums.Process(const AChannels: TDoubleMatrix; ASampleCount, ASamp
 var
   ch, i: longint;
 begin
-  FWindowCount := (ASampleCount - FWindowSize) div FHopSize + 1;
+  FWindowCount := (ASampleCount - FWindowSize) div (FWindowSize - FHopSize);
 
-  if FwindowCount > 0 then
+  if FWindowCount > 0 then
   begin
     FOutBins := FWindowSize div 2 + 1;
 
