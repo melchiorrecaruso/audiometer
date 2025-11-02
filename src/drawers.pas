@@ -26,7 +26,7 @@ unit Drawers;
 interface
 
 uses
-  BaseGraphics, Classes, Common, FPImage, Graphics, SoundWav, Spectrum, SysUtils, Types;
+  BaseGraphics, BGRABitmapTypes, Classes, Common, FPImage, Graphics, SoundWav, Spectrum, SysUtils, Types;
 
 type
   TVirtualScreens = array[0..3] of TBitmap;
@@ -431,7 +431,7 @@ var
   OutBins: longint;
   Points: array of TPointF = nil;
   index: longint;
-  FreqIndex, Amp: single;
+  FreqIndex, Amp, Peak: TDouble;
   Factor: single;
   MaxDB: TDouble;
 begin
@@ -440,8 +440,6 @@ begin
   Chart.Title      := 'Frequency spectrum';
   Chart.XAxisLabel := 'Freq [Hz]';
   Chart.YAxisLabel := 'Amplitude [dB]';
-  Chart.PenColor     := clLime;
-  Chart.TextureColor := clLime;
 
   WindowCount := FTrack.Spectrums.WindowCount;
   OutBins     := FTrack.Spectrums.OutBins;
@@ -453,19 +451,27 @@ begin
   begin
     FreqIndex := i * Factor;
 
-    Amp := 0;
+    Amp  := 0;
+    Peak := 0;
     for j := 0 to WindowCount - 1 do
     begin
       Index := j * OutBins + i;
       for ch := 0 to FTrack.ChannelCount - 1 do
       begin
-        Amp := Max(Amp, FTrack.Spectrums.Channels[ch, Index]);
+        Amp  := Amp + Sqr(FTrack.Spectrums.Channels[ch, Index]);
+        Peak := Max(Peak, FTrack.Spectrums.Channels[ch, Index]);
       end;
     end;
+    Amp := Sqrt(Amp / (WindowCount * FTrack.ChannelCount));
 
     Amp := (Decibel(Amp) + MaxDB);
     if Amp < 0 then Amp := 0;
 
+    Peak := (Decibel(Peak) + MaxDB);
+    if Peak < 0 then Peak := 0;
+
+    Chart.PenColor     := BGRA(0, 220, 0, 255);
+    Chart.TextureColor := BGRA(0, 220, 0, 255);
     Points[0].X := FreqIndex -0.25 * Factor;
     Points[0].Y := 0;
     Points[1].X := FreqIndex -0.25 * Factor;
@@ -474,6 +480,18 @@ begin
     Points[2].Y := Amp;
     Points[3].X := FreqIndex +0.25 * Factor;
     Points[3].Y := 0;
+    Chart.AddPolygon(Points, '');
+
+    Chart.PenColor     := clYellow;
+    Chart.TextureColor := clYellow;
+    Points[0].X := FreqIndex -0.25 * Factor;
+    Points[0].Y := Peak - 1;
+    Points[1].X := FreqIndex -0.25 * Factor;
+    Points[1].Y := Peak;
+    Points[2].X := FreqIndex +0.25 * Factor;
+    Points[2].Y := Peak;
+    Points[3].X := FreqIndex +0.25 * Factor;
+    Points[3].Y := Peak - 1;
     Chart.AddPolygon(Points, '');
   end;
   // draw chart on screen
