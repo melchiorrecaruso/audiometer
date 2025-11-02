@@ -294,7 +294,7 @@ begin
   result.TextureWidth  := 1;
   result.TextureBackgroundColor := clBlack;
 
-  result.PenColor := clWhite;
+  result.PenColor := clBlack;
 
   result.XMinF  := 0;
   result.YMinF  := 0;
