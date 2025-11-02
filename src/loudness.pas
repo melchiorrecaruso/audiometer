@@ -106,9 +106,9 @@ type
 
     procedure Process(const AChannels: TDoubleMatrix; ASampleCount, ASampleRate: longint);
 
-    function Rms(AChannel: longint): double;      // dB
-    function Rms: double;                         // dB
-    function Peak(AChannel: longint): double;     // dB
+    function Rms(AChannel: longint): double;
+    function Rms: double;
+    function Peak(AChannel: longint): double;
     function Peak: double;
     function TruePeak(AChannel: longint): double;
     function TruePeak: double;
@@ -230,10 +230,10 @@ end;
 
 // TKWeightingFilter
 
-procedure TKWeightingFilter.Init(ASamplerate: longint);
+procedure TKWeightingFilter.Init(ASampleRate: longint);
 begin
-  FShelvingFilter.Init(ASamplerate);
-  FHighpassFilter.Init(ASamplerate);
+  FShelvingFilter.Init(ASampleRate);
+  FHighpassFilter.Init(ASampleRate);
 end;
 
 function TKWeightingFilter.Process(const ASample: TDouble): TDouble;
@@ -253,7 +253,7 @@ procedure InitFIRFilter(var ACoeffs: TFIRTable; APhases, ATaps: longint);
 var
   fc, x: double;
   i, Phase, Tap: longint;
-  Coeff, Sum: double;
+  Coeff, Sum: TDouble;
 begin
   SetLength(ACoeffs, APhases);
   for i := Low(ACoeffs) to High(ACoeffs) do
@@ -284,26 +284,18 @@ begin
 end;
 
 procedure FinalizeFIRFilter(var ACoeffs: TFIRTable);
-var
-  i: longint;
 begin
-  for i := Low(ACoeffs) to High(ACoeffs) do
-    SetLength(ACoeffs[i], 0);
-  SetLength(ACoeffs, 0);
+  SetLength(ACoeffs, 0, 0);
 end;
 
 // TChannelMetrics
 
 procedure TChannelMetrics.Process(const ASamples: TDoubleVector; ASampleCount, ASampleRate: longint);
 begin
-  FRms2         := Common.Rms2        (@ASamples[0], ASamplecount);
-  FPeak         := Common.Peak        (@ASamples[0], ASamplecount);
-  FTruePeak     := Common.TruePeak    (@ASamples[0], ASamplecount, ASamplerate);
-
-  if FRms2 > 1e-10 then
-    FCrestFactor := FPeak / Sqrt(FRms2)
-  else
-    FCrestFactor := NegInfinity;
+  FRms2        := Common.Rms2(@ASamples[0], ASamplecount);
+  FPeak        := Common.Peak(@ASamples[0], ASamplecount);
+  FTruePeak    := Common.TruePeak(@ASamples[0], ASamplecount, ASamplerate);
+  FCrestFactor := Common.CrestFactor(FPeak, FRms2);
 end;
 
 // TLoudnessMeter
@@ -314,19 +306,14 @@ begin
 end;
 
 procedure TLoudnessMeter.Finalize;
-var
-  ch: longint;
 begin
   FSampleRate  := 0;
   FSamplecount := 0;
   FBlockSize   := 0;
-  for ch := Low(FBlocks) to High(FBlocks) do
-  begin
-    FBlocks[ch] := nil;
-  end;
-  FBlocks  := nil;
-  FWeights := nil;
 
+  SetLength(FBlocks, 0, 0);
+
+  FWeights            := nil;
   FMomentaryEnergies  := nil;
   FShortTermEnergies  := nil;
   FIntegratedLoudness := NegInfinity;
@@ -370,20 +357,31 @@ procedure TLoudnessMeter.UpdateBlocks(const AChannels: TDoubleMatrix);
 const
   BlockMs = 100;
 var
-  ch, i, OffSet: longint;
+  ch, i, OffSet, TailSize: longint;
 begin
   FBlockSize  := (FSampleRate * BlockMs) div 1000;
-  FBlockCount := Max(0, (FSampleCount - FBlockSize) div FBlockSize + 1);
+  FBlockCount := FSampleCount div FBlockSize;
+  TailSize    := FSampleCount mod FBlockSize;
 
-  SetLength(FBlocks, Length(AChannels), FBlockCount);
-  for ch := Low(AChannels) to High(AChannels) do
+  FBlocks := nil;
+  if (FBlockCount + TailSize) > 0 then
   begin
-    OffSet := 0;
+    SetLength(FBlocks, Length(AChannels), FBlockCount + Ord(TailSize > 0));
 
-    for i := 0 to FBlockCount - 1 do
+    for ch := Low(AChannels) to High(AChannels) do
     begin
-      FBlocks[ch][i] := Common.Rms2(@AChannels[ch][OffSet], FBlockSize);
-      Inc(OffSet, FBlockSize);
+      OffSet := 0;
+      for i := 0 to FBlockCount -1 do
+      begin
+        FBlocks[ch][i] := Common.Rms2(@AChannels[ch][OffSet], FBlockSize);
+        Inc(OffSet, FBlockSize);
+      end;
+
+      if TailSize > 0 then
+      begin
+        FBlocks[ch][FBlockCount] := Common.Rms2(@AChannels[ch][OffSet], TailSize);
+        Inc(OffSet, TailSize);
+      end;
     end;
   end;
 end;
