@@ -248,8 +248,9 @@ end;
 
 constructor TCustomDrawer.Create(ATrack: TTrack; AScreen: TBitmap);
 begin
-  FTrack  := ATrack;
-  FScreen := AScreen;
+  FTrack   := ATrack;
+  FScreen  := AScreen;
+  FWorking := True;
   FreeOnTerminate := False;
   inherited Create(False);
 end;
@@ -324,7 +325,7 @@ begin
   Points[1].x := 30;
   Points[1].y := 96;
   Chart.AddPolygon(Points, '');
-  // draw Chart on screen
+  // draw chart on screen
   Chart.Draw(FScreen.Canvas, FScreen.Width, FScreen.Height, True);
   Chart.Destroy;
 end;
