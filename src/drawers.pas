@@ -248,8 +248,8 @@ end;
 
 constructor TCustomDrawer.Create(ATrack: TTrack; AScreen: TBitmap);
 begin
-  FTrack   := ATrack;
-  FScreen  := AScreen;
+  FTrack  := ATrack;
+  FScreen := AScreen;
   FreeOnTerminate := False;
   inherited Create(False);
 end;
@@ -294,7 +294,7 @@ begin
   result.TextureWidth  := 1;
   result.TextureBackgroundColor := clBlack;
 
-  result.PenColor := clBlack;
+  result.PenColor := clWhite;
 
   result.XMinF  := 0;
   result.YMinF  := 0;
@@ -325,7 +325,7 @@ begin
   Points[1].y := 96;
   Chart.AddPolygon(Points, '');
   // draw Chart on screen
-  Chart.draw(FScreen.Canvas, FScreen.Width, FScreen.Height, True);
+  Chart.Draw(FScreen.Canvas, FScreen.Width, FScreen.Height, True);
   Chart.Destroy;
 end;
 
@@ -678,7 +678,7 @@ begin
   // composite each channel's bitmap into the final output
   for ch := Low(Bit) to High(Bit) do
   begin
-    FScreen.Canvas.draw(0, trunc(ch * (FScreen.Height / FTrack.ChannelCount)), Bit[ch]);
+    FScreen.Canvas.Draw(0, Trunc(ch * (FScreen.Height / FTrack.ChannelCount)), Bit[ch]);
     Bit[ch].Destroy;
   end;
 end;

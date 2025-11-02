@@ -107,6 +107,7 @@
         <ComponentName Value="audiofrm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
+        <UnitName Value="MainFrm"/>
       </Unit>
       <Unit>
         <Filename Value="src/soundwav.pas"/>
