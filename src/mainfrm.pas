@@ -37,26 +37,23 @@ type
   taudiofrm = class(tform)
     Bevel4: TBevel;
     Bevel5: TBevel;
-    IntegratedLoudnessLeftValue: TLabel;
+    IntegratedLoudnessValue: TLabel;
     CRESTRightValue: TLabel;
-    IntegratedLoudnessRightValue: TLabel;
-    ILabel: TLabel;
+    IntegratedLoudnessLabel: TLabel;
     PCM: TLabel;
     Label14: TLabel;
-    LRALabel: TLabel;
+    LoudnessRangeLabel: TLabel;
     LUFSPanel: TPanel;
-    MLabel: TLabel;
+    MomentaryLoudnessLabel: TLabel;
     Panel4: TPanel;
     Panel5: TPanel;
     Panel6: TPanel;
     Panel7: TPanel;
-    LoudnessRangeLeftValue: TLabel;
+    LoudnessRangeValue: TLabel;
     PLRRightValue: TLabel;
-    LoudnessRangeRightValue: TLabel;
-    RMSLeftValue1: TLabel;
+    ShortTermLoudnessValue: TLabel;
     RMSRightValue: TLabel;
-    RMSRightValue1: TLabel;
-    SLabel: TLabel;
+    ShortTerpLoudnessLabel: TLabel;
     TPLLabel: TLabel;
     PLRLeftValue: TLabel;
     Label13: TLabel;
@@ -66,9 +63,8 @@ type
     PLRLabel: TLabel;
     RMSLeftValue: TLabel;
     CRESTLeftValue: TLabel;
-    TPLLeftValue1: TLabel;
+    MomentaryLoudnessValue: TLabel;
     TPLRightValue: TLabel;
-    TPLRightValue1: TLabel;
     TPMPanel: TPanel;
     Panel2: TPanel;
     Panel3: TPanel;
@@ -350,8 +346,8 @@ begin
     if track.Channelcount > 1 then crestrightvalue.caption := format('%0.2f', [track.loudness.CrestFactor(1)]);
     if track.Channelcount > 0 then plrleftvalue   .caption := format('%0.2f', [track.loudness.PeakToLoudnessRatio]);
 
-    if track.Channelcount > 0 then IntegratedLoudnessLeftValue .caption := format('%0.2f', [track.loudness.IntegratedLoudness]);
-    if track.Channelcount > 0 then LoudnessRangeLeftValue      .caption := format('%0.2f', [track.loudness.LoudnessRange]);
+    if track.Channelcount > 0 then IntegratedLoudnessValue .caption := format('%0.2f', [track.loudness.IntegratedLoudness]);
+    if track.Channelcount > 0 then LoudnessRangeValue      .caption := format('%0.2f', [track.loudness.LoudnessRange]);
 
 
     drvalue.caption    := '--';
@@ -418,10 +414,10 @@ begin
     ScreenDrawer.start;
   end else
   begin
-    virtualscreens[0].setsize(ScreenDrawer.ScreenWidth, ScreenDrawer.screenheight);
-    virtualscreens[1].setsize(ScreenDrawer.ScreenWidth, ScreenDrawer.screenheight);
-    virtualscreens[2].setsize(ScreenDrawer.ScreenWidth, ScreenDrawer.ScreenHeight);
-    virtualscreens[3].setsize(ScreenDrawer.ScreenWidth, ScreenDrawer.ScreenHeight);
+    virtualscreens[0].SetSize(ScreenDrawer.ScreenWidth, ScreenDrawer.ScreenHeight);
+    virtualscreens[1].SetSize(ScreenDrawer.ScreenWidth, ScreenDrawer.ScreenHeight);
+    virtualscreens[2].SetSize(ScreenDrawer.ScreenWidth, ScreenDrawer.ScreenHeight);
+    virtualscreens[3].SetSize(ScreenDrawer.ScreenWidth, ScreenDrawer.ScreenHeight);
 
     if (ScreenDrawer.ScreenWidth  > 0) and
        (ScreenDrawer.ScreenHeight > 0) then
@@ -444,8 +440,8 @@ procedure taudiofrm.onwaitdrawer;
 begin
   if not isneededupdatescreens then
   begin
-    ScreenDrawer.ScreenWidth  := ScreenPanel.width;
-    ScreenDrawer.ScreenHeight := ScreenPanel.height;
+    ScreenDrawer.ScreenWidth  := ScreenPanel.Width;
+    ScreenDrawer.ScreenHeight := ScreenPanel.Height;
   end;
   isneededupdatescreens := false;
 end;
