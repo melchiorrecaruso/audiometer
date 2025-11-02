@@ -250,7 +250,7 @@ end;
 
 // TTrackAnalyzer
 
-constructor TTrackAnalyzer.Create(atrack: TTrack; astream: tstream; aFFTOn: boolean);
+constructor TTrackAnalyzer.Create(ATrack: TTrack; AStream: TStream; AFFTOn: boolean);
 begin
   FFFTOn := affton;
   FTrack := atrack;
@@ -270,8 +270,8 @@ var
   ch, i, j: longint;
 begin
   FPercentage := 0;
-  if assigned(FOnStart) then
-    synchronize(FOnStart);
+  if Assigned(FOnStart) then
+    Synchronize(FOnStart);
 
   ReadStream(FStream);
   if FStatus = 0 then
@@ -298,30 +298,20 @@ begin
 
       {$ifopt D+}
       writeln;
-      writeln('track.DR:         ', FTrack.drmeter.DR       :2:2);
-      writeln('track.Rms         ', FTrack.loudness.Rms                :2:2);
-      writeln('track.Peak        ', FTrack.loudness.Peak               :2:2);
-      writeln('track.TruePeak    ', FTrack.loudness.TruePeak           :2:2);
-      writeln('track.Lk          ', FTrack.loudness.IntegratedLoudness :2:2);
-      writeln('track.LRA         ', FTrack.loudness.LoudnessRange      :2:2);
-      writeln('track.PLR         ', FTrack.loudness.PeakToLoudnessRatio:2:2);
-      writeln;
-
-      for ch := 0 to FTrack.Channelcount -1 do
-        writeln('track.Peak', ch, '       ', FTrack.loudness.Peak(ch):2:2);
-      for ch := 0 to FTrack.Channelcount -1 do
-        writeln('track.TruePeak', ch, '   ', FTrack.loudness.TruePeak(ch):2:2);
-
-      for i := 0 to FTrack.Duration * 10 + 1 do
-        writeln('track.S@',i * 100, 'ms       ', FTrack.loudness.ShortTermLoudness(i*100):2:2);
-
+      writeln('Track.DR:         ', FTrack.DRMeter.DR       :2:2);
+      writeln('Track.Rms         ', FTrack.Loudness.Rms                :2:2);
+      writeln('Track.Peak        ', FTrack.Loudness.Peak               :2:2);
+      writeln('Track.TruePeak    ', FTrack.Loudness.TruePeak           :2:2);
+      writeln('Track.Lk          ', FTrack.Loudness.IntegratedLoudness :2:2);
+      writeln('Track.LRA         ', FTrack.Loudness.LoudnessRange      :2:2);
+      writeln('Track.PLR         ', FTrack.Loudness.PeakToLoudnessRatio:2:2);
       writeln;
       {$endif}
     end;
 
   FPercentage := 100;
-  if assigned(FOnStop) then
-    synchronize(FOnStop);
+  if Assigned(FOnStop) then
+    Synchronize(FOnStop);
 end;
 
 procedure TTrackAnalyzer.ReadStream(AStream: TStream);
@@ -605,13 +595,13 @@ begin
     begin
       track := GetTrack(i);
       s.add(format('DR%2.0f %7.2f dB %7.2f dB %4.0d %4.0d %7.0d %-s     %s',
-        [(track.drmeter.DR), decibel(track.loudness.Peak),
-        decibel(track.loudness.Rms), track.Bitspersample,
+        [(track.DRMeter.DR), decibel(track.Loudness.Peak),
+        decibel(track.Loudness.Rms), track.Bitspersample,
         track.Channelcount, track.Samplerate,
         format('%3.2d:%2.2d', [track.FDuration div (60), track.FDuration mod (60)]),
         extractfilename(track.FFilename)]));
 
-      dr := dr + track.drmeter.DR;
+      dr := dr + track.DRMeter.DR;
     end;
     dr := dr / Count;
 

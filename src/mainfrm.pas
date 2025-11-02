@@ -1,5 +1,5 @@
 {
-  Description: Main form.
+  Description: Main Form.
 
   Copyright (C) 2020-2025 Melchiorre Caruso <melchiorrecaruso@gmail.com>
 
@@ -19,7 +19,7 @@
   MA 02111-1307, USA.
 }
 
-unit mainfrm;
+unit MainFrm;
 
 {$mode objfpc}{$H+}
 
@@ -70,7 +70,7 @@ type
     Panel3: TPanel;
     ScreenPanel: TPanel;
 
-    btnplay: TImage;
+    BtnPlay: TImage;
     playsound: Tplaysound;
     VirtualScreen: TBGRAVirtualScreen;
     bevel1: tbevel;
@@ -79,8 +79,8 @@ type
     bit16: tlabel;
     bit24: tlabel;
     bit8: tlabel;
-    btnfile: timage;
-    btnfolder: timage;
+    BtnFile: timage;
+    BtnFolder: timage;
     buttons: timagelist;
     drlb: tstatictext;
     drvalue: tstatictext;
@@ -104,18 +104,18 @@ type
     dirdialog: tselectdirectorydialog;
     filedialog: topendialog;
 
-    procedure formcreate(sender: tobject);
+    procedure FormCreate(sender: tobject);
     procedure formclosequery(sender: tobject; var canclose: boolean);
     procedure formresize(sender: tobject);
-    procedure formdestroy(sender: tobject);
+    procedure FormDestroy(sender: tobject);
     // file button
-    procedure btnfileclick(sender: tobject);
+    procedure BtnFileClick(sender: tobject);
     procedure btnfilemousedown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
     procedure btnfilemouseleave(sender: tobject);
     procedure btnfilemousemove(sender: tobject; shift: tshiftstate; x, y: integer);
     procedure btnfilemouseup(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
     // folder button
-    procedure btnfolderclick(sender: tobject);
+    procedure BtnFolderClick(sender: tobject);
     procedure btnfoldermousedown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
     procedure btnfoldermouseleave(sender: tobject);
     procedure btnfoldermousemove(sender: tobject; shift: tshiftstate; x, y: integer);
@@ -146,24 +146,20 @@ type
 
 
 
-    procedure virtualscreenredraw(Sender: TObject; Bitmap: TBGRABitmap);
+    procedure VirtualScreenRedraw(Sender: TObject; Bitmap: TBGRABitmap);
 
   private
-    virtualscreens: TVirtualScreens;
-    buffer:      treadbufstream;
-    stream:      tfilestream;
-    trackindex:  longword;
-
-    track:       TTrack;
-
-    tracklist:   TTrackList;
-    trackfile:   string;
-    tempfile:    string;
-
-
+    VirtualScreens: TVirtualScreens;
+    Buffer: TReadBufStream;
+    Stream: TFileStream;
+    Track: TTrack;
+    TrackIndex: longint;
+    TrackList: TTrackList;
+    TrackFile: string;
+    TempFile:  string;
 
     IsNeededUpdateScreens: boolean;
-    isneededkillanalyzer:  boolean;
+    IsNeededKillAnalyzer:  boolean;
   public
   end;
 
@@ -186,54 +182,53 @@ end;
 
 { TAudioFrm }
 
-procedure TAudioFrm.formcreate(sender: tobject);
+procedure TAudioFrm.FormCreate(Sender: TObject);
 begin
-  VirtualScreen.align := alclient;
-  virtualscreens[0] := tbitmap.create;
-  virtualscreens[1] := tbitmap.create;
-  virtualscreens[2] := tbitmap.create;
-  virtualscreens[3] := tbitmap.create;
-  IsNeededUpdateScreens := false;
-  isneededkillanalyzer  := false;
+  VirtualScreens[0] := TBitmap.create;
+  VirtualScreens[1] := TBitmap.create;
+  VirtualScreens[2] := TBitmap.create;
+  VirtualScreens[3] := TBitmap.create;
+  IsNeededUpdateScreens := False;
+  IsNeededKillAnalyzer  := False;
   // ---
-  track := nil;
-  trackindex := 0;
-  tracklist  := TTrackList.create;
+  Track := nil;
+  TrackIndex := 0;
+  TrackList  := TTrackList.create;
   // load openfile button icon
-  loadbuttonicon(btnfile, 1, 0, 0);
-  btnfile.onmousemove := @btnfilemousemove;
+  loadbuttonicon(BtnFile, 1, 0, 0);
+  BtnFile.onmousemove := @btnfilemousemove;
   // load openfolder button icon
-  loadbuttonicon(btnfolder, 3, 0, 5);
-  btnfile.onmousemove := @btnfilemousemove;
+  loadbuttonicon(BtnFolder, 3, 0, 5);
+  BtnFile.onmousemove := @btnfilemousemove;
   // initialize progress bar
   progresspanel.visible := false;
   progressbar.value := 0;
   // inizialize main form
   color := clblack;
   // initialize
-  clear;
+  Clear;
 end;
 
-procedure TAudioFrm.formdestroy(sender: tobject);
+procedure TAudioFrm.FormDestroy(Sender: TObject);
 begin
-  freeandnil(virtualscreens[0]);
-  freeandnil(virtualscreens[1]);
-  freeandnil(virtualscreens[2]);
-  freeandnil(virtualscreens[3]);
-  tracklist.destroy;
-  track := nil;
+  FreeAndNil(VirtualScreens[0]);
+  FreeAndNil(VirtualScreens[1]);
+  FreeAndNil(VirtualScreens[2]);
+  FreeAndNil(VirtualScreens[3]);
+  TrackList.destroy;
+  Track := nil;
 end;
 
 procedure TAudioFrm.formclosequery(sender: tobject; var canclose: boolean);
 begin
-  isneededkillanalyzer := true;
+  IsNeededKillAnalyzer := true;
   canclose := (audioanalyzer = nil) and
               (ScreenDrawer  = nil);
 end;
 
 procedure TAudioFrm.formresize(sender: tobject);
 begin
-  while (audio.left + audio.width) > (btnfolder.left + btnfolder.width) do
+  while (audio.left + audio.width) > (BtnFolder.left + BtnFolder.width) do
   begin
     audio.caption := cutoff(audio.caption);
   end;
@@ -253,11 +248,11 @@ end;
 procedure TAudioFrm.OnStartAnalyzer;
 begin
   clear;
-  if assigned(track) then
+  if assigned(Track) then
   begin
     audio.font.color := clwhite;
-    audio.caption    := extractfilename(track.Filename);
-    while (audio.left + audio.width) > (btnfolder.left + btnfolder.width) do
+    audio.caption    := extractfilename(Track.Filename);
+    while (audio.left + audio.width) > (BtnFolder.left + BtnFolder.width) do
     begin
       audio.caption := cutoff(audio.caption);
     end;
@@ -273,12 +268,12 @@ end;
 
 procedure TAudioFrm.OnStopAnalyzer;
 begin
-  freeandnil(buffer);
-  freeandnil(stream);
+  freeandnil(Buffer);
+  freeandnil(Stream);
 
   if audioanalyzer.Status <> 0 then
   begin
-    trackindex := tracklist.count;
+    TrackIndex := TrackList.count;
     audio.font.color := clred;
     case audioanalyzer.Status of
       -1: audio.caption := 'file format error!';
@@ -290,45 +285,45 @@ begin
   end else
   begin
     pcm   .font.color  := clwhite;
-    bit8  .font.color  := clgray; if track.Bitspersample = 8      then bit8  .font.color := clwhite;
-    bit16 .font.color  := clgray; if track.Bitspersample = 16     then bit16 .font.color := clwhite;
-    bit24 .font.color  := clgray; if track.Bitspersample = 24     then bit24 .font.color := clwhite;
+    bit8  .font.color  := clgray; if Track.Bitspersample = 8      then bit8  .font.color := clwhite;
+    bit16 .font.color  := clgray; if Track.Bitspersample = 16     then bit16 .font.color := clwhite;
+    bit24 .font.color  := clgray; if Track.Bitspersample = 24     then bit24 .font.color := clwhite;
 
-    khz44 .font.color  := clgray; if track.Samplerate    = 44100  then khz44 .font.color := clwhite;
-    khz48 .font.color  := clgray; if track.Samplerate    = 48000  then khz48 .font.color := clwhite;
-    khz88 .font.color  := clgray; if track.Samplerate    = 88000  then khz88 .font.color := clwhite;
-    khz96 .font.color  := clgray; if track.Samplerate    = 96000  then khz96 .font.color := clwhite;
-    khz176.font.color  := clgray; if track.Samplerate    = 176400 then khz176.font.color := clwhite;
-    khz192.font.color  := clgray; if track.Samplerate    = 192000 then khz192.font.color := clwhite;
+    khz44 .font.color  := clgray; if Track.Samplerate    = 44100  then khz44 .font.color := clwhite;
+    khz48 .font.color  := clgray; if Track.Samplerate    = 48000  then khz48 .font.color := clwhite;
+    khz88 .font.color  := clgray; if Track.Samplerate    = 88000  then khz88 .font.color := clwhite;
+    khz96 .font.color  := clgray; if Track.Samplerate    = 96000  then khz96 .font.color := clwhite;
+    khz176.font.color  := clgray; if Track.Samplerate    = 176400 then khz176.font.color := clwhite;
+    khz192.font.color  := clgray; if Track.Samplerate    = 192000 then khz192.font.color := clwhite;
 
-    mono  .font.color  := clgray; if track.Channelcount  = 1      then mono  .font.color := clwhite;
-    stereo.font.color  := clgray; if track.Channelcount  = 2      then stereo.font.color := clwhite;
+    mono  .font.color  := clgray; if Track.Channelcount  = 1      then mono  .font.color := clwhite;
+    stereo.font.color  := clgray; if Track.Channelcount  = 2      then stereo.font.color := clwhite;
 
-    if track.Channelcount > 0 then if Decibel(track.loudness.truepeak(0)) <  0.0 then tplleftvalue .font.color := cllime;
-    if track.Channelcount > 0 then if Decibel(track.loudness.truepeak(0)) >= 0.0 then tplleftvalue .font.color := clyellow;
-    if track.Channelcount > 0 then if Decibel(track.loudness.truepeak(0)) >  0.5 then tplleftvalue .font.color := clred;
+    if Track.Channelcount > 0 then if Decibel(Track.Loudness.truepeak(0)) <  0.0 then tplleftvalue .font.color := cllime;
+    if Track.Channelcount > 0 then if Decibel(Track.Loudness.truepeak(0)) >= 0.0 then tplleftvalue .font.color := clyellow;
+    if Track.Channelcount > 0 then if Decibel(Track.Loudness.truepeak(0)) >  0.5 then tplleftvalue .font.color := clred;
 
-    if track.Channelcount > 1 then if Decibel(track.loudness.truepeak(1)) <  0.0 then tplrightvalue.font.color := cllime;
-    if track.Channelcount > 1 then if Decibel(track.loudness.truepeak(1)) >= 0.0 then tplrightvalue.font.color := clyellow;
-    if track.Channelcount > 1 then if Decibel(track.loudness.truepeak(1)) >  0.5 then tplrightvalue.font.color := clred;
+    if Track.Channelcount > 1 then if Decibel(Track.Loudness.truepeak(1)) <  0.0 then tplrightvalue.font.color := cllime;
+    if Track.Channelcount > 1 then if Decibel(Track.Loudness.truepeak(1)) >= 0.0 then tplrightvalue.font.color := clyellow;
+    if Track.Channelcount > 1 then if Decibel(Track.Loudness.truepeak(1)) >  0.5 then tplrightvalue.font.color := clred;
 
-    if track.Channelcount > 0 then tplleftvalue   .caption := format('%0.2f', [track.loudness.truepeak(0)]);
-    if track.Channelcount > 1 then tplrightvalue  .caption := format('%0.2f', [track.loudness.truepeak(1)]);
-    if track.Channelcount > 0 then rmsleftvalue   .caption := format('%0.2f', [track.loudness.rms(0)]);
-    if track.Channelcount > 1 then rmsrightvalue  .caption := format('%0.2f', [track.loudness.rms(1)]);
-    if track.Channelcount > 0 then crestleftvalue .caption := format('%0.2f', [track.loudness.CrestFactor(0)]);
-    if track.Channelcount > 1 then crestrightvalue.caption := format('%0.2f', [track.loudness.CrestFactor(1)]);
-    if track.Channelcount > 0 then plrleftvalue   .caption := format('%0.2f', [track.loudness.PeakToLoudnessRatio]);
+    if Track.Channelcount > 0 then tplleftvalue   .caption := format('%0.2f', [Track.Loudness.truepeak(0)]);
+    if Track.Channelcount > 1 then tplrightvalue  .caption := format('%0.2f', [Track.Loudness.truepeak(1)]);
+    if Track.Channelcount > 0 then rmsleftvalue   .caption := format('%0.2f', [Track.Loudness.rms(0)]);
+    if Track.Channelcount > 1 then rmsrightvalue  .caption := format('%0.2f', [Track.Loudness.rms(1)]);
+    if Track.Channelcount > 0 then crestleftvalue .caption := format('%0.2f', [Track.Loudness.CrestFactor(0)]);
+    if Track.Channelcount > 1 then crestrightvalue.caption := format('%0.2f', [Track.Loudness.CrestFactor(1)]);
+    if Track.Channelcount > 0 then plrleftvalue   .caption := format('%0.2f', [Track.Loudness.PeakToLoudnessRatio]);
 
-    if track.Channelcount > 0 then IntegratedLoudnessValue .caption := format('%0.2f', [track.loudness.IntegratedLoudness]);
-    if track.Channelcount > 0 then LoudnessRangeValue      .caption := format('%0.2f', [track.loudness.LoudnessRange]);
+    if Track.Channelcount > 0 then IntegratedLoudnessValue .caption := format('%0.2f', [Track.Loudness.IntegratedLoudness]);
+    if Track.Channelcount > 0 then LoudnessRangeValue      .caption := format('%0.2f', [Track.Loudness.LoudnessRange]);
 
 
     drvalue.caption    := '--';
     drvalue.font.color := clwhite;
-    if (track.drmeter.dr) > 0 then
+    if (Track.DRMeter.dr) > 0 then
     begin
-      drvalue.caption := format('%2.0f', [track.drmeter.dr]);
+      drvalue.caption := format('%2.0f', [Track.DRMeter.dr]);
       if drvalue.caption = ' 0' then drvalue.font.color := rgbtocolor(255,   0, 0) else
       if drvalue.caption = ' 1' then drvalue.font.color := rgbtocolor(255,   0, 0) else
       if drvalue.caption = ' 2' then drvalue.font.color := rgbtocolor(255,   0, 0) else
@@ -349,11 +344,11 @@ begin
   EnableButtons;
   application.processmessages;
 
-  inc(trackindex);
-  if trackindex = tracklist.count then
+  inc(TrackIndex);
+  if TrackIndex = TrackList.count then
   begin
     // save text report
-    tracklist.SaveToFile(trackfile);
+    TrackList.SaveToFile(TrackFile);
     // ---
     audioanalyzer := nil;
     ScreenDrawer := TScreenDrawer.Create(Track);
@@ -387,18 +382,18 @@ begin
     ScreenDrawer.start;
   end else
   begin
-    virtualscreens[0].SetSize(ScreenDrawer.Screens[0].Width, ScreenDrawer.Screens[0].Height);
-    virtualscreens[1].SetSize(ScreenDrawer.Screens[1].Width, ScreenDrawer.Screens[1].Height);
-    virtualscreens[2].SetSize(ScreenDrawer.Screens[2].Width, ScreenDrawer.Screens[2].Height);
-    virtualscreens[3].SetSize(ScreenDrawer.Screens[3].Width, ScreenDrawer.Screens[3].Height);
+    VirtualScreens[0].SetSize(ScreenDrawer.Screens[0].Width, ScreenDrawer.Screens[0].Height);
+    VirtualScreens[1].SetSize(ScreenDrawer.Screens[1].Width, ScreenDrawer.Screens[1].Height);
+    VirtualScreens[2].SetSize(ScreenDrawer.Screens[2].Width, ScreenDrawer.Screens[2].Height);
+    VirtualScreens[3].SetSize(ScreenDrawer.Screens[3].Width, ScreenDrawer.Screens[3].Height);
 
     if (ScreenDrawer.ScreenWidth  > 0) and
        (ScreenDrawer.ScreenHeight > 0) then
     begin
-      virtualscreens[0].canvas.draw(0, 0, ScreenDrawer.Screens[0]);
-      virtualscreens[1].canvas.draw(0, 0, ScreenDrawer.Screens[1]);
-      virtualscreens[2].canvas.draw(0, 0, ScreenDrawer.Screens[2]);
-      virtualscreens[3].canvas.draw(0, 0, ScreenDrawer.Screens[3]);
+      VirtualScreens[0].canvas.draw(0, 0, ScreenDrawer.Screens[0]);
+      VirtualScreens[1].canvas.draw(0, 0, ScreenDrawer.Screens[1]);
+      VirtualScreens[2].canvas.draw(0, 0, ScreenDrawer.Screens[2]);
+      VirtualScreens[3].canvas.draw(0, 0, ScreenDrawer.Screens[3]);
     end;
     ScreenDrawer := nil;
     EnableButtons;
@@ -429,27 +424,27 @@ var
   mem: tmemorystream;
   process: tprocess;
 begin
-  if (trackindex >= tracklist.count) then exit;
-  if isneededkillanalyzer then trackindex := tracklist.count -1;
+  if (TrackIndex >= TrackList.count) then exit;
+  if IsNeededKillAnalyzer then TrackIndex := TrackList.count -1;
 
-  track := tracklist.Tracks[trackindex];
+  Track := TrackList.Tracks[TrackIndex];
   try
-    if extractfileext(track.Filename) <> '.wav' then
+    if extractfileext(Track.Filename) <> '.wav' then
     begin
-      tempfile := includetrailingbackslash(
+      TempFile := includetrailingbackslash(
         gettempdir(false)) + 'audiometer-tmp.wav';
 
       // get file properties
       process := tprocess.create(nil);
       try
         process.parameters.clear;
-        process.currentdirectory := extractfiledir(track.Filename);
+        process.currentdirectory := extractfiledir(Track.Filename);
         process.executable := 'ffprobe';
         process.parameters.add('-show_streams');
         process.parameters.add('-hide_banner');
         process.parameters.add('-print_format');
         process.parameters.add('ini');
-        process.parameters.add(extractfilename(track.Filename));
+        process.parameters.add(extractfilename(Track.Filename));
         process.options := [ponoconsole, pousepipes];
         process.execute;
 
@@ -487,12 +482,12 @@ begin
       process := tprocess.create(nil);
       try
         process.parameters.clear;
-        process.currentdirectory := extractfiledir(track.Filename);
+        process.currentdirectory := extractfiledir(Track.Filename);
         process.executable := 'ffmpeg';
         process.parameters.add('-y');
         process.parameters.add('-hide_banner');
         process.parameters.add('-i');
-        process.parameters.add(extractfilename(track.Filename));
+        process.parameters.add(extractfilename(Track.Filename));
 
         if bit4sample = 24 then
         begin
@@ -506,7 +501,7 @@ begin
           process.parameters.add('pcm_s32le');
         end;
 
-        process.parameters.add(tempfile);
+        process.parameters.add(TempFile);
         process.options := [ponoconsole, powaitonexit];
         process.execute;
       except
@@ -514,25 +509,25 @@ begin
       process.destroy;
 
     end else
-      tempfile := track.Filename;
+      TempFile := Track.Filename;
 
-    stream := tfilestream.create(tempfile, fmopenread or fmshareexclusive);
+    Stream := tfilestream.create(TempFile, fmopenread or fmshareexclusive);
   except
-    stream := nil;
+    Stream := nil;
   end;
 
-  if assigned(stream) then
+  if assigned(Stream) then
   begin
-    buffer := treadbufstream.create(stream);
-    audioanalyzer := TTrackAnalyzer.create(track, buffer, trackindex = tracklist.count -1);
+    Buffer := TReadBufStream.create(Stream);
+    audioanalyzer := TTrackAnalyzer.create(Track, Buffer, TrackIndex = TrackList.count -1);
     audioanalyzer.OnStart := @OnStartAnalyzer;
     audioanalyzer.OnTick  := @OnTickAnalyzer;
     audioanalyzer.OnStop  := @OnStopAnalyzer;
     audioanalyzer.start;
   end else
   begin
-    messagedlg('AudioMeter', format('Error to open file "%s"', [tempfile]), mterror, [mbok], '');
-    inc(trackindex);
+    messagedlg('AudioMeter', format('Error to open file "%s"', [TempFile]), mterror, [mbok], '');
+    inc(TrackIndex);
     execute;
   end;
 end;
@@ -565,21 +560,21 @@ begin
   drvalue.font.color := clwhite;
 end;
 
-// button events
+// Button Events
 
-procedure TAudioFrm.btnfileclick(sender: tobject);
+procedure TAudioFrm.BtnFileClick(sender: tobject);
 begin
-  tracklist.clear;
+  TrackList.clear;
   if filedialog.execute then
   begin
     playsound.stopsound;
-    btnplay.imageindex := 5;
+    BtnPlay.imageindex := 5;
     if IsFileSupported(extractfileext(filedialog.filename)) then
     begin
-      tracklist.Add(filedialog.filename);
-      trackfile  := changefileext(filedialog.filename, '.md');
-      isneededkillanalyzer  := false;
-      trackindex := 0;
+      TrackList.Add(filedialog.filename);
+      TrackFile  := changefileext(filedialog.filename, '.md');
+      IsNeededKillAnalyzer  := false;
+      TrackIndex := 0;
     end else
     begin
       audio.caption    := 'File format error!';
@@ -589,17 +584,17 @@ begin
   execute;
 end;
 
-procedure TAudioFrm.btnfolderclick(sender: tobject);
+procedure TAudioFrm.BtnFolderClick(sender: tobject);
 var
   err:  longint;
   path: string;
   sr:   tsearchrec;
 begin
-  tracklist.clear;
+  TrackList.clear;
   if dirdialog.execute then
   begin
     playsound.stopsound;
-    btnplay.imageindex := 5;
+    BtnPlay.imageindex := 5;
     path := includetrailingbackslash(dirdialog.filename);
      err := sysutils.findfirst(path + '*.*', faanyfile, sr);
     while err = 0 do
@@ -607,39 +602,39 @@ begin
       if sr.attr and (fadirectory) = 0 then
       begin
         if IsFileSupported(ExtractFileExt(sr.name)) then
-          tracklist.Add(path + sr.name);
+          TrackList.Add(path + sr.name);
       end;
       err := findnext(sr);
     end;
     sysutils.findclose(sr);
-    tracklist.Sort;
-    trackfile  := path + extractfilename(dirdialog.filename) + '.md';
-    isneededkillanalyzer  := false;
-    trackindex := 0;
+    TrackList.Sort;
+    TrackFile  := path + extractfilename(dirdialog.filename) + '.md';
+    IsNeededKillAnalyzer  := false;
+    TrackIndex := 0;
   end;
   execute;
 end;
 
 procedure TAudioFrm.btnplayclick(sender: tobject);
 begin
-  case btnplay.imageindex of
+  case BtnPlay.imageindex of
     6: begin
          playsound.stopsound;
-         btnplay.imageindex := 5;
+         BtnPlay.imageindex := 5;
        end;
     7: begin
          playsound.stopsound;
-         btnplay.imageindex := 5;
+         BtnPlay.imageindex := 5;
        end;
   else begin
          playsound.stopsound;
-         btnplay.imageindex := 5;
-         if fileexists(tempfile) then
+         BtnPlay.imageindex := 5;
+         if fileexists(TempFile) then
          begin
            playsound.playstyle := psasync;
-           playsound.soundfile := tempfile;
+           playsound.soundfile := TempFile;
            playsound.execute;
-           btnplay.imageindex := 6;
+           BtnPlay.imageindex := 6;
          end;
        end;
   end;
@@ -650,86 +645,86 @@ end;
 procedure TAudioFrm.btnfilemouseup(sender: tobject; button: tmousebutton;
   shift: tshiftstate; x, y: integer);
 begin
-  btnfile.onmousemove := @btnfilemousemove;
+  BtnFile.onmousemove := @btnfilemousemove;
 end;
 
 procedure TAudioFrm.btnfilemousedown(sender: tobject; button: tmousebutton;
   shift: tshiftstate; x, y: integer);
 begin
-  btnfile.onmousemove := nil;
-  loadbuttonicon(btnfile, 1, 0, 0);
+  BtnFile.onmousemove := nil;
+  loadbuttonicon(BtnFile, 1, 0, 0);
 end;
 
 procedure TAudioFrm.btnfilemouseleave(sender: tobject);
 begin
-  loadbuttonicon(btnfile, 1, 0, 0);
+  loadbuttonicon(BtnFile, 1, 0, 0);
 end;
 
 procedure TAudioFrm.btnfilemousemove(sender: tobject;
   shift: tshiftstate; x, y: integer);
 begin
-  loadbuttonicon(btnfile, 0, 0, 0);
+  loadbuttonicon(BtnFile, 0, 0, 0);
 end;
 
 procedure TAudioFrm.btnfoldermousedown(sender: tobject; button: tmousebutton;
   shift: tshiftstate; x, y: integer);
 begin
-  btnfolder.onmousemove := nil;
-  loadbuttonicon(btnfolder, 3, 0, 5);
+  BtnFolder.onmousemove := nil;
+  loadbuttonicon(BtnFolder, 3, 0, 5);
 end;
 
 procedure TAudioFrm.btnfoldermouseleave(sender: tobject);
 begin
-  loadbuttonicon(btnfolder, 3, 0, 5);
+  loadbuttonicon(BtnFolder, 3, 0, 5);
 end;
 
 procedure TAudioFrm.btnfoldermousemove(sender: tobject;
   shift: tshiftstate; x, y: integer);
 begin
-  loadbuttonicon(btnfolder, 2, 0, 5);
+  loadbuttonicon(BtnFolder, 2, 0, 5);
 end;
 
 procedure TAudioFrm.btnfoldermouseup(sender: tobject; button: tmousebutton;
   shift: tshiftstate; x, y: integer);
 begin
-  btnfolder.onmousemove := @btnfoldermousemove;
+  BtnFolder.onmousemove := @btnfoldermousemove;
 end;
 
 procedure TAudioFrm.btnplaymousedown(sender: tobject; button: tmousebutton;
   shift: tshiftstate; x, y: integer);
 begin
- btnplay.onmousemove := nil;
- case btnplay.imageindex of
-   4: btnplay.imageindex := 5;
-   5: btnplay.imageindex := 4;
-   6: btnplay.imageindex := 7;
-   7: btnplay.imageindex := 6;
+ BtnPlay.onmousemove := nil;
+ case BtnPlay.imageindex of
+   4: BtnPlay.imageindex := 5;
+   5: BtnPlay.imageindex := 4;
+   6: BtnPlay.imageindex := 7;
+   7: BtnPlay.imageindex := 6;
  end;
 end;
 
 procedure TAudioFrm.btnplaymouseleave(sender: tobject);
 begin
- case btnplay.imageindex of
-   4: btnplay.imageindex := 5;
-   6: btnplay.imageindex := 7;
+ case BtnPlay.imageindex of
+   4: BtnPlay.imageindex := 5;
+   6: BtnPlay.imageindex := 7;
  end;
 end;
 
 procedure TAudioFrm.btnplaymousemove(sender: tobject; shift: tshiftstate; x, y: integer);
 begin
- case btnplay.imageindex of
-   5: btnplay.imageindex := 4;
-   7: btnplay.imageindex := 6;
+ case BtnPlay.imageindex of
+   5: BtnPlay.imageindex := 4;
+   7: BtnPlay.imageindex := 6;
  end;
 end;
 
 procedure TAudioFrm.btnplaymouseup(sender: tobject; button: tmousebutton;
   shift: tshiftstate; x, y: integer);
 begin
-  btnplay.onmousemove := @btnplaymousemove;
-  case btnplay.imageindex of
-    5: btnplay.imageindex := 4;
-    7: btnplay.imageindex := 6;
+  BtnPlay.onmousemove := @btnplaymousemove;
+  case BtnPlay.imageindex of
+    5: BtnPlay.imageindex := 4;
+    7: BtnPlay.imageindex := 6;
   end;
 end;
 
@@ -746,27 +741,27 @@ end;
 
 procedure TAudioFrm.disablebuttons;
 begin
-  btnplay       .enabled := false;
-  btnfile       .enabled := false;
-  btnfolder     .enabled := false;
+  BtnPlay  .Enabled := False;
+  BtnFile  .Enabled := False;
+  BtnFolder.Enabled := False;
 
-  drvalue      .visible := false;
+  drvalue      .visible := False;
   progressbar  .value   := 0;
   progresspanel.visible := true;
 end;
 
 procedure TAudioFrm.EnableButtons;
 begin
-  btnplay       .enabled := true;
-  btnfile       .enabled := true;
-  btnfolder     .enabled := true;
+  BtnPlay       .Enabled := true;
+  BtnFile       .Enabled := true;
+  BtnFolder     .Enabled := true;
 
   progressbar.value     := 0;
-  progresspanel.visible := false;
+  progresspanel.visible := False;
   drvalue.visible       := true;
 end;
 
-procedure TAudioFrm.virtualscreenredraw(sender: tobject; bitmap: tbgrabitmap);
+procedure TAudioFrm.VirtualScreenRedraw(Sender: TObject; Bitmap: TBGRABitmap);
 var
   i: longint;
   OffSet: longint;
