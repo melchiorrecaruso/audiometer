@@ -32,11 +32,40 @@ function CrestFactor(const APeak, ARms2: TDouble): TDouble; inline;
 procedure QuickSort(var AValues: TDoubleVector; Low, High: longint);
 function Percentile(var AValues: TListOfDouble; P: double): TDouble;
 
+function ChannelName(AChannel, AChannelCount: longint): string;
+
 
 implementation
 
 uses
   Math;
+
+function ChannelName(AChannel, AChannelCount: longint): string;
+begin
+  case AChannelCount of
+    1: Result := 'Mono';
+    2: case AChannel of
+         0: Result := 'Left Channel';
+         1: Result := 'Right Channel';
+       end;
+    5: case AChannel of
+         0: Result := 'Left Channel';
+         1: Result := 'Right Channel';
+         2: Result := 'Center Channel';
+         3: Result := 'Left Surround Channel';
+         4: Result := 'Right Surround Channel';
+       end;
+    6: case AChannel of
+        0: Result := 'Left Channel';
+        1: Result := 'Right Channel';
+        2: Result := 'Center Channel';
+        3: Result := 'LFE Channel';
+        4: Result := 'Left Surround Channel';
+        5: Result := 'Right Surround Channel';
+       end;
+  else Result := '';
+  end;
+end;
 
 procedure QuickSort(var AValues: TDoubleVector; Low, High: longint);
 var
