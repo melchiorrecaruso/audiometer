@@ -51,12 +51,15 @@ type
     Panel7: TPanel;
     LoudnessRangeValue: TLabel;
     PLRRightValue: TLabel;
+    TopShape: TShape;
     ShortTermLoudnessValue: TLabel;
     RMSRightValue: TLabel;
     ShortTerpLoudnessLabel: TLabel;
+    BottomShape: TShape;
     TPLLabel: TLabel;
     PLRLeftValue: TLabel;
     Label13: TLabel;
+    PLLabel: TLabel;
     TPLLeftValue: TLabel;
     RMSLabel: TLabel;
     CRESTLabel: TLabel;
@@ -64,7 +67,9 @@ type
     RMSLeftValue: TLabel;
     CRESTLeftValue: TLabel;
     MomentaryLoudnessValue: TLabel;
+    PLLeftValue: TLabel;
     TPLRightValue: TLabel;
+    PLRightValue: TLabel;
     TPMPanel: TPanel;
     Panel2: TPanel;
     Panel3: TPanel;
@@ -222,7 +227,7 @@ end;
 procedure TAudioFrm.formclosequery(sender: tobject; var canclose: boolean);
 begin
   IsNeededKillAnalyzer := true;
-  canclose := (audioanalyzer = nil) and
+  canclose := (AudioAnalyzer = nil) and
               (ScreenDrawer  = nil);
 end;
 
@@ -234,7 +239,7 @@ begin
   end;
 
   IsNeededUpdateScreens := true;
-  if audioanalyzer <> nil then exit;
+  if AudioAnalyzer <> nil then exit;
   if ScreenDrawer  <> nil then exit;
   ScreenDrawer := TScreenDrawer.Create(Track);
   ScreenDrawer.OnStart := @OnStartDrawer;
@@ -263,7 +268,7 @@ end;
 
 procedure TAudioFrm.OnTickAnalyzer;
 begin
-  progressbar.value := audioanalyzer.Percentage;
+  progressbar.value := AudioAnalyzer.Percentage;
 end;
 
 procedure TAudioFrm.OnStopAnalyzer;
@@ -271,11 +276,11 @@ begin
   freeandnil(Buffer);
   freeandnil(Stream);
 
-  if audioanalyzer.Status <> 0 then
+  if AudioAnalyzer.Status <> 0 then
   begin
     TrackIndex := TrackList.count;
-    audio.font.color := clred;
-    case audioanalyzer.Status of
+    audio.font.color := clrRed;
+    case AudioAnalyzer.Status of
       -1: audio.caption := 'file format error!';
       -2: audio.caption := 'file is empty!';
       -3: audio.caption := 'file is too short!';
@@ -284,61 +289,64 @@ begin
     EnableButtons;
   end else
   begin
-    pcm   .font.color  := clwhite;
-    bit8  .font.color  := clgray; if Track.Bitspersample = 8      then bit8  .font.color := clwhite;
-    bit16 .font.color  := clgray; if Track.Bitspersample = 16     then bit16 .font.color := clwhite;
-    bit24 .font.color  := clgray; if Track.Bitspersample = 24     then bit24 .font.color := clwhite;
+    pcm   .Font.Color  := clWhite;
+    bit8  .Font.Color  := clGray; if Track.Bitspersample = 8      then bit8  .Font.Color := clWhite;
+    bit16 .Font.Color  := clGray; if Track.Bitspersample = 16     then bit16 .Font.Color := clWhite;
+    bit24 .Font.Color  := clGray; if Track.Bitspersample = 24     then bit24 .Font.Color := clWhite;
 
-    khz44 .font.color  := clgray; if Track.Samplerate    = 44100  then khz44 .font.color := clwhite;
-    khz48 .font.color  := clgray; if Track.Samplerate    = 48000  then khz48 .font.color := clwhite;
-    khz88 .font.color  := clgray; if Track.Samplerate    = 88000  then khz88 .font.color := clwhite;
-    khz96 .font.color  := clgray; if Track.Samplerate    = 96000  then khz96 .font.color := clwhite;
-    khz176.font.color  := clgray; if Track.Samplerate    = 176400 then khz176.font.color := clwhite;
-    khz192.font.color  := clgray; if Track.Samplerate    = 192000 then khz192.font.color := clwhite;
+    khz44 .Font.Color  := clGray; if Track.Samplerate    = 44100  then khz44 .Font.Color := clWhite;
+    khz48 .Font.Color  := clGray; if Track.Samplerate    = 48000  then khz48 .Font.Color := clWhite;
+    khz88 .Font.Color  := clGray; if Track.Samplerate    = 88000  then khz88 .Font.Color := clWhite;
+    khz96 .Font.Color  := clGray; if Track.Samplerate    = 96000  then khz96 .Font.Color := clWhite;
+    khz176.Font.Color  := clGray; if Track.Samplerate    = 176400 then khz176.Font.Color := clWhite;
+    khz192.Font.Color  := clGray; if Track.Samplerate    = 192000 then khz192.Font.Color := clWhite;
 
-    mono  .font.color  := clgray; if Track.Channelcount  = 1      then mono  .font.color := clwhite;
-    stereo.font.color  := clgray; if Track.Channelcount  = 2      then stereo.font.color := clwhite;
+    mono  .Font.Color  := clGray; if Track.ChannelCount  = 1      then mono  .Font.Color := clWhite;
+    stereo.Font.Color  := clGray; if Track.ChannelCount  = 2      then stereo.Font.Color := clWhite;
 
-    if Track.Channelcount > 0 then if Decibel(Track.Loudness.truepeak(0)) <  0.0 then tplleftvalue .font.color := cllime;
-    if Track.Channelcount > 0 then if Decibel(Track.Loudness.truepeak(0)) >= 0.0 then tplleftvalue .font.color := clyellow;
-    if Track.Channelcount > 0 then if Decibel(Track.Loudness.truepeak(0)) >  0.5 then tplleftvalue .font.color := clred;
+    if Track.ChannelCount > 0 then if Decibel(Track.Loudness.TruePeak(0)) <  0.0 then tplleftvalue .Font.Color := clLime;
+    if Track.ChannelCount > 0 then if Decibel(Track.Loudness.TruePeak(0)) >= 0.0 then tplleftvalue .Font.Color := clYellow;
+    if Track.ChannelCount > 0 then if Decibel(Track.Loudness.TruePeak(0)) >  0.5 then tplleftvalue .Font.Color := clRed;
 
-    if Track.Channelcount > 1 then if Decibel(Track.Loudness.truepeak(1)) <  0.0 then tplrightvalue.font.color := cllime;
-    if Track.Channelcount > 1 then if Decibel(Track.Loudness.truepeak(1)) >= 0.0 then tplrightvalue.font.color := clyellow;
-    if Track.Channelcount > 1 then if Decibel(Track.Loudness.truepeak(1)) >  0.5 then tplrightvalue.font.color := clred;
+    if Track.ChannelCount > 1 then if Decibel(Track.Loudness.TruePeak(1)) <  0.0 then tplrightvalue.Font.Color := clLime;
+    if Track.ChannelCount > 1 then if Decibel(Track.Loudness.TruePeak(1)) >= 0.0 then tplrightvalue.Font.Color := clYellow;
+    if Track.ChannelCount > 1 then if Decibel(Track.Loudness.TruePeak(1)) >  0.5 then tplrightvalue.Font.Color := clRed;
 
-    if Track.Channelcount > 0 then tplleftvalue   .caption := format('%0.2f', [Track.Loudness.truepeak(0)]);
-    if Track.Channelcount > 1 then tplrightvalue  .caption := format('%0.2f', [Track.Loudness.truepeak(1)]);
-    if Track.Channelcount > 0 then rmsleftvalue   .caption := format('%0.2f', [Track.Loudness.rms(0)]);
-    if Track.Channelcount > 1 then rmsrightvalue  .caption := format('%0.2f', [Track.Loudness.rms(1)]);
-    if Track.Channelcount > 0 then crestleftvalue .caption := format('%0.2f', [Track.Loudness.CrestFactor(0)]);
-    if Track.Channelcount > 1 then crestrightvalue.caption := format('%0.2f', [Track.Loudness.CrestFactor(1)]);
-    if Track.Channelcount > 0 then plrleftvalue   .caption := format('%0.2f', [Track.Loudness.PeakToLoudnessRatio]);
+    if Track.ChannelCount > 0 then plleftvalue .Caption := Format('%0.2f', [Track.Loudness.Peak(0)]);
+    if Track.ChannelCount > 1 then plrightvalue.Caption := Format('%0.2f', [Track.Loudness.Peak(1)]);
 
-    if Track.Channelcount > 0 then IntegratedLoudnessValue .caption := format('%0.2f', [Track.Loudness.IntegratedLoudness]);
-    if Track.Channelcount > 0 then LoudnessRangeValue      .caption := format('%0.2f', [Track.Loudness.LoudnessRange]);
+    if Track.ChannelCount > 0 then tplleftvalue   .Caption := Format('%0.2f', [Track.Loudness.TruePeak(0)]);
+    if Track.ChannelCount > 1 then tplrightvalue  .Caption := Format('%0.2f', [Track.Loudness.TruePeak(1)]);
+    if Track.ChannelCount > 0 then rmsleftvalue   .Caption := Format('%0.2f', [Track.Loudness.Rms(0)]);
+    if Track.ChannelCount > 1 then rmsrightvalue  .Caption := Format('%0.2f', [Track.Loudness.Rms(1)]);
+    if Track.ChannelCount > 0 then crestleftvalue .Caption := Format('%0.2f', [Track.Loudness.CrestFactor(0)]);
+    if Track.ChannelCount > 1 then crestrightvalue.Caption := Format('%0.2f', [Track.Loudness.CrestFactor(1)]);
+    if Track.ChannelCount > 0 then plrleftvalue   .Caption := Format('%0.2f', [Track.Loudness.PeakToLoudnessRatio]);
+
+    if Track.ChannelCount > 0 then IntegratedLoudnessValue .Caption := Format('%0.2f', [Track.Loudness.IntegratedLoudness]);
+    if Track.ChannelCount > 0 then LoudnessRangeValue      .Caption := Format('%0.2f', [Track.Loudness.LoudnessRange]);
 
 
-    drvalue.caption    := '--';
-    drvalue.font.color := clwhite;
-    if (Track.DRMeter.dr) > 0 then
+    DRValue.Caption    := '--';
+    DRValue.Font.Color := clwhite;
+    if (Track.DRMeter.DR) > 0 then
     begin
-      drvalue.caption := format('%2.0f', [Track.DRMeter.dr]);
-      if drvalue.caption = ' 0' then drvalue.font.color := rgbtocolor(255,   0, 0) else
-      if drvalue.caption = ' 1' then drvalue.font.color := rgbtocolor(255,   0, 0) else
-      if drvalue.caption = ' 2' then drvalue.font.color := rgbtocolor(255,   0, 0) else
-      if drvalue.caption = ' 3' then drvalue.font.color := rgbtocolor(255,   0, 0) else
-      if drvalue.caption = ' 4' then drvalue.font.color := rgbtocolor(255,   0, 0) else
-      if drvalue.caption = ' 5' then drvalue.font.color := rgbtocolor(255,   0, 0) else
-      if drvalue.caption = ' 6' then drvalue.font.color := rgbtocolor(255,   0, 0) else
-      if drvalue.caption = ' 7' then drvalue.font.color := rgbtocolor(255,   0, 0) else
-      if drvalue.caption = ' 8' then drvalue.font.color := rgbtocolor(255,  72, 0) else
-      if drvalue.caption = ' 9' then drvalue.font.color := rgbtocolor(255, 145, 0) else
-      if drvalue.caption = '10' then drvalue.font.color := rgbtocolor(255, 217, 0) else
-      if drvalue.caption = '11' then drvalue.font.color := rgbtocolor(217, 255, 0) else
-      if drvalue.caption = '12' then drvalue.font.color := rgbtocolor(144, 255, 0) else
-      if drvalue.caption = '13' then drvalue.font.color := rgbtocolor( 72, 255, 0) else
-                                     drvalue.font.color := rgbtocolor(  0, 255, 0);
+      DRValue.Caption := format('%2.0f', [Track.DRMeter.DR]);
+      if DRValue.Caption = ' 0' then DRValue.Font.Color := rgbtocolor(255,   0, 0) else
+      if DRValue.Caption = ' 1' then DRValue.Font.Color := rgbtocolor(255,   0, 0) else
+      if DRValue.Caption = ' 2' then DRValue.Font.Color := rgbtocolor(255,   0, 0) else
+      if DRValue.Caption = ' 3' then DRValue.Font.Color := rgbtocolor(255,   0, 0) else
+      if DRValue.Caption = ' 4' then DRValue.Font.Color := rgbtocolor(255,   0, 0) else
+      if DRValue.Caption = ' 5' then DRValue.Font.Color := rgbtocolor(255,   0, 0) else
+      if DRValue.Caption = ' 6' then DRValue.Font.Color := rgbtocolor(255,   0, 0) else
+      if DRValue.Caption = ' 7' then DRValue.Font.Color := rgbtocolor(255,   0, 0) else
+      if DRValue.Caption = ' 8' then DRValue.Font.Color := rgbtocolor(255,  72, 0) else
+      if DRValue.Caption = ' 9' then DRValue.Font.Color := rgbtocolor(255, 145, 0) else
+      if DRValue.Caption = '10' then DRValue.Font.Color := rgbtocolor(255, 217, 0) else
+      if DRValue.Caption = '11' then DRValue.Font.Color := rgbtocolor(217, 255, 0) else
+      if DRValue.Caption = '12' then DRValue.Font.Color := rgbtocolor(144, 255, 0) else
+      if DRValue.Caption = '13' then DRValue.Font.Color := rgbtocolor( 72, 255, 0) else
+                                     DRValue.Font.Color := rgbtocolor(  0, 255, 0);
     end;
   end;
   EnableButtons;
@@ -350,7 +358,7 @@ begin
     // save text report
     TrackList.SaveToFile(TrackFile);
     // ---
-    audioanalyzer := nil;
+    AudioAnalyzer := nil;
     ScreenDrawer := TScreenDrawer.Create(Track);
     ScreenDrawer.OnStart := @OnStartDrawer;
     ScreenDrawer.OnStop  := @OnStopDrawer;
@@ -478,7 +486,7 @@ begin
       end;
       process.destroy;
 
-      // decode to .audioanalyzer
+      // decode to .AudioAnalyzer
       process := tprocess.create(nil);
       try
         process.parameters.clear;
@@ -519,11 +527,11 @@ begin
   if assigned(Stream) then
   begin
     Buffer := TReadBufStream.create(Stream);
-    audioanalyzer := TTrackAnalyzer.create(Track, Buffer, TrackIndex = TrackList.count -1);
-    audioanalyzer.OnStart := @OnStartAnalyzer;
-    audioanalyzer.OnTick  := @OnTickAnalyzer;
-    audioanalyzer.OnStop  := @OnStopAnalyzer;
-    audioanalyzer.start;
+    AudioAnalyzer := TTrackAnalyzer.create(Track, Buffer, TrackIndex = TrackList.count -1);
+    AudioAnalyzer.OnStart := @OnStartAnalyzer;
+    AudioAnalyzer.OnTick  := @OnTickAnalyzer;
+    AudioAnalyzer.OnStop  := @OnStopAnalyzer;
+    AudioAnalyzer.Start;
   end else
   begin
     messagedlg('AudioMeter', format('Error to open file "%s"', [TempFile]), mterror, [mbok], '');
@@ -534,25 +542,25 @@ end;
 
 procedure TAudioFrm.clear;
 begin
-  pcm   .font.color := clgray;
-  bit8  .font.color := clgray;
-  bit16 .font.color := clgray;
-  bit24 .font.color := clgray;
-  khz44 .font.color := clgray;
-  khz48 .font.color := clgray;
-  khz88 .font.color := clgray;
-  khz96 .font.color := clgray;
-  khz176.font.color := clgray;
-  khz192.font.color := clgray;
-  mono  .font.color := clgray;
-  stereo.font.color := clgray;
+  pcm   .font.color := clGray;
+  bit8  .font.color := clGray;
+  bit16 .font.color := clGray;
+  bit24 .font.color := clGray;
+  khz44 .font.color := clGray;
+  khz48 .font.color := clGray;
+  khz88 .font.color := clGray;
+  khz96 .font.color := clGray;
+  khz176.font.color := clGray;
+  khz192.font.color := clGray;
+  mono  .font.color := clGray;
+  stereo.font.color := clGray;
 
-  tplleftvalue   .font.color := clgray;
-  tplrightvalue  .font.color := clgray;
-  rmsleftvalue   .font.color := clgray;
-  rmsrightvalue  .font.color := clgray;
-  crestleftvalue .font.color := clgray;
-  crestrightvalue.font.color := clgray;
+  tplleftvalue   .font.color := clGray;
+  tplrightvalue  .font.color := clGray;
+  rmsleftvalue   .font.color := clGray;
+  rmsrightvalue  .font.color := clGray;
+  crestleftvalue .font.color := clGray;
+  crestrightvalue.font.color := clGray;
 
   audio.caption      := 'Audio';
   audio.font.color   := clwhite;
@@ -578,7 +586,7 @@ begin
     end else
     begin
       audio.caption    := 'File format error!';
-      audio.font.color := clred;
+      audio.font.color := clrRed;
     end;
   end;
   execute;
