@@ -26,7 +26,7 @@ unit Drawers;
 interface
 
 uses
-  BaseGraphics, BGRABitmapTypes, Classes, Common, FPImage, Graphics, SoundWav, Spectrum, SysUtils, Types;
+  BGRABitmap, BaseGraphics, BGRABitmapTypes, Classes, Common, FPImage, Graphics, SoundWav, Spectrum, SysUtils, Types;
 
 type
   TVirtualScreens = array[0..3] of TBitmap;
@@ -60,6 +60,7 @@ type
     FScreen: TBitmap;
     FWorking: boolean;
     function NewChart: TChart;
+    function NewDefaultChart: TChart;
     procedure DrawDefault; virtual; abstract;
     procedure Draw; virtual; abstract;
   public
@@ -95,6 +96,17 @@ type
   end;
 
 
+const
+  clrBlack  = TColor($000000);
+  clrBlue   = TColor($874A20);
+  clrPurple = TColor($7B5075);
+  clrRed    = TColor($2929EF);
+  clrYellow = TColor($4FE9FC);
+  clrWhite  = TColor($FFFFFF);
+
+  clrGreen  = TColor($34E28A);
+
+
 var
   ScreenDrawer: TScreenDrawer = nil;
 
@@ -107,7 +119,8 @@ uses
 
 function GetColor(AFactor: double): TColor;
 const
-  BaseColors: array[0..5] of TColor = (clBlack, clNavy, clPurple, clRed, clYellow, clWhite);
+  BaseColors: array[0..5] of TColor = (clrBlack, clrBlue, clrPurple, clrRed, clrYellow, clrWhite);
+//BaseColors: array[0..5] of TColor = (clBlack,  clBlue,  clPurple,  clRed,  clYellow,  clWhite);
 var
   FPBase: array[0..5] of TFPColor;
   Seg: longint;
@@ -196,7 +209,7 @@ begin
   if Assigned(FOnWait) then
     while (FScreenWidth = 0) or (FScreenHeight = 0) do
     begin
-      if MilliSecondsBetween(Now, StartTime) > 250 then
+      if MilliSecondsBetween(Now, StartTime) > 150 then
       begin
         Queue(FOnWait);
         StartTime := Now;
@@ -214,25 +227,25 @@ begin
     BaseHeight := FScreenHeight div (ChartCount + WavesCount);
 
     FScreens[0].SetSize(FScreenWidth, BaseHeight);
-    FScreens[1].SetSize(FScreenWidth, BaseHeight);
+    FScreens[1].SetSize(FScreenWidth, BaseHeight * WavesCount);
     FScreens[2].SetSize(FScreenWidth, BaseHeight);
-    FScreens[3].SetSize(FScreenWidth, BaseHeight * WavesCount);
+    FScreens[3].SetSize(FScreenWidth, BaseHeight);
 
     BlockDrawer := TBlockDrawer.Create(FTrack, FScreens[0]);
     while BlockDrawer.Working do Sleep(10);
     BlockDrawer.Destroy;
 
-    SpectrumDrawer := TSpectrumDrawer.Create(FTrack, FScreens[1]);
+    WaveDrawer := TWaveDrawer.Create(FTrack, FScreens[1]);
+    while WaveDrawer.Working do Sleep(10);
+    WaveDrawer.Destroy;
+
+    SpectrumDrawer := TSpectrumDrawer.Create(FTrack, FScreens[2]);
     while SpectrumDrawer.Working do Sleep(10);
     SpectrumDrawer.Destroy;
 
-    SpectrogramDrawer := TSpectrogramDrawer.Create(FTrack, FScreens[2]);
+    SpectrogramDrawer := TSpectrogramDrawer.Create(FTrack, FScreens[3]);
     while SpectrogramDrawer.Working do Sleep(10);
     SpectrogramDrawer.Destroy;
-
-    WaveDrawer := TWaveDrawer.Create(FTrack, FScreens[3]);
-    while WaveDrawer.Working do Sleep(10);
-    WaveDrawer.Destroy;
   end;
 
   if Assigned(FOnStop) then
@@ -281,6 +294,8 @@ begin
 
   result.XGridLineWidth := 0;
   result.YGridLineWidth := 0;
+  result.XAxisLineWidth := 1;
+  result.YAxisLineWidth := 1;
 
   result.Scale := 1.0;
 
@@ -288,8 +303,46 @@ begin
   result.TitleFontColor  := clWhite;
   result.XAxisFontColor  := clWhite;
   result.YAxisFontColor  := clWhite;
-  result.XAxisLineColor  := clWhite;
-  result.YAxisLineColor  := clWhite;
+  result.XAxisLineColor  := clYellow;
+  result.YAxisLineColor  := clYellow;
+
+  result.TextureHeight := 1;
+  result.TextureWidth  := 1;
+  result.TextureBackgroundColor := clBlack;
+
+  result.PenColor := clBlack;
+
+  result.XMinF  := 0;
+  result.YMinF  := 0;
+  result.XCount := 6;
+  result.YCount := 4;
+
+  result.XAxisLabelLen := 0;
+  result.YAxisLabelLen := result.GetXAxisLabelSize('Amplitude [dB]').Width;
+end;
+
+function TCustomDrawer.NewDefaultChart: TChart;
+begin
+  result := TChart.Create;
+  result.LegendEnabled := False;
+
+  result.TitleFontHeight := 12;
+  result.XAxisFontHeight := 12;
+  result.YAxisFontHeight := 12;
+
+  result.XGridLineWidth := 0;
+  result.YGridLineWidth := 0;
+  result.XAxisLineWidth := 1;
+  result.YAxisLineWidth := 1;
+
+  result.Scale := 1.0;
+
+  result.BackgroundColor := clBlack;
+  result.TitleFontColor  := clGray;
+  result.XAxisFontColor  := clGray;
+  result.YAxisFontColor  := clGray;
+  result.XAxisLineColor  := clYellow;
+  result.YAxisLineColor  := clYellow;
 
   result.TextureHeight := 1;
   result.TextureWidth  := 1;
@@ -314,7 +367,7 @@ var
   Chart: TChart;
 begin
   // create and configure the chart
-  Chart := NewChart;
+  Chart := NewDefaultChart;
   Chart.Title      := 'Energy & peaks (1s blocks)';
   Chart.XAxisLabel := 'Block num';
   Chart.YAxisLabel := 'Amplitude [dB]';
@@ -369,7 +422,7 @@ begin
     Points[3].y := 0;
 
     Chart.PenColor := clBlack;
-    Chart.TextureColor := clYellow;
+    Chart.TextureColor := clrYellow;
     Chart.AddPolygon(Points, '');
 
     Peak := 0;
@@ -391,7 +444,7 @@ begin
     Points[3].y := OffSet + Decibel(Sqrt(Rms2));
 
     Chart.PenColor := clBlack;
-    Chart.TextureColor := clRed;
+    Chart.TextureColor := clrRed;
     Chart.AddPolygon(Points, '');
   end;
   // draw Chart on screen
@@ -407,7 +460,7 @@ var
   Chart: TChart;
 begin
   // create and configure the chart
-  Chart := NewChart;
+  Chart := NewDefaultChart;
   Chart.Title      := 'Frequency spectrum';
   Chart.XAxisLabel := 'Freq [Hz]';
   Chart.YAxisLabel := 'Amplitude [dB]';
@@ -470,8 +523,8 @@ begin
     Peak := (Decibel(Peak) + MaxDB);
     if Peak < 0 then Peak := 0;
 
-    Chart.PenColor     := BGRA(0, 220, 0, 255);
-    Chart.TextureColor := BGRA(0, 220, 0, 255);
+    Chart.PenColor     := clrYellow;
+    Chart.TextureColor := clrYellow;
     Points[0].X := FreqIndex -0.25 * Factor;
     Points[0].Y := 0;
     Points[1].X := FreqIndex -0.25 * Factor;
@@ -482,16 +535,16 @@ begin
     Points[3].Y := 0;
     Chart.AddPolygon(Points, '');
 
-    Chart.PenColor     := clYellow;
-    Chart.TextureColor := clYellow;
+    Chart.PenColor     := clrRed;
+    Chart.TextureColor := clrRed;
     Points[0].X := FreqIndex -0.25 * Factor;
-    Points[0].Y := Peak - 1;
+    Points[0].Y := Max(Peak - 0.5, 0);
     Points[1].X := FreqIndex -0.25 * Factor;
     Points[1].Y := Peak;
     Points[2].X := FreqIndex +0.25 * Factor;
     Points[2].Y := Peak;
     Points[3].X := FreqIndex +0.25 * Factor;
-    Points[3].Y := Peak - 1;
+    Points[3].Y := Max(Peak - 0.5, 0);
     Chart.AddPolygon(Points, '');
   end;
   // draw chart on screen
@@ -507,7 +560,7 @@ var
   Chart: TChart;
 begin
   // create and configure the chart
-  Chart := NewChart;
+  Chart := NewDefaultChart;
   Chart.Title := 'Spectrogram';
   Chart.XAxisLabel := 'Freq [Hz]';
   Chart.YAxisLabel := 'Time [s]';
@@ -594,7 +647,7 @@ var
   Chart: TChart;
 begin
   // create and configure the chart
-  Chart := NewChart;
+  Chart := NewDefaultChart;
   Chart.LegendEnabled := True;
   Chart.Title := 'Waveform (Mono)';
   Chart.XAxisLabel := 'Time [s]';
@@ -650,8 +703,8 @@ begin
     Chart.YDeltaF  := 0.5;
 
     Chart.PenWidth     := 1;
-    Chart.PenColor     := clred;
-    Chart.TextureColor := clred;
+    Chart.PenColor     := clrRed;
+    Chart.TextureColor := clrBlack;
 
     // calculate number of samples per horizontal pixel
     WindowxSize := FTrack.Samplecount div WindowxCount;
