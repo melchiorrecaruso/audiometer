@@ -35,12 +35,23 @@ procedure QuickSort(var AValues: TDoubleVector; Low, High: longint);
 function Percentile(var AValues: TListOfDouble; P: double): TDouble;
 
 function ChannelName(AChannel, AChannelCount: longint): string;
+function GetAppFile(const FileName: string): string;
 
 
 implementation
 
 uses
   Math;
+
+function GetAppFile(const FileName: string): string;
+begin
+  Result := LowerCase(ExtractFilePath(ParamStr(0)) + FileName);
+  if not FileExists(Result) then
+  begin
+    ForceDirectories(GetAppConfigDir(False));
+    Result := LowerCase(IncludeTrailingBackSlash(GetAppConfigDir(False)) + FileName);
+  end;
+end;
 
 function ChannelName(AChannel, AChannelCount: longint): string;
 begin
