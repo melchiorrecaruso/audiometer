@@ -38,10 +38,12 @@ type
     FRms2: TDoubleMatrix;
     FPeak: TDoubleMatrix;
     FDynamicRange: TDoubleVector;
+    FTick: TTickMethod;
   public
-    procedure Init;
+    procedure Init(const ATick: TTickMethod = nil);
     procedure Finalize;
 
+    function EstimatedTicks(AChannelCount, ASampleCount, ASampleRate: longint): longint;
     procedure Process(const AChannels: TDoubleMatrix; ASampleCount, ASampleRate: longint);
 
     function Rms2(AChannel, ABlock: longint): double;
@@ -172,9 +174,10 @@ begin
   result := RoundTo(result / FChannelCount, -1);
 end;
 
-procedure TDynamicRangeMeter.Init;
+procedure TDynamicRangeMeter.Init(const ATick: TTickMethod = nil);
 begin
   Finalize;
+  FTick := ATick;
 end;
 
 procedure TDynamicRangeMeter.Finalize;
@@ -186,6 +189,11 @@ begin
   SetLength(FRms2, 0, 0);
   SetLength(FPeak, 0, 0);
   SetLength(FDynamicRange, 0);
+end;
+
+function TDynamicRangeMeter.EstimatedTicks(AChannelCount, ASampleCount, ASampleRate: longint): longint;
+begin
+  result := (ASampleCount div (3 * ASampleRate)) * AChannelCount;
 end;
 
 procedure TDynamicRangeMeter.Process(const AChannels: TDoubleMatrix; ASampleCount, ASampleRate: longint);
@@ -216,6 +224,8 @@ begin
       index := i * FBlockSize;
       FRms2[ch][i] := Common.Rms2(@AChannels[ch][index], FBlockSize);
       FPeak[ch][i] := Common.Peak(@AChannels[ch][index], FBlockSize);
+
+      if Assigned(FTick) then FTick;
     end;
 
     if TailSize > 0 then
