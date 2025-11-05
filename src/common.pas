@@ -18,6 +18,8 @@ type
 
   TListOfDouble = specialize TFPGList<double>;
 
+  TTickMethod = procedure of object;
+
 function Decibel(const AAmplitude: TDouble): TDouble;
 function EnergyToDecibel(const AEnergy: TDouble): TDouble;
 function EnergyToLufs(const AEnergy: TDouble): TDouble;
