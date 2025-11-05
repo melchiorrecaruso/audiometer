@@ -20,11 +20,14 @@ type
     FWindowSize: longint;
     FHopSize: longint;
     FOutBins: longint;
+    FTick: TTickMethod;
     procedure SmoothSpectrogram;
   public
-    procedure Init(AWindowSize, AHopSize: LongInt);
+    procedure Init(AWindowSize: longint = DEFAULTWINDOWSIZE;
+      AHopSize: LongInt = DEFAULTHOPSIZE; const ATick: TTickMethod = nil);
     procedure Finalize;
 
+    function EstimatedTicks(AChannelCount, ASampleCount, ASampleRate: longint): longint;
     procedure Process(const AChannels: TDoubleMatrix; ASampleCount, ASampleRate: longint);
 
     property WindowSize: longint read FWindowSize;
@@ -37,6 +40,9 @@ type
 
 
 implementation
+
+uses
+  Math;
 
 procedure GetSpectrum(ASamples: PDouble; Count: longint; ASpectrum: PDouble);
 var
@@ -77,9 +83,11 @@ end;
 
 // TSpectrum
 
-procedure TSpectrums.Init(AWindowSize, AHopSize: LongInt);
+procedure TSpectrums.Init(AWindowSize: longint = DEFAULTWINDOWSIZE;
+  AHopSize: LongInt = DEFAULTHOPSIZE; const ATick: TTickMethod = nil);
 begin
   Finalize;
+  FTick := ATick;
 
   if AWindowSize <= 0 then
     AWindowSize := DEFAULTWINDOWSIZE;
@@ -99,6 +107,11 @@ begin
   SetLength(FChannels, 0, 0);
 end;
 
+function TSpectrums.EstimatedTicks(AChannelCount, ASampleCount, ASampleRate: longint): longint;
+begin
+  result := Max(0, (ASampleCount - FWindowSize) div (FWindowSize - FHopSize) * AChannelCount);
+end;
+
 procedure TSpectrums.Process(const AChannels: TDoubleMatrix; ASampleCount, ASampleRate: longint);
 var
   ch, i: longint;
@@ -115,6 +128,8 @@ begin
       for i := 0 to FWindowCount -1 do
       begin
         GetSpectrum(@AChannels[ch][(i * FHopSize)], FWindowSize,  @FChannels[ch][(i * OutBins)]);
+
+        if Assigned(FTick) then FTick;
       end;
     end;
     SmoothSpectrogram;
