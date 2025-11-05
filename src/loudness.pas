@@ -93,6 +93,7 @@ type
     FIntegratedLoudness: double;
     FLoudnessRange: double;
 
+    FTick: TTickMethod;
     FChannelMetrics: array of TChannelMetrics;
     procedure UpdateWeights(const AChannels: TDoubleMatrix);
     procedure UpdateBlocks(const AChannels: TDoubleMatrix);
@@ -101,9 +102,10 @@ type
     procedure UpdateIntegratedLoudness;
     procedure UpdateLoudnessRange;
   public
-    procedure Init;
+    procedure Init(const ATick: TTickMethod = nil);
     procedure Finalize;
 
+    function EstimatedTicks(AChannelCount, ASampleCount, ASampleRate: longint): longint;
     procedure Process(const AChannels: TDoubleMatrix; ASampleCount, ASampleRate: longint);
 
     function Rms(AChannel: longint): double;
@@ -302,9 +304,10 @@ end;
 
 // TLoudnessMeter
 
-procedure TLoudnessMeter.Init;
+procedure TLoudnessMeter.Init(const ATick: TTickMethod = nil);
 begin
   Finalize;
+  FTick := ATick;
 end;
 
 procedure TLoudnessMeter.Finalize;
@@ -587,6 +590,11 @@ end;
 function TLoudnessMeter.LoudnessRange: double;
 begin
   result := FLoudnessRange;
+end;
+
+function TLoudnessMeter.EstimatedTicks(AChannelCount, ASampleCount, ASampleRate: longint): longint;
+begin
+  result := 0;
 end;
 
 procedure TLoudnessMeter.Process(const AChannels: TDoubleMatrix; ASampleCount, ASampleRate: longint);
