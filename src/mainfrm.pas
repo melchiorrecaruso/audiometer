@@ -26,44 +26,45 @@ unit MainFrm;
 interface
 
 uses
-  classes, sysutils, uplaysound, forms, controls, graphics, dialogs, buttons,
-  stdctrls, extctrls, comctrls, bufstream, soundwav, bcradialprogressbar,
-  bclistbox, bcbutton, process, inifiles, bgrabitmap, bgrabitmaptypes, bctypes,
-  bgravirtualscreen, drawers, Common;
+  Classes, sysutils, uPlaySound, forms, controls, graphics, dialogs, Buttons,
+  stdctrls, extctrls, comctrls, IniPropStorage, bufstream, soundwav,
+  bcradialprogressbar, bclistbox, process, inifiles, bgrabitmap,
+  bgrabitmaptypes, bgravirtualscreen, BCFluentProgressRing, drawers, Common;
 
 type
   { TAudioFrm }
 
-  TAudioFrm = class(tform)
+  TAudioFrm = class(TForm)
+    ProgressRing: TBCFluentProgressRing;
     Bevel4: TBevel;
     Bevel5: TBevel;
+    IniPropStorage: TIniPropStorage;
     IntegratedLoudnessValue: TLabel;
     CRESTRightValue: TLabel;
     IntegratedLoudnessLabel: TLabel;
     PCM: TLabel;
-    Label14: TLabel;
-    LoudnessRangeLabel: TLabel;
+    LoudnessFSLabel: TLabel;
+    PeakToLoudnessRatioLabel: TLabel;
+    PeakToLoudnessRatioValue: TLabel;
+    RangeLoudnessLabel: TLabel;
     LUFSPanel: TPanel;
     MomentaryLoudnessLabel: TLabel;
     Panel4: TPanel;
     Panel5: TPanel;
     Panel6: TPanel;
     Panel7: TPanel;
-    LoudnessRangeValue: TLabel;
-    PLRRightValue: TLabel;
+    RangeLoudnessValue: TLabel;
     TopShape: TShape;
     ShortTermLoudnessValue: TLabel;
     RMSRightValue: TLabel;
-    ShortTerpLoudnessLabel: TLabel;
+    ShortTermLoudnessLabel: TLabel;
     BottomShape: TShape;
     TPLLabel: TLabel;
-    PLRLeftValue: TLabel;
-    Label13: TLabel;
+    TruePeakLabel: TLabel;
     PLLabel: TLabel;
     TPLLeftValue: TLabel;
     RMSLabel: TLabel;
     CRESTLabel: TLabel;
-    PLRLabel: TLabel;
     RMSLeftValue: TLabel;
     CRESTLeftValue: TLabel;
     MomentaryLoudnessValue: TLabel;
@@ -76,38 +77,35 @@ type
     ScreenPanel: TPanel;
 
     BtnPlay: TImage;
-    playsound: Tplaysound;
+    PlaySound: Tplaysound;
     VirtualScreen: TBGRAVirtualScreen;
     bevel1: tbevel;
     bevel2: tbevel;
-    bevel3: tbevel;
+    Bevel3: tbevel;
     bit16: tlabel;
     bit24: tlabel;
     bit8: tlabel;
     BtnFile: timage;
     BtnFolder: timage;
-    buttons: timagelist;
-    drlb: tstatictext;
-    drvalue: tstatictext;
+    Buttons: timagelist;
+    DRLabel: TStaticText;
+    DRValue: TStaticText;
     khz176: tlabel;
     khz192: tlabel;
     khz44: tlabel;
     khz48: tlabel;
     khz88: tlabel;
     khz96: tlabel;
-    detailspanel: tpanel;
+    DetailsPanel: tpanel;
     bitspanel: tpanel;
     lefthzpanel: tpanel;
-    mono: tlabel;
-    drpanel: tpanel;
-    progressbar: tbcradialprogressbar;
-    progresspanel: tpanel;
+    Mono: tlabel;
+    DRPanel: tpanel;
     righthzpanel: tpanel;
-    stereo: tlabel;
-    report: timagelist;
-    audio: tlabel;
-    dirdialog: tselectdirectorydialog;
-    filedialog: topendialog;
+    Stereo: tlabel;
+    TrackFileName: tlabel;
+    DirDialog: tselectdirectorydialog;
+    FileDialog: TOpenDialog;
 
     procedure FormCreate(sender: tobject);
     procedure formclosequery(sender: tobject; var canclose: boolean);
@@ -115,28 +113,28 @@ type
     procedure FormDestroy(sender: tobject);
     // file button
     procedure BtnFileClick(sender: tobject);
-    procedure btnfilemousedown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
-    procedure btnfilemouseleave(sender: tobject);
-    procedure btnfilemousemove(sender: tobject; shift: tshiftstate; x, y: integer);
-    procedure btnfilemouseup(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
+    procedure BtnFileMouseDown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
+    procedure BtnFileMouseLeave(sender: tobject);
+    procedure BtnFileMouseMove(sender: tobject; shift: tshiftstate; x, y: integer);
+    procedure BtnFileMouseUp(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
     // folder button
     procedure BtnFolderClick(sender: tobject);
-    procedure btnfoldermousedown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
+    procedure BtnFolderMouseDown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
     procedure btnfoldermouseleave(sender: tobject);
     procedure btnfoldermousemove(sender: tobject; shift: tshiftstate; x, y: integer);
     procedure btnfoldermouseup(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
     // play button
-    procedure btnplayclick(sender: tobject);
-    procedure btnplaymousedown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
-    procedure btnplaymouseleave(sender: tobject);
-    procedure btnplaymousemove(sender: tobject; shift: tshiftstate; x, y: integer);
-    procedure btnplaymouseup(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
+    procedure BtnPlayClick(sender: tobject);
+    procedure BtnPlayMouseDown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
+    procedure BtnPlayMouseLeave(sender: tobject);
+    procedure BtnPlayMouseMove(sender: tobject; shift: tshiftstate; x, y: integer);
+    procedure BtnPlayMouseUp(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
 
-    procedure loadbuttonicon(btn: timage; index: longint; x, y: longint);
+    procedure LoadButtonIcon(btn: timage; index: longint; x, y: longint);
 
-
-    procedure clear;
-    procedure execute;
+    procedure Execute;
+    procedure ClearTrackList;
+    procedure Clear;
 
     procedure OnStartAnalyzer;
     procedure OnTickAnalyzer;
@@ -146,23 +144,25 @@ type
     procedure OnStopDrawer;
     procedure OnWaitDrawer;
 
-    procedure disablebuttons;
+    procedure DisableButtons;
     procedure EnableButtons;
 
 
 
     procedure VirtualScreenRedraw(Sender: TObject; Bitmap: TBGRABitmap);
+    procedure MainBoardRedraw(ATrack: TTrack);
 
   private
     VirtualScreens: TVirtualScreens;
     Buffer: TReadBufStream;
     Stream: TFileStream;
+    Last: TTrack;
     Track: TTrack;
-    TrackIndex: longint;
     TrackList: TTrackList;
     TrackFile: string;
     TempFile:  string;
 
+    IsNeededDrawDefault:   boolean;
     IsNeededUpdateScreens: boolean;
     IsNeededKillAnalyzer:  boolean;
   public
@@ -176,12 +176,12 @@ implementation
 {$R *.lfm}
 
 uses
-  math, fileutil, soundutils;
+  Math, FileUtil, SoundUtils;
 
-function cutoff(const s: string): string;
+function CutOff(const S: string): string;
 begin
-  result := s;
-  setlength(result, max(0, length(result) - 4));
+  result := S;
+  setlength(result, Max(0, Length(result) - 4));
   result := result + '...';
 end;
 
@@ -189,28 +189,32 @@ end;
 
 procedure TAudioFrm.FormCreate(Sender: TObject);
 begin
-  VirtualScreens[0] := TBitmap.create;
-  VirtualScreens[1] := TBitmap.create;
-  VirtualScreens[2] := TBitmap.create;
-  VirtualScreens[3] := TBitmap.create;
+  IniPropStorage.IniFileName := GetAppFile('audiometer.ini');
+  IniPropStorage.Active := True;
+  // ---
+  VirtualScreens[0] := TBGRABitmap.Create;
+  VirtualScreens[1] := TBGRABitmap.Create;
+  VirtualScreens[2] := TBGRABitmap.Create;
+  VirtualScreens[3] := TBGRABitmap.Create;
+  IsNeededDrawDefault   := True;
   IsNeededUpdateScreens := False;
   IsNeededKillAnalyzer  := False;
   // ---
+  Last  := nil;
   Track := nil;
-  TrackIndex := 0;
   TrackList  := TTrackList.create;
-  // load openfile button icon
-  loadbuttonicon(BtnFile, 1, 0, 0);
-  BtnFile.onmousemove := @btnfilemousemove;
-  // load openfolder button icon
-  loadbuttonicon(BtnFolder, 3, 0, 5);
-  BtnFile.onmousemove := @btnfilemousemove;
-  // initialize progress bar
-  progresspanel.visible := false;
-  progressbar.value := 0;
+  // Load openfile button icon
+  LoadButtonIcon(BtnFile, 1, 0, 0);
+  BtnFile.OnMouseMove := @BtnFileMouseMove;
+  // Load openfolder button icon
+  LoadButtonIcon(BtnFolder, 3, 0, 5);
+  BtnFile.OnMouseMove := @BtnFileMouseMove;
+  // Initialize progress bar
+  ProgressRing.Value := 0;
+  ProgressRing.Visible := True;
   // inizialize main form
-  color := clblack;
-  // initialize
+  Color := clBlack;
+  // Initialize
   Clear;
 end;
 
@@ -220,156 +224,91 @@ begin
   FreeAndNil(VirtualScreens[1]);
   FreeAndNil(VirtualScreens[2]);
   FreeAndNil(VirtualScreens[3]);
-  TrackList.destroy;
+  TrackList.Destroy;
   Track := nil;
+  Last := nil;
 end;
 
-procedure TAudioFrm.formclosequery(sender: tobject; var canclose: boolean);
+procedure TAudioFrm.FormClosequery(Sender: TObject; var CanClose: boolean);
 begin
-  IsNeededKillAnalyzer := true;
-  canclose := (AudioAnalyzer = nil) and
-              (ScreenDrawer  = nil);
+  IsNeededKillAnalyzer := True;
+  CanClose := (AudioAnalyzer = nil) and (ScreenDrawer = nil);
 end;
 
-procedure TAudioFrm.FormResize(sender: tobject);
+procedure TAudioFrm.FormResize(Sender: TObject);
 begin
-  while (audio.left + audio.width) > (BtnFolder.left + BtnFolder.width) do
+  while (TrackFileName.Left + TrackFileName.Width) > (BtnFolder.Left + BtnFolder.Width) do
   begin
-    audio.caption := cutoff(audio.caption);
+    TrackFileName.Caption := CutOff(TrackFileName.Caption);
   end;
 
-  IsNeededUpdateScreens := true;
-  if AudioAnalyzer <> nil then exit;
-  if ScreenDrawer  <> nil then exit;
-  ScreenDrawer := TScreenDrawer.Create(Track);
+  IsNeededUpdateScreens := True;
+  if AudioAnalyzer <> nil then Exit;
+  if ScreenDrawer  <> nil then Exit;
+  ScreenDrawer := TScreenDrawer.Create(Last);
   ScreenDrawer.OnStart := @OnStartDrawer;
   ScreenDrawer.OnStop  := @OnStopDrawer;
   ScreenDrawer.OnWait  := @OnWaitDrawer;
   ScreenDrawer.Start;
 end;
 
-// track analyzer events
+// Track analyzer events
 
 procedure TAudioFrm.OnStartAnalyzer;
 begin
-  clear;
-  if assigned(Track) then
-  begin
-    audio.font.color := clwhite;
-    audio.caption    := extractfilename(Track.Filename);
-    while (audio.left + audio.width) > (BtnFolder.left + BtnFolder.width) do
-    begin
-      audio.caption := cutoff(audio.caption);
-    end;
-  end;
-  disablebuttons;
-  application.processmessages;
+  DisableButtons;
+  Application.ProcessMessages;
 end;
 
 procedure TAudioFrm.OnTickAnalyzer;
 begin
-  progressbar.value := AudioAnalyzer.Percentage;
+  ProgressRing.Value := AudioAnalyzer.Percentage;
 end;
 
 procedure TAudioFrm.OnStopAnalyzer;
 begin
-  freeandnil(Buffer);
-  freeandnil(Stream);
+  FreeAndNil(Buffer);
+  FreeAndNil(Stream);
 
   if AudioAnalyzer.Status <> 0 then
   begin
-    TrackIndex := TrackList.count;
-    audio.font.color := clrRed;
+    TrackList.FindLast;
+    TrackFileName.Font.Color := clrRed;
     case AudioAnalyzer.Status of
-      -1: audio.caption := 'file format error!';
-      -2: audio.caption := 'file is empty!';
-      -3: audio.caption := 'file is too short!';
-    else  audio.caption := 'unknown error!';
-    end;
-    EnableButtons;
-  end else
-  begin
-    pcm   .Font.Color  := clWhite;
-    bit8  .Font.Color  := clGray; if Track.Bitspersample = 8      then bit8  .Font.Color := clWhite;
-    bit16 .Font.Color  := clGray; if Track.Bitspersample = 16     then bit16 .Font.Color := clWhite;
-    bit24 .Font.Color  := clGray; if Track.Bitspersample = 24     then bit24 .Font.Color := clWhite;
-
-    khz44 .Font.Color  := clGray; if Track.Samplerate    = 44100  then khz44 .Font.Color := clWhite;
-    khz48 .Font.Color  := clGray; if Track.Samplerate    = 48000  then khz48 .Font.Color := clWhite;
-    khz88 .Font.Color  := clGray; if Track.Samplerate    = 88000  then khz88 .Font.Color := clWhite;
-    khz96 .Font.Color  := clGray; if Track.Samplerate    = 96000  then khz96 .Font.Color := clWhite;
-    khz176.Font.Color  := clGray; if Track.Samplerate    = 176400 then khz176.Font.Color := clWhite;
-    khz192.Font.Color  := clGray; if Track.Samplerate    = 192000 then khz192.Font.Color := clWhite;
-
-    mono  .Font.Color  := clGray; if Track.ChannelCount  = 1      then mono  .Font.Color := clWhite;
-    stereo.Font.Color  := clGray; if Track.ChannelCount  = 2      then stereo.Font.Color := clWhite;
-
-    if Track.ChannelCount > 0 then if Decibel(Track.Loudness.TruePeak(0)) <  0.0 then tplleftvalue .Font.Color := clLime;
-    if Track.ChannelCount > 0 then if Decibel(Track.Loudness.TruePeak(0)) >= 0.0 then tplleftvalue .Font.Color := clYellow;
-    if Track.ChannelCount > 0 then if Decibel(Track.Loudness.TruePeak(0)) >  0.5 then tplleftvalue .Font.Color := clRed;
-
-    if Track.ChannelCount > 1 then if Decibel(Track.Loudness.TruePeak(1)) <  0.0 then tplrightvalue.Font.Color := clLime;
-    if Track.ChannelCount > 1 then if Decibel(Track.Loudness.TruePeak(1)) >= 0.0 then tplrightvalue.Font.Color := clYellow;
-    if Track.ChannelCount > 1 then if Decibel(Track.Loudness.TruePeak(1)) >  0.5 then tplrightvalue.Font.Color := clRed;
-
-    if Track.ChannelCount > 0 then plleftvalue .Caption := Format('%0.2f', [Track.Loudness.Peak(0)]);
-    if Track.ChannelCount > 1 then plrightvalue.Caption := Format('%0.2f', [Track.Loudness.Peak(1)]);
-
-    if Track.ChannelCount > 0 then tplleftvalue   .Caption := Format('%0.2f', [Track.Loudness.TruePeak(0)]);
-    if Track.ChannelCount > 1 then tplrightvalue  .Caption := Format('%0.2f', [Track.Loudness.TruePeak(1)]);
-    if Track.ChannelCount > 0 then rmsleftvalue   .Caption := Format('%0.2f', [Track.Loudness.Rms(0)]);
-    if Track.ChannelCount > 1 then rmsrightvalue  .Caption := Format('%0.2f', [Track.Loudness.Rms(1)]);
-    if Track.ChannelCount > 0 then crestleftvalue .Caption := Format('%0.2f', [Track.Loudness.CrestFactor(0)]);
-    if Track.ChannelCount > 1 then crestrightvalue.Caption := Format('%0.2f', [Track.Loudness.CrestFactor(1)]);
-    if Track.ChannelCount > 0 then plrleftvalue   .Caption := Format('%0.2f', [Track.Loudness.PeakToLoudnessRatio]);
-
-    if Track.ChannelCount > 0 then IntegratedLoudnessValue .Caption := Format('%0.2f', [Track.Loudness.IntegratedLoudness]);
-    if Track.ChannelCount > 0 then LoudnessRangeValue      .Caption := Format('%0.2f', [Track.Loudness.LoudnessRange]);
-
-
-    DRValue.Caption    := '--';
-    DRValue.Font.Color := clwhite;
-    if (Track.DRMeter.DR) > 0 then
-    begin
-      DRValue.Caption := format('%2.0f', [Track.DRMeter.DR]);
-      if DRValue.Caption = ' 0' then DRValue.Font.Color := rgbtocolor(255,   0, 0) else
-      if DRValue.Caption = ' 1' then DRValue.Font.Color := rgbtocolor(255,   0, 0) else
-      if DRValue.Caption = ' 2' then DRValue.Font.Color := rgbtocolor(255,   0, 0) else
-      if DRValue.Caption = ' 3' then DRValue.Font.Color := rgbtocolor(255,   0, 0) else
-      if DRValue.Caption = ' 4' then DRValue.Font.Color := rgbtocolor(255,   0, 0) else
-      if DRValue.Caption = ' 5' then DRValue.Font.Color := rgbtocolor(255,   0, 0) else
-      if DRValue.Caption = ' 6' then DRValue.Font.Color := rgbtocolor(255,   0, 0) else
-      if DRValue.Caption = ' 7' then DRValue.Font.Color := rgbtocolor(255,   0, 0) else
-      if DRValue.Caption = ' 8' then DRValue.Font.Color := rgbtocolor(255,  72, 0) else
-      if DRValue.Caption = ' 9' then DRValue.Font.Color := rgbtocolor(255, 145, 0) else
-      if DRValue.Caption = '10' then DRValue.Font.Color := rgbtocolor(255, 217, 0) else
-      if DRValue.Caption = '11' then DRValue.Font.Color := rgbtocolor(217, 255, 0) else
-      if DRValue.Caption = '12' then DRValue.Font.Color := rgbtocolor(144, 255, 0) else
-      if DRValue.Caption = '13' then DRValue.Font.Color := rgbtocolor( 72, 255, 0) else
-                                     DRValue.Font.Color := rgbtocolor(  0, 255, 0);
+     -1:  TrackFileName.Caption := Format('File format error "%s".',  [Track.Filename]);
+     -2:  TrackFileName.Caption := Format('File "%s" is empty.',      [Track.Filename]);
+     -3:  TrackFileName.Caption := Format('File "%s" is too short.',  [Track.Filename]);
+    else  TrackFileName.Caption := Format('Unknown error with "%s".', [Track.Filename]);
     end;
   end;
   EnableButtons;
-  application.processmessages;
+  Application.ProcessMessages;
 
-  inc(TrackIndex);
-  if TrackIndex = TrackList.count then
+  if Assigned(Track) then
   begin
-    // save text report
-    TrackList.SaveToFile(TrackFile);
-    // ---
-    AudioAnalyzer := nil;
-    ScreenDrawer := TScreenDrawer.Create(Track);
-    ScreenDrawer.OnStart := @OnStartDrawer;
-    ScreenDrawer.OnStop  := @OnStopDrawer;
-    ScreenDrawer.OnWait  := @OnWaitDrawer;
-    ScreenDrawer.Start;
-  end else
-    if Assigned(Track) then
+    if Assigned(Last) then
+      Last.ClearChannels;
+
+    Last  := Track;
+    Track := TrackList.FindNext;
+    if AudioAnalyzer.Status = 0 then
     begin
-      Track.ClearChannels;
+      if ScreenDrawer = nil then
+      begin
+        ScreenDrawer := TScreenDrawer.Create(Last);
+        ScreenDrawer.OnStart := @OnStartDrawer;
+        ScreenDrawer.OnStop  := @OnStopDrawer;
+        ScreenDrawer.OnWait  := @OnWaitDrawer;
+        ScreenDrawer.Start;
+      end;
+      IsNeededDrawDefault := False;
     end;
-  execute;
+  end else
+  begin
+    TrackList.SaveToFile(TrackFile);
+  end;
+  AudioAnalyzer := nil;
+  Execute;
 end;
 
 // chart drawer events
@@ -383,7 +322,7 @@ procedure TAudioFrm.OnStopDrawer;
 begin
   if IsNeededUpdateScreens then
   begin
-    ScreenDrawer := TScreenDrawer.Create(Track);
+    ScreenDrawer := TScreenDrawer.Create(Last);
     ScreenDrawer.OnStart := @OnStartDrawer;
     ScreenDrawer.OnStop  := @OnStopDrawer;
     ScreenDrawer.OnWait  := @OnWaitDrawer;
@@ -398,14 +337,15 @@ begin
     if (ScreenDrawer.ScreenWidth  > 0) and
        (ScreenDrawer.ScreenHeight > 0) then
     begin
-      VirtualScreens[0].canvas.draw(0, 0, ScreenDrawer.Screens[0]);
-      VirtualScreens[1].canvas.draw(0, 0, ScreenDrawer.Screens[1]);
-      VirtualScreens[2].canvas.draw(0, 0, ScreenDrawer.Screens[2]);
-      VirtualScreens[3].canvas.draw(0, 0, ScreenDrawer.Screens[3]);
+      VirtualScreens[0].PutImage(0, 0,  ScreenDrawer.Screens[0], dmSet);
+      VirtualScreens[1].PutImage(0, 0,  ScreenDrawer.Screens[1], dmSet);
+      VirtualScreens[2].PutImage(0, 0,  ScreenDrawer.Screens[2], dmSet);
+      VirtualScreens[3].PutImage(0, 0,  ScreenDrawer.Screens[3], dmSet);
     end;
     ScreenDrawer := nil;
     EnableButtons;
 
+    MainBoardRedraw(Last);
     VirtualScreen.RedrawBitmap;
   end;
   Application.ProcessMessages;
@@ -418,231 +358,271 @@ begin
     ScreenDrawer.ScreenWidth  := ScreenPanel.Width;
     ScreenDrawer.ScreenHeight := ScreenPanel.Height;
   end;
-  IsNeededUpdateScreens := false;
+  IsNeededUpdateScreens := False;
 end;
 
 //
 
-procedure TAudioFrm.execute;
+procedure TAudioFrm.Execute;
 var
-  buf: array[0..4095] of byte;
+  Buff: array[0..4095] of byte;
   bit4sample: longint;
   i: longint;
-  ini: tinifile;
-  mem: tmemorystream;
-  process: tprocess;
+  Ini: TIniFile;
+  Mem: TMemoryStream;
+  Process: TProcess;
 begin
-  if (TrackIndex >= TrackList.count) then exit;
-  if IsNeededKillAnalyzer then TrackIndex := TrackList.count -1;
+  if not Assigned(Track) then Exit;
+  if IsNeededKillAnalyzer then Exit;
 
-  Track := TrackList.Tracks[TrackIndex];
   try
-    if extractfileext(Track.Filename) <> '.wav' then
+    if ExtractFileExt(Track.Filename) <> '.wav' then
     begin
-      TempFile := includetrailingbackslash(
-        gettempdir(false)) + 'audiometer-tmp.wav';
+      TempFile := IncludeTrailingBackSlash(GetTempDir(False)) + 'audiometer-tmp.wav';
 
       // get file properties
-      process := tprocess.create(nil);
+      Process := TProcess.Create(nil);
       try
-        process.parameters.clear;
-        process.currentdirectory := extractfiledir(Track.Filename);
-        process.executable := 'ffprobe';
-        process.parameters.add('-show_streams');
-        process.parameters.add('-hide_banner');
-        process.parameters.add('-print_format');
-        process.parameters.add('ini');
-        process.parameters.add(extractfilename(Track.Filename));
-        process.options := [ponoconsole, pousepipes];
-        process.execute;
+        Process.Parameters.Clear;
+        Process.CurrentDirectory := ExtractFileDir(Track.Filename);
+        Process.Executable := 'ffprobe';
+        Process.Parameters.Add('-show_streams');
+        Process.Parameters.Add('-hide_banner');
+        Process.Parameters.Add('-print_format');
+        Process.Parameters.Add('ini');
+        Process.Parameters.Add(ExtractFileName(Track.Filename));
+        Process.Options := [poNoConsole, poUsePipes];
+        Process.Execute;
 
-        mem := tmemorystream.create;
-        while (process.running) or
-              (process.output.numbytesavailable > 0) or
-              (process.stderr.numbytesavailable > 0) do
+        Mem := TMemoryStream.Create;
+        while (Process.Running) or
+              (Process.Output.NumBytesAvailable > 0) or
+              (Process.stderr.NumBytesAvailable > 0) do
         begin
-          while process.output.numbytesavailable > 0 do
-            mem.write(buf, process.output.read(buf, sizeof(buf)));
-          while process.stderr.numbytesavailable > 0 do
-            process.stderr.read(buf, sizeof(buf));
+          while Process.Output.NumBytesAvailable > 0 do
+            Mem.write(Buff, Process.Output.read(Buff, sizeof(Buff)));
+          while Process.stderr.NumBytesAvailable > 0 do
+            Process.stderr.read(Buff, sizeof(Buff));
         end;
-        mem.seek(0, sofrombeginning);
+        Mem.Seek(0, sofrombeginning);
 
-        ini := tinifile.create(mem, [ifostripcomments, ifostripinvalid]);
+        Ini := TIniFile.Create(Mem, [ifostripcomments, ifostripinvalid]);
 
         i := 0;
         bit4sample := 0;
-        while ini.sectionexists('streams.stream.' + inttostr(i)) do
+        while Ini.SectionExists('streams.stream.' + inttostr(i)) do
         begin
-          if ini.readstring('streams.stream.' + inttostr(i), 'codec_type', '') = 'audio' then
+          if Ini.ReadString('streams.stream.' + inttostr(i), 'codec_type', '') = 'audio' then
           begin
-            bit4sample := ini.readinteger('streams.stream.' + inttostr(i), 'bits_per_raw_sample',  bit4sample);
+            bit4sample := Ini.ReadInteger('streams.stream.' + inttostr(i), 'bits_per_raw_sample',  bit4sample);
           end;
           inc(i);
         end;
-        ini.destroy;
-        mem.destroy;
+        Ini.Destroy;
+        Mem.Destroy;
       except
       end;
-      process.destroy;
+      Process.Destroy;
 
       // decode to .AudioAnalyzer
-      process := tprocess.create(nil);
+      Process := TProcess.Create(nil);
       try
-        process.parameters.clear;
-        process.currentdirectory := extractfiledir(Track.Filename);
-        process.executable := 'ffmpeg';
-        process.parameters.add('-y');
-        process.parameters.add('-hide_banner');
-        process.parameters.add('-i');
-        process.parameters.add(extractfilename(Track.Filename));
+        Process.Parameters.Clear;
+        Process.CurrentDirectory := ExtractFileDir(Track.Filename);
+        Process.Executable := 'ffmpeg';
+        Process.Parameters.Add('-y');
+        Process.Parameters.Add('-hide_banner');
+        Process.Parameters.Add('-i');
+        Process.Parameters.Add(ExtractFileName(Track.Filename));
 
         if bit4sample = 24 then
         begin
-          process.parameters.add('-c:a');
-          process.parameters.add('pcm_s24le');
+          Process.Parameters.Add('-c:a');
+          Process.Parameters.Add('pcm_s24le');
         end;
 
         if bit4sample = 32 then
         begin
-          process.parameters.add('-c:a');
-          process.parameters.add('pcm_s32le');
+          Process.Parameters.Add('-c:a');
+          Process.Parameters.Add('pcm_s32le');
         end;
 
-        process.parameters.add(TempFile);
-        process.options := [ponoconsole, powaitonexit];
-        process.execute;
+        Process.Parameters.Add(TempFile);
+        Process.Options := [poNoConsole, poWaitOnExit];
+        Process.Execute;
       except
       end;
-      process.destroy;
+      Process.Destroy;
 
     end else
       TempFile := Track.Filename;
 
-    Stream := tfilestream.create(TempFile, fmopenread or fmshareexclusive);
+    Stream := TFileStream.Create(TempFile, fmOpenRead or fmShareExclusive);
   except
     Stream := nil;
   end;
 
-  if assigned(Stream) then
+  if Assigned(Stream) then
   begin
-    Buffer := TReadBufStream.create(Stream);
-    AudioAnalyzer := TTrackAnalyzer.create(Track, Buffer, TrackIndex = TrackList.count -1);
+    Buffer := TReadBufStream.Create(Stream);
+    AudioAnalyzer := TTrackAnalyzer.Create(Track, Buffer, True);
     AudioAnalyzer.OnStart := @OnStartAnalyzer;
     AudioAnalyzer.OnTick  := @OnTickAnalyzer;
     AudioAnalyzer.OnStop  := @OnStopAnalyzer;
     AudioAnalyzer.Start;
   end else
   begin
-    messagedlg('AudioMeter', format('Error to open file "%s"', [TempFile]), mterror, [mbok], '');
-    inc(TrackIndex);
-    execute;
+    MessageDlg('AudioMeter', Format('Error to open file "%s"', [TempFile]), mtError, [mbOk], '');
+    Track := nil;
   end;
 end;
 
-procedure TAudioFrm.clear;
+procedure TAudioFrm.Clear;
 begin
-  pcm   .font.color := clGray;
-  bit8  .font.color := clGray;
-  bit16 .font.color := clGray;
-  bit24 .font.color := clGray;
-  khz44 .font.color := clGray;
-  khz48 .font.color := clGray;
-  khz88 .font.color := clGray;
-  khz96 .font.color := clGray;
-  khz176.font.color := clGray;
-  khz192.font.color := clGray;
-  mono  .font.color := clGray;
-  stereo.font.color := clGray;
+  pcm   .Font.Color := clGray;
+  bit8  .Font.Color := clGray;
+  bit16 .Font.Color := clGray;
+  bit24 .Font.Color := clGray;
+  khz44 .Font.Color := clGray;
+  khz48 .Font.Color := clGray;
+  khz88 .Font.Color := clGray;
+  khz96 .Font.Color := clGray;
+  khz176.Font.Color := clGray;
+  khz192.Font.Color := clGray;
+  Mono  .Font.Color := clGray;
+  Stereo.Font.Color := clGray;
 
-  tplleftvalue   .font.color := clGray;
-  tplrightvalue  .font.color := clGray;
-  rmsleftvalue   .font.color := clGray;
-  rmsrightvalue  .font.color := clGray;
-  crestleftvalue .font.color := clGray;
-  crestrightvalue.font.color := clGray;
+  TruePeakLabel  .Font.Color := clGray;
+  TPLLeftValue   .Font.Color := clGray;
+  TPLRightValue  .Font.Color := clGray;
+  PLLeftValue    .Font.Color := clGray;
+  PLRightValue   .Font.Color := clGray;
 
-  audio.caption      := 'Audio';
-  audio.font.color   := clwhite;
-  drvalue.caption    := '--';
-  drvalue.font.color := clwhite;
+  RMSLeftValue   .Font.Color := clGray;
+  RMSRightValue  .Font.Color := clGray;
+  CRestLeftValue .Font.Color := clGray;
+  CRestRightValue.Font.Color := clGray;
+
+  LoudnessFSLabel         .Font.Color := clGray;
+  MomentaryLoudnessValue  .Font.Color := clGray;
+  ShortTermLoudnessValue  .Font.Color := clGray;
+  IntegratedLoudnessValue .Font.Color := clGray;
+  RangeLoudnessValue      .Font.Color := clGray;
+  PeakToLoudnessRatioValue.Font.Color := clGray;
+  DRValue                 .Font.Color := clGray;
+  DRLabel                 .Font.Color := clGray;
+
+  TPLLeftValue   .Caption := '-';
+  TPLRightValue  .Caption := '-';
+  PLLeftValue    .Caption := '-';
+  PLRightValue   .Caption := '-';
+
+  RMSLeftValue   .Caption := '-';
+  RMSRightValue  .Caption := '-';
+  CRestLeftValue .Caption := '-';
+  CRestRightValue.Caption := '-';
+
+  MomentaryLoudnessValue  .Caption := '-';
+  ShortTermLoudnessValue  .Caption := '-';
+  IntegratedLoudnessValue .Caption := '-';
+  RangeLoudnessValue      .Caption := '-';
+  PeakToLoudnessRatioValue.Caption := '-';
+  DRValue                 .Caption := '--';
+
+  TrackFileName.Font.Color := clwhite;
+  TrackFileName.Caption := 'Audio';
+
+  IsNeededDrawDefault := True;
+  VirtualScreen.RedrawBitmap;
+end;
+
+procedure TAudioFrm.ClearTrackList;
+begin
+  Last := nil;
+  Track := nil;
+  TrackList.Clear;
 end;
 
 // Button Events
 
 procedure TAudioFrm.BtnFileClick(sender: tobject);
 begin
-  TrackList.clear;
-  if filedialog.execute then
+  FileDialog.Filter:= OpenDialogFileFilter;
+  if FileDialog.Execute then
   begin
-    playsound.stopsound;
-    BtnPlay.imageindex := 5;
-    if IsFileSupported(extractfileext(filedialog.filename)) then
+    PlaySound.StopSound;
+    BtnPlay.ImageIndex := 5;
+
+    ClearTrackList;
+    if IsFileSupported(ExtractFileExt(FileDialog.FileName)) then
     begin
-      TrackList.Add(filedialog.filename);
-      TrackFile  := changefileext(filedialog.filename, '.md');
-      IsNeededKillAnalyzer  := false;
-      TrackIndex := 0;
+      TrackList.Add(FileDialog.FileName);
+      TrackFile  := ChangeFileExt(FileDialog.FileName, '.md');
+      Track := TrackList.FindFirst;
+
+      IsNeededKillAnalyzer := False;
     end else
     begin
-      audio.caption    := 'File format error!';
-      audio.font.color := clrRed;
+      TrackFileName.Caption    := 'File format error!';
+      TrackFileName.Font.Color := clrRed;
     end;
   end;
-  execute;
+  Execute;
 end;
 
-procedure TAudioFrm.BtnFolderClick(sender: tobject);
+procedure TAudioFrm.BtnFolderClick(Sender: TObject);
 var
-  err:  longint;
-  path: string;
-  sr:   tsearchrec;
+  Err:  longint;
+  Path: string;
+  SR:   TSearchRec;
 begin
-  TrackList.clear;
-  if dirdialog.execute then
+  if DirDialog.Execute then
   begin
-    playsound.stopsound;
-    BtnPlay.imageindex := 5;
-    path := includetrailingbackslash(dirdialog.filename);
-     err := sysutils.findfirst(path + '*.*', faanyfile, sr);
-    while err = 0 do
+    PlaySound.StopSound;
+    BtnPlay.ImageIndex := 5;
+
+    ClearTrackList;
+    Path := IncludeTrailingBackslash(DirDialog.FileName);
+     Err := SysUtils.FindFirst(Path + '*.*', faAnyfile, SR);
+    while Err = 0 do
     begin
-      if sr.attr and (fadirectory) = 0 then
+      if SR.Attr and (faDirectory) = 0 then
       begin
-        if IsFileSupported(ExtractFileExt(sr.name)) then
-          TrackList.Add(path + sr.name);
+        if IsFileSupported(ExtractFileExt(SR.Name)) then
+          TrackList.Add(Path + SR.Name);
       end;
-      err := findnext(sr);
+      Err := FindNext(SR);
     end;
-    sysutils.findclose(sr);
+    SysUtils.FindClose(SR);
     TrackList.Sort;
-    TrackFile  := path + extractfilename(dirdialog.filename) + '.md';
-    IsNeededKillAnalyzer  := false;
-    TrackIndex := 0;
+    TrackFile := Path + ExtractFileName(DirDialog.FileName) + '.md';
+    Track := TrackList.FindFirst;
+
+    IsNeededKillAnalyzer  := False;
   end;
-  execute;
+  Execute;
 end;
 
-procedure TAudioFrm.btnplayclick(sender: tobject);
+procedure TAudioFrm.BtnPlayClick(Sender: TObject);
 begin
-  case BtnPlay.imageindex of
+  case BtnPlay.ImageIndex of
     6: begin
-         playsound.stopsound;
-         BtnPlay.imageindex := 5;
+         PlaySound.StopSound;
+         BtnPlay.ImageIndex := 5;
        end;
     7: begin
-         playsound.stopsound;
-         BtnPlay.imageindex := 5;
+         PlaySound.StopSound;
+         BtnPlay.ImageIndex := 5;
        end;
   else begin
-         playsound.stopsound;
-         BtnPlay.imageindex := 5;
-         if fileexists(TempFile) then
+         PlaySound.StopSound;
+         BtnPlay.ImageIndex := 5;
+         if FileExists(TempFile) then
          begin
-           playsound.playstyle := psasync;
-           playsound.soundfile := TempFile;
-           playsound.execute;
-           BtnPlay.imageindex := 6;
+           PlaySound.PlayStyle := psaSync;
+           PlaySound.SoundFile := TempFile;
+           PlaySound.Execute;
+           BtnPlay.ImageIndex := 6;
          end;
        end;
   end;
@@ -650,46 +630,46 @@ end;
 
 // mouse events
 
-procedure TAudioFrm.btnfilemouseup(sender: tobject; button: tmousebutton;
+procedure TAudioFrm.BtnFileMouseUp(sender: tobject; button: tmousebutton;
   shift: tshiftstate; x, y: integer);
 begin
   BtnFile.onmousemove := @btnfilemousemove;
 end;
 
-procedure TAudioFrm.btnfilemousedown(sender: tobject; button: tmousebutton;
+procedure TAudioFrm.BtnFileMouseDown(sender: tobject; button: tmousebutton;
   shift: tshiftstate; x, y: integer);
 begin
   BtnFile.onmousemove := nil;
-  loadbuttonicon(BtnFile, 1, 0, 0);
+  LoadButtonIcon(BtnFile, 1, 0, 0);
 end;
 
-procedure TAudioFrm.btnfilemouseleave(sender: tobject);
+procedure TAudioFrm.BtnFileMouseLeave(sender: tobject);
 begin
-  loadbuttonicon(BtnFile, 1, 0, 0);
+  LoadButtonIcon(BtnFile, 1, 0, 0);
 end;
 
-procedure TAudioFrm.btnfilemousemove(sender: tobject;
+procedure TAudioFrm.BtnFileMouseMove(sender: tobject;
   shift: tshiftstate; x, y: integer);
 begin
-  loadbuttonicon(BtnFile, 0, 0, 0);
+  LoadButtonIcon(BtnFile, 0, 0, 0);
 end;
 
-procedure TAudioFrm.btnfoldermousedown(sender: tobject; button: tmousebutton;
+procedure TAudioFrm.BtnFolderMouseDown(sender: tobject; button: tmousebutton;
   shift: tshiftstate; x, y: integer);
 begin
   BtnFolder.onmousemove := nil;
-  loadbuttonicon(BtnFolder, 3, 0, 5);
+  LoadButtonIcon(BtnFolder, 3, 0, 5);
 end;
 
 procedure TAudioFrm.btnfoldermouseleave(sender: tobject);
 begin
-  loadbuttonicon(BtnFolder, 3, 0, 5);
+  LoadButtonIcon(BtnFolder, 3, 0, 5);
 end;
 
 procedure TAudioFrm.btnfoldermousemove(sender: tobject;
   shift: tshiftstate; x, y: integer);
 begin
-  loadbuttonicon(BtnFolder, 2, 0, 5);
+  LoadButtonIcon(BtnFolder, 2, 0, 5);
 end;
 
 procedure TAudioFrm.btnfoldermouseup(sender: tobject; button: tmousebutton;
@@ -698,92 +678,189 @@ begin
   BtnFolder.onmousemove := @btnfoldermousemove;
 end;
 
-procedure TAudioFrm.btnplaymousedown(sender: tobject; button: tmousebutton;
+procedure TAudioFrm.BtnPlayMouseDown(sender: tobject; button: tmousebutton;
   shift: tshiftstate; x, y: integer);
 begin
  BtnPlay.onmousemove := nil;
- case BtnPlay.imageindex of
-   4: BtnPlay.imageindex := 5;
-   5: BtnPlay.imageindex := 4;
-   6: BtnPlay.imageindex := 7;
-   7: BtnPlay.imageindex := 6;
+ case BtnPlay.ImageIndex of
+   4: BtnPlay.ImageIndex := 5;
+   5: BtnPlay.ImageIndex := 4;
+   6: BtnPlay.ImageIndex := 7;
+   7: BtnPlay.ImageIndex := 6;
  end;
 end;
 
-procedure TAudioFrm.btnplaymouseleave(sender: tobject);
+procedure TAudioFrm.BtnPlayMouseLeave(sender: tobject);
 begin
- case BtnPlay.imageindex of
-   4: BtnPlay.imageindex := 5;
-   6: BtnPlay.imageindex := 7;
+ case BtnPlay.ImageIndex of
+   4: BtnPlay.ImageIndex := 5;
+   6: BtnPlay.ImageIndex := 7;
  end;
 end;
 
-procedure TAudioFrm.btnplaymousemove(sender: tobject; shift: tshiftstate; x, y: integer);
+procedure TAudioFrm.BtnPlayMouseMove(sender: tobject; shift: tshiftstate; x, y: integer);
 begin
- case BtnPlay.imageindex of
-   5: BtnPlay.imageindex := 4;
-   7: BtnPlay.imageindex := 6;
+ case BtnPlay.ImageIndex of
+   5: BtnPlay.ImageIndex := 4;
+   7: BtnPlay.ImageIndex := 6;
  end;
 end;
 
-procedure TAudioFrm.btnplaymouseup(sender: tobject; button: tmousebutton;
+procedure TAudioFrm.BtnPlayMouseUp(sender: tobject; button: tmousebutton;
   shift: tshiftstate; x, y: integer);
 begin
   BtnPlay.onmousemove := @btnplaymousemove;
-  case BtnPlay.imageindex of
-    5: BtnPlay.imageindex := 4;
-    7: BtnPlay.imageindex := 6;
+  case BtnPlay.ImageIndex of
+    5: BtnPlay.ImageIndex := 4;
+    7: BtnPlay.ImageIndex := 6;
   end;
 end;
 
 // ---
 
-procedure TAudioFrm.loadbuttonicon(btn: timage; index: longint; x, y: longint);
+procedure TAudioFrm.LoadButtonIcon(Btn: TImage; Index: longint; X, Y: longint);
 begin
-  btn.center := false;
-  btn.stretch := false;
-  btn.proportional := true;
-  btn.picture.bitmap := nil;
-  buttons.draw(btn.canvas, x, y, index);
+  Btn.Center := False;
+  Btn.Stretch := False;
+  Btn.Proportional := True;
+  Btn.Picture.Bitmap := nil;
+  Buttons.Draw(Btn.Canvas, X, Y, Index);
 end;
 
-procedure TAudioFrm.disablebuttons;
+procedure TAudioFrm.DisableButtons;
 begin
   BtnPlay  .Enabled := False;
   BtnFile  .Enabled := False;
   BtnFolder.Enabled := False;
 
-  drvalue      .visible := False;
-  progressbar  .value   := 0;
-  progresspanel.visible := true;
+  DRValue.Visible := True;
+  ProgressRing.Value := 0;
 end;
 
 procedure TAudioFrm.EnableButtons;
 begin
-  BtnPlay       .Enabled := true;
-  BtnFile       .Enabled := true;
-  BtnFolder     .Enabled := true;
+  BtnPlay  .Enabled := True;
+  BtnFile  .Enabled := True;
+  BtnFolder.Enabled := True;
 
-  progressbar.value     := 0;
-  progresspanel.visible := False;
-  drvalue.visible       := true;
+  DRValue.Visible := True;
+  ProgressRing.Value := 0;
+end;
+
+procedure TAudioFrm.MainBoardRedraw(ATrack: TTrack);
+begin
+  if Assigned(ATrack) then
+  begin
+    TrackFileName.Font.Color := clWhite;
+    TrackFileName.Caption    := ExtractFileName(ATrack.FileName);
+    while (TrackFileName.Left + TrackFileName.Width) > (BtnFolder.left + BtnFolder.Width) do
+    begin
+      TrackFileName.Caption := CutOff(TrackFileName.Caption);
+    end;
+
+    pcm   .Font.Color := clWhite;
+    bit8  .Font.Color := clGray; if ATrack.Bitspersample = 8      then bit8  .Font.Color := clWhite;
+    bit16 .Font.Color := clGray; if ATrack.Bitspersample = 16     then bit16 .Font.Color := clWhite;
+    bit24 .Font.Color := clGray; if ATrack.Bitspersample = 24     then bit24 .Font.Color := clWhite;
+
+    khz44 .Font.Color := clGray; if ATrack.Samplerate    = 44100  then khz44 .Font.Color := clWhite;
+    khz48 .Font.Color := clGray; if ATrack.Samplerate    = 48000  then khz48 .Font.Color := clWhite;
+    khz88 .Font.Color := clGray; if ATrack.Samplerate    = 88000  then khz88 .Font.Color := clWhite;
+    khz96 .Font.Color := clGray; if ATrack.Samplerate    = 96000  then khz96 .Font.Color := clWhite;
+    khz176.Font.Color := clGray; if ATrack.Samplerate    = 176400 then khz176.Font.Color := clWhite;
+    khz192.Font.Color := clGray; if ATrack.Samplerate    = 192000 then khz192.Font.Color := clWhite;
+
+    Mono  .Font.Color := clGray; if ATrack.ChannelCount  = 1      then Mono  .Font.Color := clWhite;
+    Stereo.Font.Color := clGray; if ATrack.ChannelCount  = 2      then Stereo.Font.Color := clWhite;
+
+    TruePeakLabel.Font.Color := clWhite;
+    if ATrack.ChannelCount > 0 then if Decibel(ATrack.Loudness.TruePeak(0)) <  0.0 then tplleftvalue .Font.Color := clLime;
+    if ATrack.ChannelCount > 0 then if Decibel(ATrack.Loudness.TruePeak(0)) >= 0.0 then tplleftvalue .Font.Color := clYellow;
+    if ATrack.ChannelCount > 0 then if Decibel(ATrack.Loudness.TruePeak(0)) >  0.5 then tplleftvalue .Font.Color := clRed;
+
+    if ATrack.ChannelCount > 1 then if Decibel(ATrack.Loudness.TruePeak(1)) <  0.0 then tplrightvalue.Font.Color := clLime;
+    if ATrack.ChannelCount > 1 then if Decibel(ATrack.Loudness.TruePeak(1)) >= 0.0 then tplrightvalue.Font.Color := clYellow;
+    if ATrack.ChannelCount > 1 then if Decibel(ATrack.Loudness.TruePeak(1)) >  0.5 then tplrightvalue.Font.Color := clRed;
+
+    if ATrack.ChannelCount > 0 then PLleftvalue    .Font.Color := clWhite;
+    if ATrack.ChannelCount > 1 then PLRightvalue   .Font.Color := clWhite;
+    if ATrack.ChannelCount > 0 then Rmsleftvalue   .Font.Color := clWhite;
+    if ATrack.ChannelCount > 1 then RmsRightvalue  .Font.Color := clWhite;
+    if ATrack.ChannelCount > 0 then CRestleftvalue .Font.Color := clWhite;
+    if ATrack.ChannelCount > 1 then CRestRightvalue.Font.Color := clWhite;
+
+    LoudnessFSLabel.Font.Color := clWhite;
+    if ATrack.ChannelCount > 0 then IntegratedLoudnessValue .Font.Color := clWhite;
+    if ATrack.ChannelCount > 1 then RangeLoudnessValue      .Font.Color := clWhite;
+    if ATrack.ChannelCount > 0 then PeakToLoudnessRatioValue.Font.Color := clWhite;
+
+    if ATrack.ChannelCount > 0 then plleftvalue .Caption := Format('%0.2f', [ATrack.Loudness.Peak(0)]);
+    if ATrack.ChannelCount > 1 then plrightvalue.Caption := Format('%0.2f', [ATrack.Loudness.Peak(1)]);
+
+    if ATrack.ChannelCount > 0 then tplleftvalue   .Caption := Format('%0.2f', [ATrack.Loudness.TruePeak(0)]);
+    if ATrack.ChannelCount > 1 then tplrightvalue  .Caption := Format('%0.2f', [ATrack.Loudness.TruePeak(1)]);
+    if ATrack.ChannelCount > 0 then rmsleftvalue   .Caption := Format('%0.2f', [ATrack.Loudness.Rms(0)]);
+    if ATrack.ChannelCount > 1 then rmsrightvalue  .Caption := Format('%0.2f', [ATrack.Loudness.Rms(1)]);
+    if ATrack.ChannelCount > 0 then crestleftvalue .Caption := Format('%0.2f', [ATrack.Loudness.CrestFactor(0)]);
+    if ATrack.ChannelCount > 1 then crestrightvalue.Caption := Format('%0.2f', [ATrack.Loudness.CrestFactor(1)]);
+    if ATrack.ChannelCount > 0 then PeakToLoudnessRatioValue   .Caption := Format('%0.2f', [ATrack.Loudness.PeakToLoudnessRatio]);
+
+    if ATrack.ChannelCount > 0 then IntegratedLoudnessValue .Caption := Format('%0.2f', [ATrack.Loudness.IntegratedLoudness]);
+    if ATrack.ChannelCount > 0 then RangeLoudnessValue      .Caption := Format('%0.2f', [ATrack.Loudness.LoudnessRange]);
+    if ATrack.ChannelCount > 0 then PeakToLoudnessRatioValue.Caption := Format('%0.2f', [ATrack.Loudness.PeakToLoudnessRatio]);
+
+    DRValue.Caption := '--';
+    DRValue.Font.Color := clWhite;
+    DRLabel.Font.Color := clWhite;
+    if (ATrack.DRMeter.DR) > 0 then
+    begin
+      DRValue.Caption := format('%2.0f', [ATrack.DRMeter.DR]);
+      if DRValue.Caption = ' 0' then DRValue.Font.Color := RGBToColor(255,   0, 0) else
+      if DRValue.Caption = ' 1' then DRValue.Font.Color := RGBToColor(255,   0, 0) else
+      if DRValue.Caption = ' 2' then DRValue.Font.Color := RGBToColor(255,   0, 0) else
+      if DRValue.Caption = ' 3' then DRValue.Font.Color := RGBToColor(255,   0, 0) else
+      if DRValue.Caption = ' 4' then DRValue.Font.Color := RGBToColor(255,   0, 0) else
+      if DRValue.Caption = ' 5' then DRValue.Font.Color := RGBToColor(255,   0, 0) else
+      if DRValue.Caption = ' 6' then DRValue.Font.Color := RGBToColor(255,   0, 0) else
+      if DRValue.Caption = ' 7' then DRValue.Font.Color := RGBToColor(255,   0, 0) else
+      if DRValue.Caption = ' 8' then DRValue.Font.Color := RGBToColor(255,  72, 0) else
+      if DRValue.Caption = ' 9' then DRValue.Font.Color := RGBToColor(255, 145, 0) else
+      if DRValue.Caption = '10' then DRValue.Font.Color := RGBToColor(255, 217, 0) else
+      if DRValue.Caption = '11' then DRValue.Font.Color := RGBToColor(217, 255, 0) else
+      if DRValue.Caption = '12' then DRValue.Font.Color := RGBToColor(144, 255, 0) else
+      if DRValue.Caption = '13' then DRValue.Font.Color := RGBToColor( 72, 255, 0) else
+                                       DRValue.Font.Color := RGBToColor(  0, 255, 0);
+    end;
+  end;
 end;
 
 procedure TAudioFrm.VirtualScreenRedraw(Sender: TObject; Bitmap: TBGRABitmap);
 var
   i: longint;
   OffSet: longint;
+  DefaultScreen: TBGRAbitmap;
 begin
-  if (AudioAnalyzer <> nil) then Exit;
-  if (ScreenDrawer  <> nil) then Exit;
-  if IsNeededUpdateScreens  then Exit;
 
   OffSet := 0;
-  Bitmap.FillTransparent;
-  for i := Low(VirtualScreens) to High(VirtualScreens) do
+  if IsNeededDrawDefault then
   begin
-    if (VirtualScreens[i].Width  > 0) and
-       (VirtualScreens[i].Height > 0) then
+    DefaultScreen := TBGRABitmap.Create(VirtualScreen.Width, VirtualScreen.Height div 4);
+    for i := Low(VirtualScreens) to High(VirtualScreens) do
+    begin
+      case i of
+        0: DrawDefaultBlockChart      (DefaultScreen);
+        1: DrawDefaultWaveChart       (DefaultScreen);
+        2: DrawDefaultSpectrumChart   (DefaultScreen);
+        3: DrawDefaultSpectrogramChart(DefaultScreen);
+      end;
+      Bitmap.PutImage(0, OffSet , DefaultScreen, dmSet);
+      Inc(OffSet, DefaultScreen.Height);
+    end;
+    DefaultScreen.Destroy;
+  end else
+  begin
+    Bitmap.FillTransparent;
+    for i := Low(VirtualScreens) to High(VirtualScreens) do
     begin
       Bitmap.PutImage(0, OffSet , VirtualScreens[i], dmSet);
       Inc(OffSet, VirtualScreens[i].Height);
