@@ -157,12 +157,12 @@ begin
   a2 := (1.0 - Omega / Q + Omega * Omega) / denom;
 
   {$ifopt D+}
-  writeln;
-  writeln('TShelvingFilter.b0  ', b0:0:10);
-  writeln('TShelvingFilter.b1  ', b1:0:10);
-  writeln('TShelvingFilter.b2  ', b2:0:10);
-  writeln('TShelvingFilter.a1  ', a1:0:10);
-  writeln('TShelvingFilter.a2  ', a2:0:10);
+//writeln;
+//writeln('TShelvingFilter.b0  ', b0:0:10);
+//writeln('TShelvingFilter.b1  ', b1:0:10);
+//writeln('TShelvingFilter.b2  ', b2:0:10);
+//writeln('TShelvingFilter.a1  ', a1:0:10);
+//writeln('TShelvingFilter.a2  ', a2:0:10);
   {$endif}
   Clear;
 end;
@@ -204,12 +204,12 @@ begin
   a2 := (1.0 - Omega / Q + Omega * Omega) / denom;
 
   {$ifopt D+}
-  writeln;
-  writeln('THighpassFilter.b0  ', b0:0:10);
-  writeln('THighpassFilter.b1  ', b1:0:10);
-  writeln('THighpassFilter.b2  ', b2:0:10);
-  writeln('THighpassFilter.a1  ', a1:0:10);
-  writeln('THighpassFilter.a2  ', a2:0:10);
+//writeln;
+//writeln('THighpassFilter.b0  ', b0:0:10);
+//writeln('THighpassFilter.b1  ', b1:0:10);
+//writeln('THighpassFilter.b2  ', b2:0:10);
+//writeln('THighpassFilter.a1  ', a1:0:10);
+//writeln('THighpassFilter.a2  ', a2:0:10);
   {$endif}
   Clear;
 end;
