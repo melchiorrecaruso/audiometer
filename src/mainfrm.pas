@@ -28,7 +28,7 @@ interface
 uses
   Classes, sysutils, uPlaySound, forms, controls, graphics, dialogs, Buttons,
   stdctrls, extctrls, comctrls, IniPropStorage, bufstream, soundwav,
-  bcradialprogressbar, bclistbox, process, inifiles, bgrabitmap,
+  bclistbox, process, inifiles, bgrabitmap,
   bgrabitmaptypes, bgravirtualscreen, BCFluentProgressRing, drawers, Common;
 
 type
@@ -54,6 +54,7 @@ type
     Panel6: TPanel;
     Panel7: TPanel;
     RangeLoudnessValue: TLabel;
+    ScreenTimer: TIdleTimer;
     TopShape: TShape;
     ShortTermLoudnessValue: TLabel;
     RMSRightValue: TLabel;
@@ -142,12 +143,10 @@ type
 
     procedure OnStartDrawer;
     procedure OnStopDrawer;
-    procedure OnWaitDrawer;
 
     procedure DisableButtons;
     procedure EnableButtons;
-
-
+    procedure ScreenTimerTimer(Sender: TObject);
 
     procedure VirtualScreenRedraw(Sender: TObject; Bitmap: TBGRABitmap);
     procedure MainBoardRedraw(ATrack: TTrack);
@@ -156,13 +155,16 @@ type
     VirtualScreens: TVirtualScreens;
     Buffer: TReadBufStream;
     Stream: TFileStream;
-    Last: TTrack;
-    Track: TTrack;
+
+    TrackIndex: longint;
     TrackList: TTrackList;
     TrackFile: string;
     TempFile:  string;
 
-    IsNeededDrawDefault:   boolean;
+    LastIndex: longint;
+    LastWidth: longint;
+    LastHeight: longint;
+
     IsNeededUpdateScreens: boolean;
     IsNeededKillAnalyzer:  boolean;
   public
@@ -196,12 +198,11 @@ begin
   VirtualScreens[1] := TBGRABitmap.Create;
   VirtualScreens[2] := TBGRABitmap.Create;
   VirtualScreens[3] := TBGRABitmap.Create;
-  IsNeededDrawDefault   := True;
   IsNeededUpdateScreens := False;
   IsNeededKillAnalyzer  := False;
   // ---
-  Last  := nil;
-  Track := nil;
+  LastIndex  := -1;
+  TrackIndex := -1;
   TrackList  := TTrackList.create;
   // Load openfile button icon
   LoadButtonIcon(BtnFile, 1, 0, 0);
@@ -225,8 +226,6 @@ begin
   FreeAndNil(VirtualScreens[2]);
   FreeAndNil(VirtualScreens[3]);
   TrackList.Destroy;
-  Track := nil;
-  Last := nil;
 end;
 
 procedure TAudioFrm.FormClosequery(Sender: TObject; var CanClose: boolean);
@@ -241,15 +240,6 @@ begin
   begin
     TrackFileName.Caption := CutOff(TrackFileName.Caption);
   end;
-
-  IsNeededUpdateScreens := True;
-  if AudioAnalyzer <> nil then Exit;
-  if ScreenDrawer  <> nil then Exit;
-  ScreenDrawer := TScreenDrawer.Create(Last);
-  ScreenDrawer.OnStart := @OnStartDrawer;
-  ScreenDrawer.OnStop  := @OnStopDrawer;
-  ScreenDrawer.OnWait  := @OnWaitDrawer;
-  ScreenDrawer.Start;
 end;
 
 // Track analyzer events
@@ -257,7 +247,6 @@ end;
 procedure TAudioFrm.OnStartAnalyzer;
 begin
   DisableButtons;
-  Application.ProcessMessages;
 end;
 
 procedure TAudioFrm.OnTickAnalyzer;
@@ -266,13 +255,16 @@ begin
 end;
 
 procedure TAudioFrm.OnStopAnalyzer;
+var
+  Track: TTrack;
 begin
   FreeAndNil(Buffer);
   FreeAndNil(Stream);
 
+  Track := TrackList[TrackIndex];
   if AudioAnalyzer.Status <> 0 then
   begin
-    TrackList.FindLast;
+    TrackIndex := TrackList.Count;
     TrackFileName.Font.Color := clrRed;
     case AudioAnalyzer.Status of
      -1:  TrackFileName.Caption := Format('File format error "%s".',  [Track.Filename]);
@@ -281,33 +273,14 @@ begin
     else  TrackFileName.Caption := Format('Unknown error with "%s".', [Track.Filename]);
     end;
   end;
-  EnableButtons;
-  Application.ProcessMessages;
+  AudioAnalyzer := nil;
 
-  if Assigned(Track) then
-  begin
-    if Assigned(Last) then
-      Last.ClearChannels;
-
-    Last  := Track;
-    Track := TrackList.FindNext;
-    if AudioAnalyzer.Status = 0 then
-    begin
-      if ScreenDrawer = nil then
-      begin
-        ScreenDrawer := TScreenDrawer.Create(Last);
-        ScreenDrawer.OnStart := @OnStartDrawer;
-        ScreenDrawer.OnStop  := @OnStopDrawer;
-        ScreenDrawer.OnWait  := @OnWaitDrawer;
-        ScreenDrawer.Start;
-      end;
-      IsNeededDrawDefault := False;
-    end;
-  end else
+  Inc(TrackIndex);
+  if TrackIndex = TrackList.Count then
   begin
     TrackList.SaveToFile(TrackFile);
   end;
-  AudioAnalyzer := nil;
+  EnableButtons;
   Execute;
 end;
 
@@ -315,50 +288,27 @@ end;
 
 procedure TAudioFrm.OnStartDrawer;
 begin
-  Application.ProcessMessages;
+  // nothing to do
 end;
 
 procedure TAudioFrm.OnStopDrawer;
 begin
-  if IsNeededUpdateScreens then
-  begin
-    ScreenDrawer := TScreenDrawer.Create(Last);
-    ScreenDrawer.OnStart := @OnStartDrawer;
-    ScreenDrawer.OnStop  := @OnStopDrawer;
-    ScreenDrawer.OnWait  := @OnWaitDrawer;
-    ScreenDrawer.Start;
-  end else
+  if IsNeededUpdateScreens = False then
   begin
     VirtualScreens[0].SetSize(ScreenDrawer.Screens[0].Width, ScreenDrawer.Screens[0].Height);
     VirtualScreens[1].SetSize(ScreenDrawer.Screens[1].Width, ScreenDrawer.Screens[1].Height);
     VirtualScreens[2].SetSize(ScreenDrawer.Screens[2].Width, ScreenDrawer.Screens[2].Height);
     VirtualScreens[3].SetSize(ScreenDrawer.Screens[3].Width, ScreenDrawer.Screens[3].Height);
 
-    if (ScreenDrawer.ScreenWidth  > 0) and
-       (ScreenDrawer.ScreenHeight > 0) then
-    begin
-      VirtualScreens[0].PutImage(0, 0,  ScreenDrawer.Screens[0], dmSet);
-      VirtualScreens[1].PutImage(0, 0,  ScreenDrawer.Screens[1], dmSet);
-      VirtualScreens[2].PutImage(0, 0,  ScreenDrawer.Screens[2], dmSet);
-      VirtualScreens[3].PutImage(0, 0,  ScreenDrawer.Screens[3], dmSet);
-    end;
-    ScreenDrawer := nil;
-    EnableButtons;
+    VirtualScreens[0].PutImage(0, 0, ScreenDrawer.Screens[0], dmSet);
+    VirtualScreens[1].PutImage(0, 0, ScreenDrawer.Screens[1], dmSet);
+    VirtualScreens[2].PutImage(0, 0, ScreenDrawer.Screens[2], dmSet);
+    VirtualScreens[3].PutImage(0, 0, ScreenDrawer.Screens[3], dmSet);
 
-    MainBoardRedraw(Last);
-    VirtualScreen.RedrawBitmap;
+    MainBoardRedraw(ScreenDrawer.Track);
   end;
-  Application.ProcessMessages;
-end;
-
-procedure TAudioFrm.OnWaitDrawer;
-begin
-  if not IsNeededUpdateScreens then
-  begin
-    ScreenDrawer.ScreenWidth  := ScreenPanel.Width;
-    ScreenDrawer.ScreenHeight := ScreenPanel.Height;
-  end;
-  IsNeededUpdateScreens := False;
+  VirtualScreen.RedrawBitmap;
+  ScreenDrawer := nil;
 end;
 
 //
@@ -371,10 +321,12 @@ var
   Ini: TIniFile;
   Mem: TMemoryStream;
   Process: TProcess;
+  Track: TTRack;
 begin
-  if not Assigned(Track) then Exit;
   if IsNeededKillAnalyzer then Exit;
+  if TrackIndex >= TrackList.Count then Exit;
 
+  Track := TrackList[TrackIndex];
   try
     if ExtractFileExt(Track.Filename) <> '.wav' then
     begin
@@ -532,14 +484,13 @@ begin
   TrackFileName.Font.Color := clwhite;
   TrackFileName.Caption := 'Audio';
 
-  IsNeededDrawDefault := True;
-  VirtualScreen.RedrawBitmap;
+  IsNeededUpdateScreens := True;
 end;
 
 procedure TAudioFrm.ClearTrackList;
 begin
-  Last := nil;
-  Track := nil;
+  LastIndex  := -1;
+  TrackIndex := -1;
   TrackList.Clear;
 end;
 
@@ -558,7 +509,7 @@ begin
     begin
       TrackList.Add(FileDialog.FileName);
       TrackFile  := ChangeFileExt(FileDialog.FileName, '.md');
-      Track := TrackList.FindFirst;
+      TrackIndex := 0;
 
       IsNeededKillAnalyzer := False;
     end else
@@ -595,8 +546,8 @@ begin
     end;
     SysUtils.FindClose(SR);
     TrackList.Sort;
-    TrackFile := Path + ExtractFileName(DirDialog.FileName) + '.md';
-    Track := TrackList.FindFirst;
+    TrackFile  := Path + ExtractFileName(DirDialog.FileName) + '.md';
+    TrackIndex := 0;
 
     IsNeededKillAnalyzer  := False;
   end;
@@ -747,6 +698,54 @@ begin
   ProgressRing.Value := 0;
 end;
 
+procedure TAudioFrm.ScreenTimerTimer(Sender: TObject);
+var
+  Index: longint;
+  Track: TTrack;
+begin
+  if LastWidth <> Width  then
+  begin
+    LastWidth := Width;
+    IsNeededUpdateScreens := True;
+    Exit;
+  end;
+
+  if LastHeight <> Height then
+  begin
+    LastHeight := Height;
+    IsNeededUpdateScreens := True;
+    Exit;
+  end;
+
+  Index := TrackIndex -1;
+  if (Index >= 0) and (Index < TrackList.Count) then
+  begin
+    if Index <> LastIndex then
+    begin
+      LastIndex := Index;
+      IsNeededUpdateScreens := True;
+      Exit;
+    end;
+  end;
+
+  if ScreenDrawer <> nil then Exit;
+
+  if IsNeededUpdateScreens then
+  begin
+    Track := nil;
+    if (LastIndex > -1) and (LastIndex < TrackList.Count) then
+    begin
+      Track := TrackList[LastIndex]
+    end;
+
+    ScreenDrawer := TScreenDrawer.Create(Track, VirtualScreen.Width, VirtualScreen.Height);
+    ScreenDrawer.OnStart := @OnStartDrawer;
+    ScreenDrawer.OnStop  := @OnStopDrawer;
+    ScreenDrawer.Start;
+    IsNeededUpdateScreens := False;
+  end;
+end;
+
 procedure TAudioFrm.MainBoardRedraw(ATrack: TTrack);
 begin
   if Assigned(ATrack) then
@@ -829,7 +828,7 @@ begin
       if DRValue.Caption = '11' then DRValue.Font.Color := RGBToColor(217, 255, 0) else
       if DRValue.Caption = '12' then DRValue.Font.Color := RGBToColor(144, 255, 0) else
       if DRValue.Caption = '13' then DRValue.Font.Color := RGBToColor( 72, 255, 0) else
-                                       DRValue.Font.Color := RGBToColor(  0, 255, 0);
+                                     DRValue.Font.Color := RGBToColor(  0, 255, 0);
     end;
   end;
 end;
@@ -838,33 +837,13 @@ procedure TAudioFrm.VirtualScreenRedraw(Sender: TObject; Bitmap: TBGRABitmap);
 var
   i: longint;
   OffSet: longint;
-  DefaultScreen: TBGRAbitmap;
 begin
-
   OffSet := 0;
-  if IsNeededDrawDefault then
+  Bitmap.FillTransparent;
+  for i := Low(VirtualScreens) to High(VirtualScreens) do
   begin
-    DefaultScreen := TBGRABitmap.Create(VirtualScreen.Width, VirtualScreen.Height div 4);
-    for i := Low(VirtualScreens) to High(VirtualScreens) do
-    begin
-      case i of
-        0: DrawDefaultBlockChart      (DefaultScreen);
-        1: DrawDefaultWaveChart       (DefaultScreen);
-        2: DrawDefaultSpectrumChart   (DefaultScreen);
-        3: DrawDefaultSpectrogramChart(DefaultScreen);
-      end;
-      Bitmap.PutImage(0, OffSet , DefaultScreen, dmSet);
-      Inc(OffSet, DefaultScreen.Height);
-    end;
-    DefaultScreen.Destroy;
-  end else
-  begin
-    Bitmap.FillTransparent;
-    for i := Low(VirtualScreens) to High(VirtualScreens) do
-    begin
-      Bitmap.PutImage(0, OffSet , VirtualScreens[i], dmSet);
-      Inc(OffSet, VirtualScreens[i].Height);
-    end;
+    Bitmap.PutImage(0, OffSet , VirtualScreens[i], dmSet);
+    Inc(OffSet, VirtualScreens[i].Height);
   end;
 end;
 
