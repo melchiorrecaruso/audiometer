@@ -164,7 +164,6 @@ type
   TTrackList = class
   private
     FList: TList;
-    FTrackIndex: longint;
     function GetCount: longint;
     function GetTrack(AIndex: longint): TTrack;
   public
@@ -175,9 +174,6 @@ type
     procedure Clear;
     procedure Sort;
     procedure SaveToFile(const AFilename: string);
-    function FindFirst: TTrack;
-    function FindNext: TTrack;
-    function FindLast: TTrack;
   public
     property Tracks[AIndex: longint]: TTrack read GetTrack; default;
     property Count: longint read GetCount;
@@ -563,36 +559,6 @@ end;
 function TTrackList.GetTrack(AIndex: longint): TTrack;
 begin
   Result := TTrack(FList[AIndex]);
-end;
-
-function TTrackList.FindFirst: TTrack;
-begin
-  FTrackIndex := 0;
-
-  if FTrackIndex < FList.Count then
-    Result := TTrack(FList[FTrackIndex])
-  else
-    Result := nil;
-end;
-
-function TTrackList.FindNext: TTrack;
-begin
-  Inc(FTrackIndex);
-
-  if FTrackIndex < FList.Count then
-    Result := TTrack(FList[FTrackIndex])
-  else
-    Result := nil;
-end;
-
-function TTrackList.FindLast: TTrack;
-begin
-  FTrackIndex := Max(0, FList.Count -1);
-
-  if FTrackIndex < FList.Count then
-    Result := TTrack(FList[FTrackIndex])
-  else
-    Result := nil;
 end;
 
 procedure TTrackList.SaveToFile(const AFilename: string);
