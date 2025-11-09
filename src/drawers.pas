@@ -35,23 +35,20 @@ type
   private
     FOnStart: TThreadMethod;
     FOnStop: TThreadMethod;
-    FOnWait: TThreadMethod;
     FScreens: TVirtualScreens;
-    FScreenHeight: longint;
     FScreenWidth: longint;
+    FScreenHeight: longint;
     FTrack: TTrack;
     function GetScreen(AIndex: longint):TBGRABitmap;
   public
-    constructor Create(ATrack: TTrack);
+    constructor Create(ATrack: TTrack; AWidth, AHeight: longint);
     destructor Destroy; override;
     procedure Execute; override;
   public
     property OnStart: TThreadMethod read FOnStart write FOnStart;
     property OnStop: TThreadMethod read FOnStop write FOnStop;
-    property OnWait: TThreadMethod read FOnWait write FOnWait;
     property Screens[AIndex: longint]: TBGRABitmap read GetScreen;
-    property ScreenWidth: longint read FScreenWidth write FScreenWidth;
-    property ScreenHeight: longint read FScreenHeight write FScreenHeight;
+    property Track: TTrack read FTrack;
   end;
 
   TCustomDrawer = class(TThread)
@@ -281,17 +278,16 @@ end;
 
 // TScreenDrawer
 
-constructor TScreenDrawer.Create(ATrack: TTrack);
+constructor TScreenDrawer.Create(ATrack: TTrack; AWidth, AHeight: longint);
 var
   i: longint;
 begin
   FOnStart := nil;
   FOnStop  := nil;
-  FOnWait  := nil;
   FTrack   := ATrack;
 
-  FScreenWidth  := 0;
-  FScreenHeight := 0;
+  FScreenWidth  := AWidth;
+  FScreenHeight := AHeight;
   for i := Low(FScreens) to High(FScreens) do
     FScreens[i] := TBGRABitmap.Create;
   FreeOnTerminate := True;
@@ -311,7 +307,6 @@ end;
 
 procedure TScreenDrawer.Execute;
 var
-  StartTime: TDateTime;
   BlockDrawer: TBlockDrawer;
   SpectrumDrawer: TSpectrumDrawer;
   SpectrogramDrawer: TSpectrogramDrawer;
@@ -323,18 +318,7 @@ begin
   if Assigned(FOnStart) then
     Synchronize(FOnStart);
 
-  StartTime := Now;
-  if Assigned(FOnWait) then
-    while (FScreenWidth = 0) or (FScreenHeight = 0) do
-    begin
-      if MilliSecondsBetween(Now, StartTime) > 150 then
-      begin
-        Queue(FOnWait);
-        StartTime := Now;
-      end;
-    end;
-
-  if (FScreenWidth > 0) and (FScreenHeight > 0) then
+  if (FScreenWidth  > 0) and (FScreenHeight > 0) then
   begin
     if Assigned(FTrack) then
     begin
@@ -366,6 +350,17 @@ begin
       SpectrogramDrawer.Start;
       SpectrogramDrawer.WaitFor;
       SpectrogramDrawer.Destroy;
+    end else
+    begin
+      FScreens[0].SetSize(FScreenWidth, FScreenHeight div 4);
+      FScreens[1].SetSize(FScreenWidth, FScreenHeight div 4);
+      FScreens[2].SetSize(FScreenWidth, FScreenHeight div 4);
+      FScreens[3].SetSize(FScreenWidth, FScreenHeight div 4);
+
+      DrawDefaultBlockChart      (FScreens[0]);
+      DrawDefaultWaveChart       (FScreens[1]);
+      DrawDefaultSpectrumChart   (FScreens[2]);
+      DrawDefaultSpectrogramChart(FScreens[3]);
     end;
   end;
 
