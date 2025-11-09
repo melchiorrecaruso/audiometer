@@ -30,11 +30,11 @@ uses
 {$R *.res}
 
 begin
-  requirederivedformresource:=true;
+  RequireDerivedFormResource:=True;
   Application.Title:='AudioMeter';
   Application.Scaled:=True;
-  application.initialize;
-  application.createform(TAudioFrm, AudioFrm);
-  application.run;
+  Application.Initialize;
+  Application.CreateForm(TAudioFrm, AudioFrm);
+  Application.Run;
 end.
 
