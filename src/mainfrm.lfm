@@ -1,7 +1,7 @@
 object AudioFrm: TAudioFrm
-  Left = 675
+  Left = 734
   Height = 800
-  Top = 279
+  Top = 379
   Width = 1171
   Caption = 'AudioMeter 0.5.0 - Dynamic Range Meter'
   ClientHeight = 800
@@ -1312,6 +1312,12 @@ object AudioFrm: TAudioFrm
     IniFileName = 'audiometer.Ini'
     Active = False
     Left = 584
+    Top = 8
+  end
+  object ScreenTimer: TIdleTimer
+    Interval = 100
+    OnTimer = ScreenTimerTimer
+    Left = 688
     Top = 8
   end
 end
