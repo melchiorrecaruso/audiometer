@@ -104,7 +104,7 @@
       <Unit>
         <Filename Value="src/mainfrm.pas"/>
         <IsPartOfProject Value="True"/>
-        <ComponentName Value="audiofrm"/>
+        <ComponentName Value="AudioFrm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
         <UnitName Value="MainFrm"/>
@@ -112,7 +112,7 @@
       <Unit>
         <Filename Value="src/soundwav.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="Soundwav"/>
+        <UnitName Value="SoundWav"/>
       </Unit>
       <Unit>
         <Filename Value="src/drawers.pas"/>
