@@ -1,11 +1,11 @@
-object audiofrm: Taudiofrm
-  Left = 775
+object AudioFrm: TAudioFrm
+  Left = 675
   Height = 800
-  Top = 314
-  Width = 850
+  Top = 279
+  Width = 1171
   Caption = 'AudioMeter 0.5.0 - Dynamic Range Meter'
   ClientHeight = 800
-  ClientWidth = 850
+  ClientWidth = 1171
   Color = clGray
   Constraints.MinHeight = 500
   Constraints.MinWidth = 800
@@ -13,13 +13,14 @@ object audiofrm: Taudiofrm
   Font.Color = clWhite
   Font.Style = [fsBold]
   ParentDoubleBuffered = False
-  Position = poDesktopCenter
+  Position = poDefault
+  SessionProperties = 'Left;Top;Width;Height;WindowState'
   LCLVersion = '4.99.0.0'
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnResize = FormResize
-  object audio: TLabel
+  object TrackFileName: TLabel
     AnchorSideLeft.Control = Owner
     AnchorSideTop.Control = Owner
     AnchorSideBottom.Side = asrBottom
@@ -37,10 +38,10 @@ object audiofrm: Taudiofrm
     ParentFont = False
     Transparent = False
   end
-  object btnfile: TImage
-    AnchorSideTop.Control = btnfolder
-    AnchorSideRight.Control = btnfolder
-    Left = 764
+  object BtnFile: TImage
+    AnchorSideTop.Control = BtnFolder
+    AnchorSideRight.Control = BtnFolder
+    Left = 1085
     Height = 32
     Top = 6
     Width = 32
@@ -75,17 +76,17 @@ object audiofrm: Taudiofrm
     StretchOutEnabled = False
     StretchInEnabled = False
     Transparent = True
-    OnClick = btnfileClick
-    OnMouseDown = btnfileMouseDown
-    OnMouseLeave = btnfileMouseLeave
-    OnMouseMove = btnfileMouseMove
-    OnMouseUp = btnfileMouseUp
+    OnClick = BtnFileClick
+    OnMouseDown = BtnFileMouseDown
+    OnMouseLeave = BtnFileMouseLeave
+    OnMouseMove = BtnFileMouseMove
+    OnMouseUp = BtnFileMouseUp
   end
-  object btnfolder: TImage
+  object BtnFolder: TImage
     AnchorSideTop.Control = Owner
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
-    Left = 806
+    Left = 1127
     Height = 32
     Top = 6
     Width = 32
@@ -116,13 +117,13 @@ object audiofrm: Taudiofrm
     StretchInEnabled = False
     Transparent = True
     OnClick = btnfolderclick
-    OnMouseDown = btnfolderMouseDown
+    OnMouseDown = BtnFolderMouseDown
     OnMouseLeave = btnfoldermouseleave
     OnMouseMove = btnfoldermousemove
     OnMouseUp = btnfoldermouseup
   end
-  object detailspanel: TPanel
-    AnchorSideLeft.Control = audio
+  object DetailsPanel: TPanel
+    AnchorSideLeft.Control = Owner
     AnchorSideTop.Control = TopShape
     AnchorSideTop.Side = asrBottom
     Left = 12
@@ -130,6 +131,7 @@ object audiofrm: Taudiofrm
     Top = 54
     Width = 144
     AutoSize = True
+    BorderSpacing.Left = 12
     BorderSpacing.Top = 8
     BevelOuter = bvNone
     ClientHeight = 147
@@ -139,7 +141,7 @@ object audiofrm: Taudiofrm
     ParentColor = False
     TabOrder = 0
     object bitspanel: TPanel
-      AnchorSideLeft.Control = detailspanel
+      AnchorSideLeft.Control = DetailsPanel
       AnchorSideTop.Control = bevel1
       AnchorSideTop.Side = asrBottom
       Left = 0
@@ -209,7 +211,7 @@ object audiofrm: Taudiofrm
       end
     end
     object bevel1: TBevel
-      AnchorSideLeft.Control = detailspanel
+      AnchorSideLeft.Control = DetailsPanel
       AnchorSideTop.Control = PCM
       AnchorSideTop.Side = asrBottom
       AnchorSideRight.Control = bitspanel
@@ -382,7 +384,7 @@ object audiofrm: Taudiofrm
         Transparent = False
       end
     end
-    object bevel3: TBevel
+    object Bevel3: TBevel
       AnchorSideLeft.Control = bevel1
       AnchorSideTop.Control = LeftHzPanel
       AnchorSideTop.Side = asrBottom
@@ -395,41 +397,41 @@ object audiofrm: Taudiofrm
       Anchors = [akTop, akLeft, akRight]
       BorderSpacing.Top = 5
     end
-    object mono: TLabel
-      AnchorSideTop.Control = bevel3
+    object Mono: TLabel
+      AnchorSideTop.Control = Bevel3
       AnchorSideTop.Side = asrBottom
       AnchorSideRight.Control = LeftHzPanel
       AnchorSideRight.Side = asrBottom
-      Left = 26
+      Left = 25
       Height = 19
       Top = 128
-      Width = 40
+      Width = 41
       Anchors = [akTop, akRight]
       BorderSpacing.Top = 5
-      Caption = 'mono'
+      Caption = 'Mono'
       Color = clBlack
       ParentColor = False
       Transparent = False
     end
-    object stereo: TLabel
-      AnchorSideTop.Control = bevel3
+    object Stereo: TLabel
+      AnchorSideTop.Control = Bevel3
       AnchorSideTop.Side = asrBottom
       AnchorSideRight.Control = RightHzPanel
       AnchorSideRight.Side = asrBottom
-      Left = 94
+      Left = 92
       Height = 19
       Top = 128
-      Width = 46
+      Width = 48
       Anchors = [akTop, akRight]
       BorderSpacing.Top = 5
-      Caption = 'stereo'
+      Caption = 'Stereo'
       Color = clBlack
       ParentColor = False
       Transparent = False
     end
     object PCM: TLabel
-      AnchorSideLeft.Control = detailspanel
-      AnchorSideTop.Control = detailspanel
+      AnchorSideLeft.Control = DetailsPanel
+      AnchorSideTop.Control = DetailsPanel
       Left = 0
       Height = 19
       Top = 0
@@ -440,28 +442,28 @@ object audiofrm: Taudiofrm
       ParentFont = False
     end
   end
-  object drpanel: TPanel
+  object DRPanel: TPanel
     AnchorSideLeft.Control = LUFSPanel
     AnchorSideLeft.Side = asrBottom
     AnchorSideTop.Control = LUFSPanel
-    AnchorSideBottom.Control = detailspanel
+    AnchorSideBottom.Control = DetailsPanel
     AnchorSideBottom.Side = asrBottom
-    Left = 514
+    Left = 512
     Height = 141
     Top = 60
-    Width = 247
+    Width = 204
     Anchors = [akTop, akLeft, akBottom]
     AutoSize = True
-    BorderSpacing.Left = 20
+    BorderSpacing.Left = 24
     BorderSpacing.Top = 6
     BevelOuter = bvNone
     ClientHeight = 141
-    ClientWidth = 247
+    ClientWidth = 204
     ParentBackground = False
     TabOrder = 1
-    object drlb: TStaticText
-      AnchorSideLeft.Control = drpanel
-      AnchorSideTop.Control = drpanel
+    object DRLabel: TStaticText
+      AnchorSideLeft.Control = DRPanel
+      AnchorSideTop.Control = DRPanel
       AnchorSideBottom.Side = asrBottom
       Left = 0
       Height = 134
@@ -479,11 +481,11 @@ object audiofrm: Taudiofrm
       ParentColor = False
       TabOrder = 0
     end
-    object drvalue: TStaticText
-      AnchorSideLeft.Control = drlb
+    object DRValue: TStaticText
+      AnchorSideLeft.Control = DRLabel
       AnchorSideLeft.Side = asrBottom
-      AnchorSideTop.Control = drpanel
-      AnchorSideBottom.Control = drlb
+      AnchorSideTop.Control = DRPanel
+      AnchorSideBottom.Control = DRLabel
       AnchorSideBottom.Side = asrBottom
       Left = 140
       Height = 134
@@ -502,64 +504,25 @@ object audiofrm: Taudiofrm
       ParentColor = False
       TabOrder = 1
     end
-    object progresspanel: TPanel
-      AnchorSideLeft.Control = drvalue
-      AnchorSideTop.Control = drlb
-      AnchorSideBottom.Control = drlb
-      AnchorSideBottom.Side = asrBottom
-      Left = 147
-      Height = 114
-      Top = 10
-      Width = 100
-      Anchors = [akTop, akLeft, akBottom]
-      BorderSpacing.Left = 7
-      BorderSpacing.Top = 10
-      BorderSpacing.Bottom = 10
-      BevelColor = clNone
-      BevelOuter = bvNone
-      ClientHeight = 114
-      ClientWidth = 100
-      Color = clBlack
-      ParentBackground = False
-      ParentColor = False
-      TabOrder = 2
-      object progressbar: TBCRadialProgressBar
-        Left = 0
-        Height = 114
-        Top = 0
-        Width = 100
-        Align = alClient
-        Value = 50
-        Color = clBlack
-        LineColor = clLime
-        LineBkgColor = clBlack
-        LineWidth = 6
-        FontShadowOffsetX = 0
-        FontShadowOffsetY = 0
-        FontShadowRadius = 0
-        Font.Color = clBlack
-        Font.Height = 20
-      end
-    end
   end
-  object btnplay: TImage
-    AnchorSideTop.Control = btnfile
-    AnchorSideRight.Control = btnfile
-    AnchorSideBottom.Control = btnfile
+  object BtnPlay: TImage
+    AnchorSideTop.Control = BtnFile
+    AnchorSideRight.Control = BtnFile
+    AnchorSideBottom.Control = BtnFile
     AnchorSideBottom.Side = asrBottom
-    Left = 720
+    Left = 1041
     Height = 32
     Top = 6
     Width = 32
     Anchors = [akTop, akRight, akBottom]
     BorderSpacing.Right = 12
     ImageIndex = 5
-    Images = buttons
-    OnClick = btnplayClick
-    OnMouseDown = btnplayMouseDown
-    OnMouseLeave = btnplayMouseLeave
-    OnMouseMove = btnplayMouseMove
-    OnMouseUp = btnplayMouseUp
+    Images = Buttons
+    OnClick = BtnPlayClick
+    OnMouseDown = BtnPlayMouseDown
+    OnMouseLeave = BtnPlayMouseLeave
+    OnMouseMove = BtnPlayMouseMove
+    OnMouseUp = BtnPlayMouseUp
   end
   object ScreenPanel: TPanel
     AnchorSideLeft.Control = Owner
@@ -572,19 +535,19 @@ object audiofrm: Taudiofrm
     Left = 0
     Height = 580
     Top = 220
-    Width = 850
+    Width = 1171
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Top = 10
     BevelOuter = bvNone
     ClientHeight = 580
-    ClientWidth = 850
+    ClientWidth = 1171
     ParentBackground = False
     TabOrder = 2
     object VirtualScreen: TBGRAVirtualScreen
       Left = 0
       Height = 580
       Top = 0
-      Width = 850
+      Width = 1171
       OnRedraw = VirtualScreenRedraw
       Align = alClient
       Alignment = taLeftJustify
@@ -595,18 +558,18 @@ object audiofrm: Taudiofrm
     end
   end
   object TPMPanel: TPanel
-    AnchorSideLeft.Control = detailspanel
+    AnchorSideLeft.Control = DetailsPanel
     AnchorSideLeft.Side = asrBottom
-    AnchorSideTop.Control = detailspanel
-    Left = 176
-    Height = 129
+    AnchorSideTop.Control = DetailsPanel
+    Left = 180
+    Height = 108
     Top = 54
-    Width = 155
+    Width = 141
     AutoSize = True
-    BorderSpacing.Left = 20
+    BorderSpacing.Left = 24
     BevelOuter = bvNone
-    ClientHeight = 129
-    ClientWidth = 155
+    ClientHeight = 108
+    ClientWidth = 141
     Color = clBlack
     Font.Color = clBlack
     Font.Style = [fsBold]
@@ -620,13 +583,13 @@ object audiofrm: Taudiofrm
       AnchorSideTop.Side = asrBottom
       AnchorSideBottom.Side = asrBottom
       Left = 0
-      Height = 105
+      Height = 84
       Top = 24
       Width = 49
       AutoSize = True
       BorderSpacing.Top = 2
       BevelOuter = bvNone
-      ClientHeight = 105
+      ClientHeight = 84
       ClientWidth = 49
       ParentBackground = False
       TabOrder = 0
@@ -677,22 +640,6 @@ object audiofrm: Taudiofrm
         ParentColor = False
         ParentFont = False
       end
-      object PLRLabel: TLabel
-        AnchorSideLeft.Control = Panel2
-        AnchorSideTop.Control = CRESTLabel
-        AnchorSideTop.Side = asrBottom
-        Left = 0
-        Height = 19
-        Top = 86
-        Width = 28
-        BorderSpacing.Top = 2
-        Caption = 'PLR'
-        Color = clGray
-        Font.Color = clGray
-        Font.Style = [fsBold]
-        ParentColor = False
-        ParentFont = False
-      end
       object PLLabel: TLabel
         AnchorSideLeft.Control = Panel2
         AnchorSideTop.Control = TPLLabel
@@ -716,14 +663,14 @@ object audiofrm: Taudiofrm
       AnchorSideTop.Control = Bevel4
       AnchorSideTop.Side = asrBottom
       Left = 59
-      Height = 105
+      Height = 84
       Top = 24
       Width = 36
       AutoSize = True
       BorderSpacing.Left = 10
       BorderSpacing.Top = 2
       BevelOuter = bvNone
-      ClientHeight = 105
+      ClientHeight = 84
       ClientWidth = 36
       ParentBackground = False
       TabOrder = 1
@@ -780,24 +727,6 @@ object audiofrm: Taudiofrm
         Font.Style = [fsBold]
         ParentFont = False
       end
-      object PLRLeftValue: TLabel
-        AnchorSideTop.Control = CRESTLeftValue
-        AnchorSideTop.Side = asrBottom
-        AnchorSideRight.Control = Panel3
-        AnchorSideRight.Side = asrBottom
-        Left = 0
-        Height = 19
-        Top = 86
-        Width = 36
-        Alignment = taRightJustify
-        Anchors = [akTop, akRight]
-        BorderSpacing.Top = 2
-        Caption = '-'
-        Constraints.MinWidth = 36
-        Font.Color = clGray
-        Font.Style = [fsBold]
-        ParentFont = False
-      end
       object PLLeftValue: TLabel
         AnchorSideTop.Control = TPLLeftValue
         AnchorSideTop.Side = asrBottom
@@ -819,18 +748,18 @@ object audiofrm: Taudiofrm
     end
     object Bevel4: TBevel
       AnchorSideLeft.Control = TPMPanel
-      AnchorSideTop.Control = Label13
+      AnchorSideTop.Control = TruePeakLabel
       AnchorSideTop.Side = asrBottom
       AnchorSideRight.Control = Panel4
       AnchorSideRight.Side = asrBottom
       Left = 0
       Height = 1
       Top = 21
-      Width = 155
+      Width = 141
       Anchors = [akTop, akLeft, akRight]
       BorderSpacing.Top = 2
     end
-    object Label13: TLabel
+    object TruePeakLabel: TLabel
       AnchorSideLeft.Control = TPMPanel
       AnchorSideTop.Control = TPMPanel
       AnchorSideRight.Side = asrBottom
@@ -848,15 +777,15 @@ object audiofrm: Taudiofrm
       AnchorSideLeft.Side = asrBottom
       AnchorSideTop.Control = Bevel4
       AnchorSideTop.Side = asrBottom
-      Left = 119
-      Height = 105
+      Left = 105
+      Height = 84
       Top = 24
       Width = 36
       AutoSize = True
-      BorderSpacing.Left = 24
+      BorderSpacing.Left = 10
       BorderSpacing.Top = 2
       BevelOuter = bvNone
-      ClientHeight = 105
+      ClientHeight = 84
       ClientWidth = 36
       ParentBackground = False
       TabOrder = 2
@@ -913,24 +842,6 @@ object audiofrm: Taudiofrm
         Font.Style = [fsBold]
         ParentFont = False
       end
-      object PLRRightValue: TLabel
-        AnchorSideTop.Control = CRESTRightValue
-        AnchorSideTop.Side = asrBottom
-        AnchorSideRight.Control = Panel4
-        AnchorSideRight.Side = asrBottom
-        Left = 0
-        Height = 19
-        Top = 86
-        Width = 36
-        Alignment = taRightJustify
-        Anchors = [akTop, akRight]
-        BorderSpacing.Top = 2
-        Caption = '-'
-        Constraints.MinWidth = 36
-        Font.Color = clGray
-        Font.Style = [fsBold]
-        ParentFont = False
-      end
       object PLRightValue: TLabel
         AnchorSideTop.Control = TPLRightValue
         AnchorSideTop.Side = asrBottom
@@ -955,14 +866,14 @@ object audiofrm: Taudiofrm
     AnchorSideLeft.Control = TPMPanel
     AnchorSideLeft.Side = asrBottom
     AnchorSideTop.Control = TPMPanel
-    Left = 351
-    Height = 108
+    Left = 345
+    Height = 129
     Top = 54
     Width = 143
     AutoSize = True
-    BorderSpacing.Left = 20
+    BorderSpacing.Left = 24
     BevelOuter = bvNone
-    ClientHeight = 108
+    ClientHeight = 129
     ClientWidth = 143
     Color = clBlack
     ParentBackground = False
@@ -974,13 +885,13 @@ object audiofrm: Taudiofrm
       AnchorSideTop.Side = asrBottom
       AnchorSideBottom.Side = asrBottom
       Left = 0
-      Height = 84
+      Height = 105
       Top = 24
       Width = 29
       AutoSize = True
       BorderSpacing.Top = 2
       BevelOuter = bvNone
-      ClientHeight = 84
+      ClientHeight = 105
       ClientWidth = 29
       Font.Color = clSilver
       Font.Style = [fsBold]
@@ -1000,7 +911,7 @@ object audiofrm: Taudiofrm
         Font.Style = [fsBold]
         ParentFont = False
       end
-      object ShortTerpLoudnessLabel: TLabel
+      object ShortTermLoudnessLabel: TLabel
         AnchorSideLeft.Control = Panel5
         AnchorSideTop.Control = MomentaryLoudnessLabel
         AnchorSideTop.Side = asrBottom
@@ -1016,7 +927,7 @@ object audiofrm: Taudiofrm
       end
       object IntegratedLoudnessLabel: TLabel
         AnchorSideLeft.Control = Panel5
-        AnchorSideTop.Control = ShortTerpLoudnessLabel
+        AnchorSideTop.Control = ShortTermLoudnessLabel
         AnchorSideTop.Side = asrBottom
         Left = 0
         Height = 19
@@ -1028,7 +939,7 @@ object audiofrm: Taudiofrm
         Font.Style = [fsBold]
         ParentFont = False
       end
-      object LoudnessRangeLabel: TLabel
+      object RangeLoudnessLabel: TLabel
         AnchorSideLeft.Control = Panel5
         AnchorSideTop.Control = IntegratedLoudnessLabel
         AnchorSideTop.Side = asrBottom
@@ -1042,6 +953,22 @@ object audiofrm: Taudiofrm
         Font.Style = [fsBold]
         ParentFont = False
       end
+      object PeakToLoudnessRatioLabel: TLabel
+        AnchorSideLeft.Control = Panel5
+        AnchorSideTop.Control = RangeLoudnessLabel
+        AnchorSideTop.Side = asrBottom
+        Left = 0
+        Height = 19
+        Top = 86
+        Width = 28
+        BorderSpacing.Top = 2
+        Caption = 'PLR'
+        Color = clGray
+        Font.Color = clGray
+        Font.Style = [fsBold]
+        ParentColor = False
+        ParentFont = False
+      end
     end
     object Panel6: TPanel
       AnchorSideLeft.Control = Panel5
@@ -1049,14 +976,14 @@ object audiofrm: Taudiofrm
       AnchorSideTop.Control = Bevel5
       AnchorSideTop.Side = asrBottom
       Left = 39
-      Height = 84
+      Height = 105
       Top = 24
       Width = 36
       AutoSize = True
       BorderSpacing.Left = 10
       BorderSpacing.Top = 2
       BevelOuter = bvNone
-      ClientHeight = 84
+      ClientHeight = 105
       ClientWidth = 36
       ParentBackground = False
       TabOrder = 1
@@ -1113,7 +1040,7 @@ object audiofrm: Taudiofrm
         Font.Style = [fsBold]
         ParentFont = False
       end
-      object LoudnessRangeValue: TLabel
+      object RangeLoudnessValue: TLabel
         AnchorSideTop.Control = IntegratedLoudnessValue
         AnchorSideTop.Side = asrBottom
         AnchorSideRight.Control = Panel6
@@ -1131,10 +1058,28 @@ object audiofrm: Taudiofrm
         Font.Style = [fsBold]
         ParentFont = False
       end
+      object PeakToLoudnessRatioValue: TLabel
+        AnchorSideTop.Control = RangeLoudnessValue
+        AnchorSideTop.Side = asrBottom
+        AnchorSideRight.Control = Panel6
+        AnchorSideRight.Side = asrBottom
+        Left = 0
+        Height = 19
+        Top = 86
+        Width = 36
+        Alignment = taRightJustify
+        Anchors = [akTop, akRight]
+        BorderSpacing.Top = 2
+        Caption = '-'
+        Constraints.MinWidth = 36
+        Font.Color = clGray
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
     end
     object Bevel5: TBevel
       AnchorSideLeft.Control = LUFSPanel
-      AnchorSideTop.Control = Label14
+      AnchorSideTop.Control = LoudnessFSLabel
       AnchorSideTop.Side = asrBottom
       AnchorSideRight.Control = LUFSPanel
       AnchorSideRight.Side = asrBottom
@@ -1145,7 +1090,7 @@ object audiofrm: Taudiofrm
       Anchors = [akTop, akLeft, akRight]
       BorderSpacing.Top = 2
     end
-    object Label14: TLabel
+    object LoudnessFSLabel: TLabel
       AnchorSideLeft.Control = LUFSPanel
       AnchorSideTop.Control = LUFSPanel
       AnchorSideRight.Side = asrBottom
@@ -1177,14 +1122,14 @@ object audiofrm: Taudiofrm
   end
   object TopShape: TShape
     AnchorSideLeft.Control = Owner
-    AnchorSideTop.Control = audio
+    AnchorSideTop.Control = TrackFileName
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     Left = 4
     Height = 1
     Top = 45
-    Width = 842
+    Width = 1163
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Left = 4
     BorderSpacing.Top = 12
@@ -1194,14 +1139,14 @@ object audiofrm: Taudiofrm
   end
   object BottomShape: TShape
     AnchorSideLeft.Control = Owner
-    AnchorSideTop.Control = drpanel
+    AnchorSideTop.Control = DRPanel
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     Left = 4
     Height = 1
     Top = 209
-    Width = 842
+    Width = 1163
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Left = 4
     BorderSpacing.Top = 8
@@ -1209,15 +1154,35 @@ object audiofrm: Taudiofrm
     Brush.Color = clBlack
     Pen.Color = clYellow
   end
-  object filedialog: TOpenDialog
+  object ProgressRing: TBCFluentProgressRing
+    AnchorSideLeft.Control = TrackFileName
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = BtnPlay
+    AnchorSideBottom.Control = BtnPlay
+    AnchorSideBottom.Side = asrBottom
+    Left = 66
+    Height = 32
+    Top = 6
+    Width = 32
+    BevelOuter = bvNone
+    Color = clBlack
+    ColorOpacity = 128
+    Alignment = taCenter
+    Caption = 'ProgressRing'
+    BorderSpacing.Left = 12
+    LineColor = clLime
+    LineBkgColor = clBlack
+    LineWidth = 2
+  end
+  object FileDialog: TOpenDialog
     Left = 256
     Top = 8
   end
-  object dirdialog: TSelectDirectoryDialog
+  object DirDialog: TSelectDirectoryDialog
     Left = 336
     Top = 8
   end
-  object buttons: TImageList
+  object Buttons: TImageList
     Height = 32
     Width = 32
     Left = 488
@@ -1322,13 +1287,7 @@ object audiofrm: Taudiofrm
       FFC3E0DFA0FA7F98F34FA4FF47FA7FA4FF47FA7F56EBFFFF03CA6E8DB4
     }
   end
-  object report: TImageList
-    Height = 146
-    Width = 446
-    Left = 168
-    Top = 8
-  end
-  object playsound: Tplaysound
+  object PlaySound: Tplaysound
     About.Description.Strings = (
       'Plays WAVE sounds in Windows or Linux'#10'Public methods: Execute and StopSound'
     )
@@ -1346,6 +1305,13 @@ object audiofrm: Taudiofrm
     About.LicenseType = abModifiedGPL
     PlayCommand = 'aplay -q'
     Left = 416
+    Top = 8
+  end
+  object IniPropStorage: TIniPropStorage
+    StoredValues = <>
+    IniFileName = 'audiometer.Ini'
+    Active = False
+    Left = 584
     Top = 8
   end
 end
