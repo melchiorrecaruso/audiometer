@@ -89,6 +89,8 @@ type
   procedure DrawDefaultWaveChart       (var ABitmap: TBGRABitmap);
 
 const
+  {$IFDEF BGRABITMAP_RGBAPIXEL}
+  {** Channels if ordered RGBA ordered }
   clrBlack  : TBGRAPixel = (red: $00; green: $00; blue: $00; alpha: 255);
   clrBlue   : TBGRAPixel = (red: $20; green: $4A; blue: $87; alpha: 255);
   clrPurple : TBGRAPixel = (red: $75; green: $50; blue: $7B; alpha: 255);
@@ -96,6 +98,16 @@ const
   clrYellow : TBGRAPixel = (red: $FC; green: $E9; blue: $4F; alpha: 255);
   clrWhite  : TBGRAPixel = (red: $FF; green: $FF; blue: $FF; alpha: 255);
   clrGreen  : TBGRAPixel = (red: $8A; green: $E2; blue: $34; alpha: 255);
+  {$ELSE}
+  {** Channels if ordered BGRA ordered }
+  clrBlack  : TBGRAPixel = (blue: $00; green: $00; red: $00; alpha: 255);
+  clrBlue   : TBGRAPixel = (blue: $87; green: $4A; red: $20; alpha: 255);
+  clrPurple : TBGRAPixel = (blue: $7B; green: $50; red: $75; alpha: 255);
+  clrRed    : TBGRAPixel = (blue: $29; green: $29; red: $EF; alpha: 255);
+  clrYellow : TBGRAPixel = (blue: $4F; green: $E9; red: $FC; alpha: 255);
+  clrWhite  : TBGRAPixel = (blue: $FF; green: $FF; red: $FF; alpha: 255);
+  clrGreen  : TBGRAPixel = (blue: $34; green: $E2; red: $8A; alpha: 255);
+  {$ENDIF}
 
 var
   ScreenDrawer: TScreenDrawer = nil;
@@ -108,6 +120,7 @@ uses
 
 function GetColor(AFactor: double): TBGRAPixel;
 const
+  {$IFDEF BGRABITMAP_RGBAPIXEL}
   BaseColors: array[0..5] of TBGRAPixel =
     ((red: $00; green: $00; blue: $00; alpha: 255),  // $000000
      (red: $20; green: $4A; blue: $87; alpha: 255),  // $874A20
@@ -115,6 +128,15 @@ const
      (red: $EF; green: $29; blue: $29; alpha: 255),  // $2929EF
      (red: $FC; green: $E9; blue: $4F; alpha: 255),  // $4FE9FC
      (red: $FF; green: $FF; blue: $FF; alpha: 255)); // $FFFFFF
+  {$ELSE}
+  BaseColors: array[0..5] of TBGRAPixel =
+    ((blue: $00; green: $00; red: $00; alpha: 255),  // $000000
+     (blue: $87; green: $4A; red: $20; alpha: 255),  // $874A20
+     (blue: $7B; green: $50; red: $75; alpha: 255),  // $7B5075
+     (blue: $29; green: $29; red: $EF; alpha: 255),  // $2929EF
+     (blue: $4F; green: $E9; red: $FC; alpha: 255),  // $4FE9FC
+     (blue: $FF; green: $FF; red: $FF; alpha: 255)); // $FFFFFF
+  {$ENDIF}
 var
   Seg: Integer;
   Fraction: Double;
