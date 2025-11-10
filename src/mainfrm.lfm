@@ -1154,7 +1154,7 @@ object AudioFrm: TAudioFrm
     Brush.Color = clBlack
     Pen.Color = clYellow
   end
-  object ProgressRing: TBCFluentProgressRing
+  object ProgressPanel: TPanel
     AnchorSideLeft.Control = TrackFileName
     AnchorSideLeft.Side = asrBottom
     AnchorSideTop.Control = BtnPlay
@@ -1164,15 +1164,29 @@ object AudioFrm: TAudioFrm
     Height = 32
     Top = 6
     Width = 32
-    BevelOuter = bvNone
-    Color = clBlack
-    ColorOpacity = 128
-    Alignment = taCenter
-    Caption = 'ProgressRing'
+    Anchors = [akTop, akLeft, akBottom]
     BorderSpacing.Left = 12
-    LineColor = clLime
-    LineBkgColor = clBlack
-    LineWidth = 2
+    BevelOuter = bvNone
+    ClientHeight = 32
+    ClientWidth = 32
+    ParentBackground = False
+    TabOrder = 5
+    object ProgressRing: TBCFluentProgressRing
+      Left = 0
+      Height = 32
+      Top = 0
+      Width = 32
+      Align = alClient
+      Anchors = [akRight]
+      BevelOuter = bvNone
+      Color = clBlack
+      ColorOpacity = 128
+      Alignment = taCenter
+      Caption = 'ProgressRing'
+      LineColor = clLime
+      LineBkgColor = clBlack
+      LineWidth = 2
+    end
   end
   object FileDialog: TOpenDialog
     Left = 256
