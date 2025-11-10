@@ -35,7 +35,7 @@ type
   { TAudioFrm }
 
   TAudioFrm = class(TForm)
-    ProgressRing: TBCFluentProgressRing;
+    ProgressPanel: TPanel;
     Bevel4: TBevel;
     Bevel5: TBevel;
     IniPropStorage: TIniPropStorage;
@@ -46,6 +46,7 @@ type
     LoudnessFSLabel: TLabel;
     PeakToLoudnessRatioLabel: TLabel;
     PeakToLoudnessRatioValue: TLabel;
+    ProgressRing: TBCFluentProgressRing;
     RangeLoudnessLabel: TLabel;
     LUFSPanel: TPanel;
     MomentaryLoudnessLabel: TLabel;
