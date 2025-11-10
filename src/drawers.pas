@@ -89,7 +89,7 @@ type
   procedure DrawDefaultWaveChart       (var ABitmap: TBGRABitmap);
 
 const
-  {$IFDEF BGRABITMAP_RGBAPIXEL}
+  {$IFDEF UNIX}
   {** Channels if ordered RGBA ordered }
   clrBlack  : TBGRAPixel = (red: $00; green: $00; blue: $00; alpha: 255);
   clrBlue   : TBGRAPixel = (red: $20; green: $4A; blue: $87; alpha: 255);
@@ -120,7 +120,7 @@ uses
 
 function GetColor(AFactor: double): TBGRAPixel;
 const
-  {$IFDEF BGRABITMAP_RGBAPIXEL}
+  {$IFDEF UNIX}
   BaseColors: array[0..5] of TBGRAPixel =
     ((red: $00; green: $00; blue: $00; alpha: 255),  // $000000
      (red: $20; green: $4A; blue: $87; alpha: 255),  // $874A20
