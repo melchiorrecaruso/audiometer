@@ -183,9 +183,9 @@ uses
 
 function CutOff(const S: string): string;
 begin
-  result := S;
-  setlength(result, Max(0, Length(result) - 4));
-  result := result + '...';
+  Result := S;
+  SetLength(Result, Max(0, Length(Result) - 4));
+  Result := Result + '...';
 end;
 
 { TAudioFrm }
@@ -513,13 +513,13 @@ begin
       TrackIndex := 0;
 
       IsNeededKillAnalyzer := False;
+      Execute;
     end else
     begin
       TrackFileName.Caption    := 'File format error!';
       TrackFileName.Font.Color := clrRed;
     end;
   end;
-  Execute;
 end;
 
 procedure TAudioFrm.BtnFolderClick(Sender: TObject);
@@ -551,8 +551,8 @@ begin
     TrackIndex := 0;
 
     IsNeededKillAnalyzer  := False;
+    Execute;
   end;
-  Execute;
 end;
 
 procedure TAudioFrm.BtnPlayClick(Sender: TObject);
@@ -701,7 +701,7 @@ end;
 
 procedure TAudioFrm.ScreenTimerTimer(Sender: TObject);
 var
-  Index: longint;
+  i, Index: longint;
   Track: TTrack;
 begin
   if LastWidth <> Width  then
@@ -724,6 +724,9 @@ begin
     if Index <> LastIndex then
     begin
       LastIndex := Index;
+      // release memory
+      for i := Index -1 downto 0 do
+        TrackList [i].ClearChannels;
       IsNeededUpdateScreens := True;
       Exit;
     end;
