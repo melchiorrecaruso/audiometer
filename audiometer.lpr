@@ -19,13 +19,13 @@
   MA 02111-1307, USA.
 }
 
-program audiometer;
+program AudioMeter;
 
 {$mode objfpc}{$H+}
 
 uses
-  cmem, {$IFDEF UNIX} cthreads, {$ENDIF} interfaces, forms, mainfrm, drawers,
-  loudness, dynamicrange, common, spectrum;
+  CMem, {$IFDEF UNIX} CThreads, {$ENDIF} Interfaces, Forms, MainFrm, Drawers,
+  Loudness, Dynamicrange, Common, Spectrum;
 
 {$R *.res}
 

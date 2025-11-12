@@ -308,8 +308,8 @@ begin
 
     MainBoardRedraw(ScreenDrawer.Track);
   end;
-  VirtualScreen.RedrawBitmap;
   ScreenDrawer := nil;
+  VirtualScreen.RedrawBitmap;
 end;
 
 //
@@ -704,6 +704,8 @@ var
   i, Index: longint;
   Track: TTrack;
 begin
+  if ScreenDrawer <> nil then Exit;
+
   if LastWidth <> Width  then
   begin
     LastWidth := Width;
@@ -731,8 +733,6 @@ begin
       Exit;
     end;
   end;
-
-  if ScreenDrawer <> nil then Exit;
 
   if IsNeededUpdateScreens then
   begin
@@ -842,6 +842,8 @@ var
   i: longint;
   OffSet: longint;
 begin
+  if ScreenDrawer <> nil then Exit;
+
   OffSet := 0;
   Bitmap.FillTransparent;
   for i := Low(VirtualScreens) to High(VirtualScreens) do
