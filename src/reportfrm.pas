@@ -78,6 +78,9 @@ end;
 
 procedure TReportForm.SaveBtnClick(Sender: TObject);
 begin
+  if SaveDialog.FileName = '' then;
+    SaveDialog.FileName := 'report.txt';
+
   if SaveDialog.Execute then
   begin
     Memo.Lines.SaveToFile(SaveDialog.FileName);
