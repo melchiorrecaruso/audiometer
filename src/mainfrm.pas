@@ -38,7 +38,7 @@ type
     ProgressPanel: TPanel;
     Bevel4: TBevel;
     Bevel5: TBevel;
-    IniPropStorage: TIniPropStorage;
+    PropStorage: TIniPropStorage;
     IntegratedLoudnessValue: TLabel;
     CRESTRightValue: TLabel;
     IntegratedLoudnessLabel: TLabel;
@@ -56,6 +56,12 @@ type
     Panel7: TPanel;
     RangeLoudnessValue: TLabel;
     ScreenTimer: TIdleTimer;
+    PlayBtn: TSpeedButton;
+    OpenFileBtn: TSpeedButton;
+    OpenFolderBtn: TSpeedButton;
+    ReportBtn: TSpeedButton;
+    BtnBevel: TShape;
+    StopBtn: TSpeedButton;
     TopShape: TShape;
     ShortTermLoudnessValue: TLabel;
     RMSRightValue: TLabel;
@@ -78,7 +84,6 @@ type
     Panel3: TPanel;
     ScreenPanel: TPanel;
 
-    BtnPlay: TImage;
     PlaySound: Tplaysound;
     VirtualScreen: TBGRAVirtualScreen;
     bevel1: tbevel;
@@ -87,9 +92,6 @@ type
     bit16: tlabel;
     bit24: tlabel;
     bit8: tlabel;
-    BtnFile: timage;
-    BtnFolder: timage;
-    Buttons: timagelist;
     DRLabel: TStaticText;
     DRValue: TStaticText;
     khz176: tlabel;
@@ -113,26 +115,9 @@ type
     procedure formclosequery(sender: tobject; var canclose: boolean);
     procedure FormResize(sender: tobject);
     procedure FormDestroy(sender: tobject);
-    // file button
-    procedure BtnFileClick(sender: tobject);
-    procedure BtnFileMouseDown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
-    procedure BtnFileMouseLeave(sender: tobject);
-    procedure BtnFileMouseMove(sender: tobject; shift: tshiftstate; x, y: integer);
-    procedure BtnFileMouseUp(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
-    // folder button
-    procedure BtnFolderClick(sender: tobject);
-    procedure BtnFolderMouseDown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
-    procedure btnfoldermouseleave(sender: tobject);
-    procedure btnfoldermousemove(sender: tobject; shift: tshiftstate; x, y: integer);
-    procedure btnfoldermouseup(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
-    // play button
-    procedure BtnPlayClick(sender: tobject);
-    procedure BtnPlayMouseDown(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
-    procedure BtnPlayMouseLeave(sender: tobject);
-    procedure BtnPlayMouseMove(sender: tobject; shift: tshiftstate; x, y: integer);
-    procedure BtnPlayMouseUp(sender: tobject; button: tmousebutton; shift: tshiftstate; x, y: integer);
-
-    procedure LoadButtonIcon(btn: timage; index: longint; x, y: longint);
+    // buttons
+    procedure OpenFileBtnClick(sender: tobject);
+    procedure OpenFolderBtnClick(sender: tobject);
 
     procedure Execute;
     procedure ClearTrackList;
@@ -147,7 +132,11 @@ type
 
     procedure DisableButtons;
     procedure EnableButtons;
+
+    procedure PlayBtnClick(Sender: TObject);
+    procedure ReportBtnClick(Sender: TObject);
     procedure ScreenTimerTimer(Sender: TObject);
+    procedure StopBtnClick(Sender: TObject);
 
     procedure VirtualScreenRedraw(Sender: TObject; Bitmap: TBGRABitmap);
     procedure MainBoardRedraw(ATrack: TTrack);
@@ -179,7 +168,7 @@ implementation
 {$R *.lfm}
 
 uses
-  Math, FileUtil, SoundUtils;
+  Math, FileUtil, ReportFrm, SoundUtils;
 
 function CutOff(const S: string): string;
 begin
@@ -192,8 +181,8 @@ end;
 
 procedure TAudioFrm.FormCreate(Sender: TObject);
 begin
-  IniPropStorage.IniFileName := GetAppFile('audiometer.ini');
-  IniPropStorage.Active := True;
+  PropStorage.IniFileName := GetAppFile('audiometer.ini');
+  PropStorage.Active := True;
   // ---
   VirtualScreens[0] := TBGRABitmap.Create;
   VirtualScreens[1] := TBGRABitmap.Create;
@@ -205,12 +194,6 @@ begin
   LastIndex  := -1;
   TrackIndex := -1;
   TrackList  := TTrackList.create;
-  // Load openfile button icon
-  LoadButtonIcon(BtnFile, 1, 0, 0);
-  BtnFile.OnMouseMove := @BtnFileMouseMove;
-  // Load openfolder button icon
-  LoadButtonIcon(BtnFolder, 3, 0, 5);
-  BtnFile.OnMouseMove := @BtnFileMouseMove;
   // Initialize progress bar
   ProgressRing.Value := 0;
   ProgressRing.Visible := True;
@@ -237,7 +220,7 @@ end;
 
 procedure TAudioFrm.FormResize(Sender: TObject);
 begin
-  while (TrackFileName.Left + TrackFileName.Width) > (BtnFolder.Left + BtnFolder.Width) do
+  while (TrackFileName.Left + TrackFileName.Width) > (PlayBtn.Left + PlayBtn.Width) do
   begin
     TrackFileName.Caption := CutOff(TrackFileName.Caption);
   end;
@@ -279,7 +262,7 @@ begin
   Inc(TrackIndex);
   if TrackIndex = TrackList.Count then
   begin
-    TrackList.SaveToFile(TrackFile);
+    TrackList.Save(ReportForm.Memo.Lines);
   end;
   EnableButtons;
   Execute;
@@ -497,13 +480,12 @@ end;
 
 // Button Events
 
-procedure TAudioFrm.BtnFileClick(sender: tobject);
+procedure TAudioFrm.OpenFileBtnClick(sender: tobject);
 begin
   FileDialog.Filter:= OpenDialogFileFilter;
   if FileDialog.Execute then
   begin
     PlaySound.StopSound;
-    BtnPlay.ImageIndex := 5;
 
     ClearTrackList;
     if IsFileSupported(ExtractFileExt(FileDialog.FileName)) then
@@ -522,7 +504,7 @@ begin
   end;
 end;
 
-procedure TAudioFrm.BtnFolderClick(Sender: TObject);
+procedure TAudioFrm.OpenFolderBtnClick(Sender: TObject);
 var
   Err:  longint;
   Path: string;
@@ -531,7 +513,6 @@ begin
   if DirDialog.Execute then
   begin
     PlaySound.StopSound;
-    BtnPlay.ImageIndex := 5;
 
     ClearTrackList;
     Path := IncludeTrailingBackslash(DirDialog.FileName);
@@ -555,135 +536,34 @@ begin
   end;
 end;
 
-procedure TAudioFrm.BtnPlayClick(Sender: TObject);
+procedure TAudioFrm.ReportBtnClick(Sender: TObject);
 begin
-  case BtnPlay.ImageIndex of
-    6: begin
-         PlaySound.StopSound;
-         BtnPlay.ImageIndex := 5;
-       end;
-    7: begin
-         PlaySound.StopSound;
-         BtnPlay.ImageIndex := 5;
-       end;
-  else begin
-         PlaySound.StopSound;
-         BtnPlay.ImageIndex := 5;
-         if FileExists(TempFile) then
-         begin
-           PlaySound.PlayStyle := psaSync;
-           PlaySound.SoundFile := TempFile;
-           PlaySound.Execute;
-           BtnPlay.ImageIndex := 6;
-         end;
-       end;
+  ReportForm.ShowModal;
+end;
+
+procedure TAudioFrm.PlayBtnClick(Sender: TObject);
+begin
+  PlaySound.StopSound;
+  if FileExists(TempFile) then
+  begin
+    PlaySound.PlayStyle := psaSync;
+    PlaySound.SoundFile := TempFile;
+    PlaySound.Execute;
   end;
 end;
 
-// mouse events
-
-procedure TAudioFrm.BtnFileMouseUp(sender: tobject; button: tmousebutton;
-  shift: tshiftstate; x, y: integer);
+procedure TAudioFrm.StopBtnClick(Sender: TObject);
 begin
-  BtnFile.onmousemove := @btnfilemousemove;
-end;
-
-procedure TAudioFrm.BtnFileMouseDown(sender: tobject; button: tmousebutton;
-  shift: tshiftstate; x, y: integer);
-begin
-  BtnFile.onmousemove := nil;
-  LoadButtonIcon(BtnFile, 1, 0, 0);
-end;
-
-procedure TAudioFrm.BtnFileMouseLeave(sender: tobject);
-begin
-  LoadButtonIcon(BtnFile, 1, 0, 0);
-end;
-
-procedure TAudioFrm.BtnFileMouseMove(sender: tobject;
-  shift: tshiftstate; x, y: integer);
-begin
-  LoadButtonIcon(BtnFile, 0, 0, 0);
-end;
-
-procedure TAudioFrm.BtnFolderMouseDown(sender: tobject; button: tmousebutton;
-  shift: tshiftstate; x, y: integer);
-begin
-  BtnFolder.onmousemove := nil;
-  LoadButtonIcon(BtnFolder, 3, 0, 5);
-end;
-
-procedure TAudioFrm.btnfoldermouseleave(sender: tobject);
-begin
-  LoadButtonIcon(BtnFolder, 3, 0, 5);
-end;
-
-procedure TAudioFrm.btnfoldermousemove(sender: tobject;
-  shift: tshiftstate; x, y: integer);
-begin
-  LoadButtonIcon(BtnFolder, 2, 0, 5);
-end;
-
-procedure TAudioFrm.btnfoldermouseup(sender: tobject; button: tmousebutton;
-  shift: tshiftstate; x, y: integer);
-begin
-  BtnFolder.onmousemove := @btnfoldermousemove;
-end;
-
-procedure TAudioFrm.BtnPlayMouseDown(sender: tobject; button: tmousebutton;
-  shift: tshiftstate; x, y: integer);
-begin
- BtnPlay.onmousemove := nil;
- case BtnPlay.ImageIndex of
-   4: BtnPlay.ImageIndex := 5;
-   5: BtnPlay.ImageIndex := 4;
-   6: BtnPlay.ImageIndex := 7;
-   7: BtnPlay.ImageIndex := 6;
- end;
-end;
-
-procedure TAudioFrm.BtnPlayMouseLeave(sender: tobject);
-begin
- case BtnPlay.ImageIndex of
-   4: BtnPlay.ImageIndex := 5;
-   6: BtnPlay.ImageIndex := 7;
- end;
-end;
-
-procedure TAudioFrm.BtnPlayMouseMove(sender: tobject; shift: tshiftstate; x, y: integer);
-begin
- case BtnPlay.ImageIndex of
-   5: BtnPlay.ImageIndex := 4;
-   7: BtnPlay.ImageIndex := 6;
- end;
-end;
-
-procedure TAudioFrm.BtnPlayMouseUp(sender: tobject; button: tmousebutton;
-  shift: tshiftstate; x, y: integer);
-begin
-  BtnPlay.onmousemove := @btnplaymousemove;
-  case BtnPlay.ImageIndex of
-    5: BtnPlay.ImageIndex := 4;
-    7: BtnPlay.ImageIndex := 6;
-  end;
-end;
-
-// ---
-
-procedure TAudioFrm.LoadButtonIcon(Btn: TImage; Index: longint; X, Y: longint);
-begin
-  Btn.Center := False;
-  Btn.Stretch := False;
-  Btn.Proportional := True;
-  Btn.Picture.Bitmap := nil;
-  Buttons.Draw(Btn.Canvas, X, Y, Index);
+  PlaySound.StopSound;
 end;
 
 procedure TAudioFrm.DisableButtons;
 begin
-  BtnPlay  .Enabled := False;
-  BtnFile  .Enabled := False;
-  BtnFolder.Enabled := False;
+  PlayBtn      .Enabled := False;
+  StopBtn      .Enabled := False;
+  OpenFileBtn  .Enabled := False;
+  OpenFolderBtn.Enabled := False;
+  ReportBtn    .Enabled := False;
 
   DRValue.Visible := True;
   ProgressRing.Value := 0;
@@ -691,9 +571,11 @@ end;
 
 procedure TAudioFrm.EnableButtons;
 begin
-  BtnPlay  .Enabled := True;
-  BtnFile  .Enabled := True;
-  BtnFolder.Enabled := True;
+  PlayBtn      .Enabled := True;
+  StopBtn      .Enabled := True;
+  OpenFileBtn  .Enabled := True;
+  OpenFolderBtn.Enabled := True;
+  ReportBtn    .Enabled := True;
 
   DRValue.Visible := True;
   ProgressRing.Value := 0;
@@ -756,7 +638,7 @@ begin
   begin
     TrackFileName.Font.Color := clWhite;
     TrackFileName.Caption    := ExtractFileName(ATrack.FileName);
-    while (TrackFileName.Left + TrackFileName.Width) > (BtnFolder.left + BtnFolder.Width) do
+    while (TrackFileName.Left + TrackFileName.Width) > (PlayBtn.Left + PlayBtn.Width) do
     begin
       TrackFileName.Caption := CutOff(TrackFileName.Caption);
     end;
