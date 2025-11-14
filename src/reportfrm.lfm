@@ -1,11 +1,12 @@
 object ReportForm: TReportForm
-  Left = 908
-  Height = 558
-  Top = 366
-  Width = 524
+  Left = 749
+  Height = 722
+  Top = 293
+  Width = 775
   Caption = 'AudioMeter  - Report'
-  ClientHeight = 558
-  ClientWidth = 524
+  ClientHeight = 722
+  ClientWidth = 775
+  SessionProperties = 'Left;Width;Top;Height'
   LCLVersion = '4.99.0.0'
   OnCreate = FormCreate
   object BorderShape: TShape
@@ -15,9 +16,9 @@ object ReportForm: TReportForm
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = SaveBtn
     Left = 8
-    Height = 488
+    Height = 652
     Top = 8
-    Width = 508
+    Width = 759
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Left = 8
     BorderSpacing.Top = 8
@@ -34,9 +35,9 @@ object ReportForm: TReportForm
     AnchorSideBottom.Control = BorderShape
     AnchorSideBottom.Side = asrBottom
     Left = 9
-    Height = 486
+    Height = 650
     Top = 9
-    Width = 506
+    Width = 757
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Left = 1
     BorderSpacing.Top = 1
@@ -52,15 +53,16 @@ object ReportForm: TReportForm
     AnchorSideBottom.Control = BkgShape
     AnchorSideBottom.Side = asrBottom
     Left = 13
-    Height = 478
+    Height = 642
     Top = 13
-    Width = 498
+    Width = 749
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Left = 4
     BorderSpacing.Top = 4
     BorderSpacing.Right = 4
     BorderSpacing.Bottom = 4
     BorderStyle = bsNone
+    Color = clBlack
     Font.Name = 'Liberation Mono'
     ParentFont = False
     ReadOnly = True
@@ -74,9 +76,9 @@ object ReportForm: TReportForm
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
-    Left = 412
+    Left = 663
     Height = 48
-    Top = 502
+    Top = 666
     Width = 104
     Anchors = [akRight, akBottom]
     BorderSpacing.Right = 8
@@ -218,7 +220,13 @@ object ReportForm: TReportForm
     OnClick = SaveBtnClick
   end
   object SaveDialog: TSaveDialog
-    Left = 56
-    Top = 496
+    Left = 48
+    Top = 664
+  end
+  object PropStorage: TIniPropStorage
+    StoredValues = <>
+    IniFileName = 'audiometer.ini'
+    Left = 160
+    Top = 664
   end
 end

@@ -26,13 +26,15 @@ unit ReportFrm;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, Buttons, StdCtrls, ExtCtrls;
+  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, Buttons, StdCtrls,
+  ExtCtrls, IniPropStorage;
 
 type
 
   { TReportForm }
 
   TReportForm = class(TForm)
+    PropStorage: TIniPropStorage;
     SaveBtn: TBitBtn;
     Memo: TMemo;
     SaveDialog: TSaveDialog;
@@ -53,10 +55,16 @@ implementation
 
 {$R *.lfm}
 
+uses
+  Common;
+
 { TReportForm }
 
 procedure TReportForm.FormCreate(Sender: TObject);
 begin
+  PropStorage.IniFileName := GetAppFile('audiometer.ini');
+  PropStorage.Active := True;
+  //
   Color := clBlack;
   {$ifdef UNIX}
   Memo.Font.Name := 'Liberation Mono';
