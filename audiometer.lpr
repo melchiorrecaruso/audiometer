@@ -25,7 +25,7 @@ program AudioMeter;
 
 uses
   CMem, {$IFDEF UNIX} CThreads, {$ENDIF} Interfaces, Forms, MainFrm, Drawers,
-  Loudness, Dynamicrange, Common, Spectrum;
+  Loudness, Dynamicrange, Common, Spectrum, ReportFrm;
 
 {$R *.res}
 
@@ -35,6 +35,7 @@ begin
   Application.Scaled:=True;
   Application.Initialize;
   Application.CreateForm(TAudioFrm, AudioFrm);
+  Application.CreateForm(TReportForm, ReportForm);
   Application.Run;
 end.
 

@@ -140,6 +140,14 @@
         <IsPartOfProject Value="True"/>
         <UnitName Value="Spectrum"/>
       </Unit>
+      <Unit>
+        <Filename Value="src/reportfrm.pas"/>
+        <IsPartOfProject Value="True"/>
+        <ComponentName Value="ReportForm"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <UnitName Value="ReportFrm"/>
+      </Unit>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
