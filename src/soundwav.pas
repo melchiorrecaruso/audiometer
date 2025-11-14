@@ -173,7 +173,7 @@ type
     procedure Delete(AIndex: longint);
     procedure Clear;
     procedure Sort;
-    procedure SaveToFile(const AFilename: string);
+    procedure Save(S: TStrings);
   public
     property Tracks[AIndex: longint]: TTrack read GetTrack; default;
     property Count: longint read GetCount;
@@ -561,19 +561,18 @@ begin
   Result := TTrack(FList[AIndex]);
 end;
 
-procedure TTrackList.SaveToFile(const AFilename: string);
+procedure TTrackList.Save(S: TStrings);
 const
   Splitter = '--------------------------------------------------------------------------------';
 var
   DR: double;
   i: longint;
-  S: TStringList;
   Track: TTrack;
 begin
-  S := TStringList.Create;
+  S.Clear;
   S.Add('AudioMeter 0.5.0 - Dynamic Range Meter');
   S.Add(Splitter);
-  S.Add(Format('Log date : %S', [DateTimeToStr(now)]));
+  S.Add(Format('Log date : %s', [DateTimeToStr(now)]));
   S.Add(Splitter);
   S.Add('');
 
@@ -586,7 +585,7 @@ begin
     for i := 0 to Count - 1 do
     begin
       Track := GetTrack(i);
-      S.Add(Format('DR%2.0f %7.2f dB %7.2f dB %4.0d %4.0d %7.0d %-S     %S',
+      S.Add(Format('DR%2.0f %7.2f dB %7.2f dB %4.0d %4.0d %7.0d %-s     %s',
         [(Track.DRMeter.DR), Track.Loudness.Peak,
         Track.Loudness.Rms,  Track.Bitspersample,
         Track.Channelcount,  Track.Samplerate,
@@ -606,8 +605,6 @@ begin
     S.Add('');
     S.Add(Splitter);
   end;
-  S.SaveToFile(AFilename);
-  S.Destroy;
 end;
 
 end.
