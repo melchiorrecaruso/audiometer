@@ -34,12 +34,13 @@ type
   { TReportForm }
 
   TReportForm = class(TForm)
+    BtnPanel: TPanel;
     PropStorage: TIniPropStorage;
-    SaveBtn: TBitBtn;
     Memo: TMemo;
     SaveDialog: TSaveDialog;
     BorderShape: TShape;
     BkgShape: TShape;
+    SaveBtn: TSpeedButton;
     procedure FormCreate(Sender: TObject);
     procedure SaveBtnClick(Sender: TObject);
   private
@@ -78,9 +79,6 @@ end;
 
 procedure TReportForm.SaveBtnClick(Sender: TObject);
 begin
-  if SaveDialog.FileName = '' then;
-    SaveDialog.FileName := 'report.txt';
-
   if SaveDialog.Execute then
   begin
     Memo.Lines.SaveToFile(SaveDialog.FileName);
