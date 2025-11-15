@@ -19,698 +19,758 @@
   MA 02111-1307, USA.
 }
 
-unit drawers;
+unit Drawers;
 
 {$mode objfpc}
 
 interface
 
 uses
-  basegraphics, classes, fpimage, graphics, soundwav, sysutils, types;
+  BGRABitmap, BaseGraphics, BGRABitmapTypes, Classes, Common, FPImage, Graphics, SoundWav, Spectrum, SysUtils, Types;
 
 type
-  tvirtualscreens = array[0..3] of tbitmap;
+  TVirtualScreens = array[0..3] of TBGRABitmap;
 
-  tscreendrawer = class(tthread)
+  TScreenDrawer = class(TThread)
   private
-    fblocknum: integer;
-    fmaxdB: double;
-    fonstart: tthreadmethod;
-    fonstop: tthreadmethod;
-    fontick: tthreadmethod;
-    fonwait: tthreadmethod;
-    fpercentage: integer;
-    fscreens: tvirtualscreens;
-    fscreenheight: integer;
-    fscreenwidth: integer;
-    ftick: integer;
-    ftickcount: integer;
-    fticktime: tdatetime;
-    ftrack: ttrack;
-    procedure dotick;
-    procedure calculatetickcount;
-    procedure drawdefaultblocks(ascreen: tbitmap);
-    procedure drawdefaultspectrum(ascreen: tbitmap);
-    procedure drawdefaultspectrogram(ascreen: tbitmap);
-    procedure drawdefaultwave(ascreen: tbitmap);
-    procedure drawblocks(ascreen: tbitmap);
-    procedure drawspectrum(ascreen: tbitmap);
-    procedure drawspectrogram(ascreen: tbitmap);
-    procedure drawwave(ascreen: tbitmap);
-    function getscreen(aindex: longint):tbitmap;
+    FOnStart: TThreadMethod;
+    FOnStop: TThreadMethod;
+    FScreens: TVirtualScreens;
+    FScreenWidth: longint;
+    FScreenHeight: longint;
+    FTrack: TTrack;
+    function GetScreen(AIndex: longint):TBGRABitmap;
   public
-    constructor create(atrack: ttrack);
-    destructor destroy; override;
-    procedure execute; override;
+    constructor Create(ATrack: TTrack; AWidth, AHeight: longint);
+    destructor Destroy; override;
+    procedure Execute; override;
   public
-    property onstart: tthreadmethod read fonstart write fonstart;
-    property onstop: tthreadmethod read fonstop write fonstop;
-    property ontick: tthreadmethod read fontick write fontick;
-    property onwait: tthreadmethod read fonwait write fonwait;
-    property percentage: integer read fpercentage;
-    property screens[index: longint]: tbitmap read getscreen;
-    property screenwidth: integer read fscreenwidth write fscreenwidth;
-    property screenheight: integer read fscreenheight write fscreenheight;
+    property OnStart: TThreadMethod read FOnStart write FOnStart;
+    property OnStop: TThreadMethod read FOnStop write FOnStop;
+    property Screens[AIndex: longint]: TBGRABitmap read GetScreen;
+    property Track: TTrack read FTrack;
   end;
 
+  TCustomDrawer = class(TThread)
+  private
+    FTrack: TTrack;
+    FScreen: TBGRABitmap;
+    function NewDefaultChart: TChart;
+    procedure Draw; virtual; abstract;
+  public
+    constructor Create(ATrack: TTrack; AScreen: TBGRABitmap);
+    destructor Destroy; override;
+    procedure Execute; override;
+  end;
+
+  TBlockDrawer = class(TCustomDrawer)
+  private
+    procedure Draw; override;
+  end;
+
+  TSpectrumDrawer = class(TCustomDrawer)
+  private
+    procedure Draw; override;
+  end;
+
+  TSpectrogramDrawer = class(TCustomDrawer)
+  private
+    procedure Draw; override;
+  end;
+
+  TWaveDrawer = class(TCustomDrawer)
+  private
+    procedure Draw; override;
+  end;
+
+  procedure DrawDefaultBlockChart      (var ABitmap: TBGRABitmap);
+  procedure DrawDefaultSpectrumChart   (var ABitmap: TBGRABitmap);
+  procedure DrawDefaultSpectrogramChart(var ABitmap: TBGRABitmap);
+  procedure DrawDefaultWaveChart       (var ABitmap: TBGRABitmap);
+
+const
+  {$IFDEF UNIX}
+  {** Channels if ordered RGBA ordered }
+  clrBlack  : TBGRAPixel = (red: $00; green: $00; blue: $00; alpha: 255);
+  clrBlue   : TBGRAPixel = (red: $20; green: $4A; blue: $87; alpha: 255);
+  clrPurple : TBGRAPixel = (red: $75; green: $50; blue: $7B; alpha: 255);
+  clrRed    : TBGRAPixel = (red: $EF; green: $29; blue: $29; alpha: 255);
+  clrYellow : TBGRAPixel = (red: $FC; green: $E9; blue: $4F; alpha: 255);
+  clrWhite  : TBGRAPixel = (red: $FF; green: $FF; blue: $FF; alpha: 255);
+  clrGreen  : TBGRAPixel = (red: $8A; green: $E2; blue: $34; alpha: 255);
+  {$ELSE}
+  {** Channels if ordered BGRA ordered }
+  clrBlack  : TBGRAPixel = (blue: $00; green: $00; red: $00; alpha: 255);
+  clrBlue   : TBGRAPixel = (blue: $87; green: $4A; red: $20; alpha: 255);
+  clrPurple : TBGRAPixel = (blue: $7B; green: $50; red: $75; alpha: 255);
+  clrRed    : TBGRAPixel = (blue: $29; green: $29; red: $EF; alpha: 255);
+  clrYellow : TBGRAPixel = (blue: $4F; green: $E9; red: $FC; alpha: 255);
+  clrWhite  : TBGRAPixel = (blue: $FF; green: $FF; red: $FF; alpha: 255);
+  clrGreen  : TBGRAPixel = (blue: $34; green: $E2; red: $8A; alpha: 255);
+  {$ENDIF}
 
 var
-  screendrawer: tscreendrawer = nil;
+  ScreenDrawer: TScreenDrawer = nil;
+
 
 implementation
 
 uses
-  math, dateutils;
+  Math, DateUtils, SoundUtils;
 
-function getcolor(factor: double): tcolor;
+function GetColor(AFactor: double): TBGRAPixel;
+const
+  {$IFDEF UNIX}
+  BaseColors: array[0..5] of TBGRAPixel =
+    ((red: $00; green: $00; blue: $00; alpha: 255),  // $000000
+     (red: $20; green: $4A; blue: $87; alpha: 255),  // $874A20
+     (red: $75; green: $50; blue: $7B; alpha: 255),  // $7B5075
+     (red: $EF; green: $29; blue: $29; alpha: 255),  // $2929EF
+     (red: $FC; green: $E9; blue: $4F; alpha: 255),  // $4FE9FC
+     (red: $FF; green: $FF; blue: $FF; alpha: 255)); // $FFFFFF
+  {$ELSE}
+  BaseColors: array[0..5] of TBGRAPixel =
+    ((blue: $00; green: $00; red: $00; alpha: 255),  // $000000
+     (blue: $87; green: $4A; red: $20; alpha: 255),  // $874A20
+     (blue: $7B; green: $50; red: $75; alpha: 255),  // $7B5075
+     (blue: $29; green: $29; red: $EF; alpha: 255),  // $2929EF
+     (blue: $4F; green: $E9; red: $FC; alpha: 255),  // $4FE9FC
+     (blue: $FF; green: $FF; red: $FF; alpha: 255)); // $FFFFFF
+  {$ENDIF}
 var
-  r1, g1, b1, r2, g2, b2: word;
-  color1: tcolor;
-  color2: tcolor;
-  color3: tfpcolor;
+  Seg: Integer;
+  Fraction: Double;
+  C1, C2: TBGRAPixel;
 begin
-  if factor < 0 then exit(clblack);
-  if factor > 1 then exit(clwhite);
+  if AFactor < 0 then AFactor := 0;
+  if AFactor > 1 then AFactor := 1;
 
-  if factor < 1/5 then
+  AFactor := Power(AFactor, 0.95);
+
+  Seg := Floor(AFactor * 5);
+  if Seg > 4 then Seg := 4;
+
+  Fraction := Frac(AFactor * 5);
+
+  C1 := BaseColors[Seg];
+  C2 := BaseColors[Seg + 1];
+
+  Result.red   := C1.red   + Round((C2.red   - C1.red)   * Fraction);
+  Result.green := C1.green + Round((C2.green - C1.green) * Fraction);
+  Result.blue  := C1.blue  + Round((C2.blue  - C1.blue)  * Fraction);
+  Result.alpha := 255;
+end;
+
+function NewDefaultChart: TChart;
+begin
+  result := TChart.Create;
+  result.LegendEnabled := False;
+
+  result.TitleFontHeight := 12;
+  result.XAxisFontHeight := 12;
+  result.YAxisFontHeight := 12;
+
+  result.XGridLineWidth := 0;
+  result.YGridLineWidth := 0;
+  result.XAxisLineWidth := 1;
+  result.YAxisLineWidth := 1;
+
+  result.Scale := 1.0;
+
+  result.BackgroundColor := clBlack;
+  result.TitleFontColor  := clGray;
+  result.XAxisFontColor  := clGray;
+  result.YAxisFontColor  := clGray;
+  result.XAxisLineColor  := clYellow;
+  result.YAxisLineColor  := clYellow;
+
+  result.TextureHeight := 1;
+  result.TextureWidth  := 1;
+  result.TextureBackgroundColor := clBlack;
+
+  result.PenColor := clBlack;
+
+  result.XMinF  := 0;
+  result.YMinF  := 0;
+  result.XCount := 6;
+  result.YCount := 4;
+
+  result.XAxisLabelLen := 0;
+  result.YAxisLabelLen := result.GetXAxisLabelSize('Amplitude [dB]').Width;
+end;
+
+// Draw default chart
+
+procedure DrawDefaultBlockChart(var ABitmap: TBGRABitmap);
+var
+  Points: array of TPointF = nil;
+  Chart: TChart;
+begin
+  // create and configure the chart
+  Chart := NewDefaultChart;
+  Chart.Title      := 'Energy & peaks (1s blocks)';
+  Chart.XAxisLabel := 'Block num';
+  Chart.YAxisLabel := 'Amplitude [dB]';
+
+  SetLength(Points, 2);
+  Points[0].x := 0;
+  Points[0].y := 0;
+  Points[1].x := 30;
+  Points[1].y := 96;
+  Chart.AddPolygon(Points, '');
+  // draw chart on screen
+  Chart.Draw(ABitmap, ABitmap.Width, ABitmap.Height, True);
+  Chart.Destroy;
+end;
+
+procedure DrawDefaultSpectrumChart(var ABitmap: TBGRABitmap);
+var
+  Points: array of TPointF = nil;
+  Chart: TChart;
+begin
+  // create and configure the chart
+  Chart := NewDefaultChart;
+  Chart.Title      := 'Frequency spectrum';
+  Chart.XAxisLabel := 'Freq [Hz]';
+  Chart.YAxisLabel := 'Amplitude [dB]';
+
+  SetLength(Points, 2);
+  Points[0].x := 0;
+  Points[0].y := 0;
+  Points[1].x := 44100 div 2;
+  Points[1].y := 96;
+  Chart.AddPolygon(Points, '');
+  // draw Chart on screen
+  Chart.Draw(ABitmap, ABitmap.Width, ABitmap.Height, True);
+  Chart.Destroy;
+end;
+
+procedure DrawDefaultSpectrogramChart(var ABitmap: TBGRABitmap);
+var
+  Points: array of TPointF = nil;
+  Chart: TChart;
+begin
+  // create and configure the chart
+  Chart := NewDefaultChart;
+  Chart.Title := 'Spectrogram';
+  Chart.XAxisLabel := 'Freq [Hz]';
+  Chart.YAxisLabel := 'Time [s]';
+
+  SetLength(Points, 2);
+  Points[0].x := 0;
+  Points[0].y := 0;
+  Points[1].x := 22050;
+  Points[1].y := 96;
+  Chart.AddPolygon(Points, '');
+  // draw chart on screen
+  Chart.Draw(ABitmap, ABitmap.Width, ABitmap.Height, True);
+  Chart.Destroy;
+end;
+
+procedure DrawDefaultWaveChart(var ABitmap: TBGRABitmap);
+var
+  Points: array of TPointF = nil;
+  Chart: TChart;
+begin
+  // create and configure the chart
+  Chart := NewDefaultChart;
+  Chart.LegendEnabled := True;
+  Chart.Title := 'Waveform (Mono)';
+  Chart.XAxisLabel := 'Time [s]';
+  Chart.YAxisLabel := 'Amplitude';
+
+  Chart.YMaxF   := +1.0;
+  Chart.YMinF   := -1.0;
+  Chart.XMinF   := 0;
+  Chart.XMaxF   := 100;
+  Chart.YCount  := 4;
+  Chart.YDeltaF := 0.5;
+
+  SetLength(Points, 2);
+  Points[0].x := 0;
+  Points[0].y := -1;
+  Points[1].x := 100;
+  Points[1].y := 1;
+  Chart.AddPolygon(Points, '');
+  SetLength(Points, 0);
+  // draw Chart on screen
+  Chart.Draw(ABitmap, ABitmap.Width, ABitmap.Height, True);
+  Chart.Destroy;
+end;
+
+// TScreenDrawer
+
+constructor TScreenDrawer.Create(ATrack: TTrack; AWidth, AHeight: longint);
+var
+  i: longint;
+begin
+  FOnStart := nil;
+  FOnStop  := nil;
+  FTrack   := ATrack;
+
+  FScreenWidth  := AWidth;
+  FScreenHeight := AHeight;
+  for i := Low(FScreens) to High(FScreens) do
+    FScreens[i] := TBGRABitmap.Create;
+  FreeOnTerminate := True;
+  inherited Create(True);
+end;
+
+destructor TScreenDrawer.Destroy;
+var
+  i: longint;
+begin
+  for i := Low(FScreens) to High(FScreens) do
   begin
-    color1 := clblack;
-    color2 := clnavy;
-    factor := (factor -   0) / (1/5);
-  end else
-  if factor < 2/5 then
-  begin
-    color1 := clnavy;
-    color2 := clpurple;
-    factor := (factor - 1/5) / (1/5);
-  end else
-  if factor < 3/5 then
-  begin
-    color1 := clpurple;
-    color2 := clred;
-    factor := (factor - 2/5) / (1/5);
-  end else
-  if factor < 4/5 then
-  begin
-    color1 := clred;
-    color2 := clyellow;
-    factor := (factor - 3/5) / (1/5);
-  end else
-  begin
-    color1 := clyellow;
-    color2 := clwhite;
-    factor := (factor - 4/5) / (1/5);
+    FreeAndNil(FScreens[i]);
   end;
-
-  r1 := TColorToFPColor(color1).red;
-  g1 := TColorToFPColor(color1).green;
-  b1 := TColorToFPColor(color1).blue;
-
-  r2 := TColorToFPColor(color2).red;
-  g2 := TColorToFPColor(color2).green;
-  b2 := TColorToFPColor(color2).blue;
-
-  color3.red   := trunc(r1 + (r2 - r1) * factor);
-  color3.green := trunc(g1 + (g2 - g1) * factor);
-  color3.blue  := trunc(b1 + (b2 - b1) * factor);
-  result := FPColorToTColor(color3);
+  inherited Destroy;
 end;
 
-// tscreendrawer
-
-constructor tscreendrawer.create(atrack: ttrack);
+procedure TScreenDrawer.Execute;
 var
-  i: longint;
+  BlockDrawer: TBlockDrawer;
+  SpectrumDrawer: TSpectrumDrawer;
+  SpectrogramDrawer: TSpectrogramDrawer;
+  WaveDrawer: TWaveDrawer;
+  ChartCount: longint;
+  WavesCount: longint;
+  BaseHeight: longint;
 begin
-  fonstart := nil;
-  fonstop  := nil;
-  fonwait  := nil;
-  fontick  := nil;
+  if Assigned(FOnStart) then
+    Synchronize(FOnStart);
 
-  for i := low(fscreens)to high(fscreens) do
-    fscreens[i] := tbitmap.create;
-  fscreenwidth  := 0;
-  fscreenheight := 0;
-  ftrack := atrack;
-
-  freeonterminate := true;
-  inherited create(true);
-end;
-
-destructor tscreendrawer.destroy;
-var
-  i: longint;
-begin
-  for i := low(fscreens)to high(fscreens) do
-    freeandnil(fscreens[i]);
-  inherited destroy;
-end;
-
-procedure tscreendrawer.execute;
-begin
-  if assigned(fonstart) then
-    synchronize(fonstart);
-
-  fticktime := now;
-  if assigned(fonwait) then
-    while (fscreenwidth = 0) or (fscreenheight = 0) do
-    begin
-      if millisecondsbetween(now, fticktime) > 250 then
-      begin
-        queue(fonwait);
-        fticktime := now;
-      end;
-    end;
-
-  if (fscreenwidth > 0) and (fscreenheight > 0) then
+  if (FScreenWidth  > 0) and (FScreenHeight > 0) then
   begin
-    fscreens[0].setsize(fscreenwidth, fscreenheight);
-    fscreens[1].setsize(fscreenwidth, fscreenheight);
-    fscreens[2].setsize(fscreenwidth, fscreenheight);
-    fscreens[3].setsize(fscreenwidth, fscreenheight);
-
-    if assigned(ftrack) then
+    if Assigned(FTrack) then
     begin
-      calculatetickcount;
-      drawblocks     (fscreens[0]);
-      drawspectrum   (fscreens[1]);
-      drawspectrogram(fscreens[2]);
-      drawwave       (fscreens[3]);
+      ChartCount := 3;
+      WavesCount := 1 + Max(0, FTrack.ChannelCount - 1);
+      BaseHeight := FScreenHeight div (ChartCount + WavesCount);
+
+      FScreens[0].SetSize(FScreenWidth, BaseHeight);
+      FScreens[1].SetSize(FScreenWidth, BaseHeight * WavesCount);
+      FScreens[2].SetSize(FScreenWidth, BaseHeight);
+      FScreens[3].SetSize(FScreenWidth, BaseHeight);
+
+      BlockDrawer := TBlockDrawer.Create(FTrack, FScreens[0]);
+      BlockDrawer.Start;
+      BlockDrawer.WaitFor;
+      BlockDrawer.Destroy;
+
+      WaveDrawer := TWaveDrawer.Create(FTrack, FScreens[1]);
+      WaveDrawer.Start;
+      WaveDrawer.WaitFor;
+      WaveDrawer.Destroy;
+
+      SpectrumDrawer := TSpectrumDrawer.Create(FTrack, FScreens[2]);
+      SpectrumDrawer.Start;
+      SpectrumDrawer.WaitFor;
+      SpectrumDrawer.Destroy;
+
+      SpectrogramDrawer := TSpectrogramDrawer.Create(FTrack, FScreens[3]);
+      SpectrogramDrawer.Start;
+      SpectrogramDrawer.WaitFor;
+      SpectrogramDrawer.Destroy;
     end else
     begin
-      drawdefaultblocks     (fscreens[0]);
-      drawdefaultspectrum   (fscreens[1]);
-      drawdefaultspectrogram(fscreens[2]);
-      drawdefaultwave       (fscreens[3]);
+      FScreens[0].SetSize(FScreenWidth, FScreenHeight div 4);
+      FScreens[1].SetSize(FScreenWidth, FScreenHeight div 4);
+      FScreens[2].SetSize(FScreenWidth, FScreenHeight div 4);
+      FScreens[3].SetSize(FScreenWidth, FScreenHeight div 4);
+
+      DrawDefaultBlockChart      (FScreens[0]);
+      DrawDefaultWaveChart       (FScreens[1]);
+      DrawDefaultSpectrumChart   (FScreens[2]);
+      DrawDefaultSpectrogramChart(FScreens[3]);
     end;
   end;
 
-  if assigned(fonstop) then
-    synchronize(fonstop);
+  if Assigned(FOnStop) then
+    Synchronize(FOnStop);
 end;
 
-procedure tscreendrawer.dotick;
+function TScreenDrawer.GetScreen(AIndex: longint):TBGRABitmap;
 begin
-  inc(ftick);
-  if assigned(fontick) then
-  begin
-    fpercentage := (100 * ftick) div ftickcount;
-    if millisecondsbetween(now, fticktime) > 20 then
-    begin
-      synchronize(fontick);
-      fticktime := now;
-    end;
-  end;
+  result := FScreens[AIndex];
 end;
 
-procedure tscreendrawer.calculatetickcount;
+// TDrawer
+
+constructor TCustomDrawer.Create(ATrack: TTrack; AScreen: TBGRABitmap);
 begin
-  fblocknum := 0;
-  if ftrack.channelcount > 0 then
-  begin
-    fblocknum := length(ftrack.channels[0].rms2);
-  end;
-  fmaxdB := 6*ftrack.bitspersample;
-
-  ftick := 0;
-  ftickcount := fscreenwidth * (fscreenheight - 110);
+  FTrack  := ATrack;
+  FScreen := AScreen;
+  FreeOnTerminate := False;
+  inherited Create(False);
 end;
 
-procedure tscreendrawer.drawblocks(ascreen: tbitmap);
+destructor TCustomDrawer.Destroy;
+begin
+  inherited Destroy;
+end;
+
+procedure TCustomDrawer.Execute;
+begin
+  if Assigned(FTrack) then Draw;
+end;
+
+function TCustomDrawer.NewDefaultChart: TChart;
+begin
+  result := TChart.Create;
+  result.LegendEnabled := False;
+
+  result.TitleFontHeight := 12;
+  result.XAxisFontHeight := 12;
+  result.YAxisFontHeight := 12;
+
+  result.XGridLineWidth := 0;
+  result.YGridLineWidth := 0;
+  result.XAxisLineWidth := 1;
+  result.YAxisLineWidth := 1;
+
+  result.Scale := 1.0;
+
+  result.BackgroundColor := clBlack;
+  result.TitleFontColor  := clGray;
+  result.XAxisFontColor  := clGray;
+  result.YAxisFontColor  := clGray;
+  result.XAxisLineColor  := clYellow;
+  result.YAxisLineColor  := clYellow;
+
+  result.TextureHeight := 1;
+  result.TextureWidth  := 1;
+  result.TextureBackgroundColor := clBlack;
+
+  result.PenColor := clBlack;
+
+  result.XMinF  := 0;
+  result.YMinF  := 0;
+  result.XCount := 6;
+  result.YCount := 4;
+
+  result.XAxisLabelLen := 0;
+  result.YAxisLabelLen := result.GetXAxisLabelSize('Amplitude [dB]').Width;
+end;
+
+// TBlockDrawer
+
+procedure TBlockDrawer.Draw;
 var
   i, j: longint;
-  rmsi, peaki: double;
-  points: array of tpointf = nil;
-  chart: tchart;
+  Rms2, Peak: TDouble;
+  Points: array of TPointF = nil;
+  Chart: TChart;
+  OffSet: TDouble;
 begin
+  if (FTrack.ChannelCount = 0) then Exit;
+  if (FTrack.Samplecount  = 0) then Exit;
   // create and configure the chart
-  chart := tchart.create;
-  chart.legendenabled := false;
-  chart.title := '';
-  chart.xaxislabel := 'blocknum';
-  chart.yaxislabel := 'audio [dB]';
-  chart.xgridlinewidth := 0;
-  chart.ygridlinewidth := 0;
-  chart.scale := 1.0;
-  chart.backgroundcolor := clblack;
-  chart.titlefontcolor := clwhite;
-  chart.xaxisfontcolor := clwhite;
-  chart.yaxisfontcolor := clwhite;
-  chart.xaxislinecolor := clwhite;
-  chart.yaxislinecolor := clwhite;
-  chart.textureheight := 1;
-  chart.texturewidth := 1;
-  chart.texturebackgroundcolor := clblack;
-  chart.pencolor := clblack;
-  chart.xminf := 0;
-  chart.yminf := 0;
-  chart.ycount := 8;
-  chart.ydeltaf := 0.75*ftrack.bitspersample;
+  Chart := NewDefaultChart;
+  Chart.Title      := 'Energy & peaks (1s blocks)';
+  Chart.XAxisLabel := 'Block num';
+  Chart.YAxisLabel := 'Amplitude [dB]';
+  Chart.TitleFontColor := clrwhite;
+  Chart.XAxisFontColor := clrWhite;
+  Chart.YAxisFontColor := clrWhite;
+
+  OffSet := 6 * FTrack.BitsPerSample;
 
   // loop through each block
-  setlength(points, 4);
-  for i := 0 to fblocknum - 1 do
+  SetLength(Points, 4);
+  for i := 0 to FTrack.DRMeter.BlockCount -1 do
   begin
-    rmsi := 0;
+    Rms2 := 0;
     // calculate average rms across channels
-    for j := 0 to ftrack.channelcount - 1 do
+    for j := 0 to FTrack.ChannelCount -1 do
     begin
-      if i < length(ftrack.channels[j].rms2) then
-        rmsi := rmsi + sqrt(max(0, ftrack.channels[j].rms2[i]));
+      Rms2 := Rms2 + FTrack.DRMeter.Rms2(j, i);
     end;
-    rmsi := rmsi / ftrack.channelcount;
+    Rms2 := Rms2 / FTrack.ChannelCount;
 
     // draw yellow block for rms level
-    points[0].x := (i + 1) - 0.35;
-    points[0].y := 0;
-    points[1].x := (i + 1) - 0.35;
-    points[1].y := fmaxdB + db(rmsi);
-    points[2].x := (i + 1) + 0.35;
-    points[2].y := fmaxdB + db(rmsi);
-    points[3].x := (i + 1) + 0.35;
-    points[3].y := 0;
+    Points[0].x := (i + 1) - 0.35;
+    Points[0].y := 0;
+    Points[1].x := (i + 1) - 0.35;
+    Points[1].y := OffSet + Decibel(Sqrt(Rms2));
+    Points[2].x := (i + 1) + 0.35;
+    Points[2].y := OffSet + Decibel(Sqrt(Rms2));
+    Points[3].x := (i + 1) + 0.35;
+    Points[3].y := 0;
 
-    chart.texturecolor := clyellow;
-    chart.pencolor := clblack;
-    chart.addpolygon(points, '');
+    Chart.PenColor := clBlack;
+    Chart.TextureColor := clrYellow;
+    Chart.AddPolygon(Points, '');
 
-    peaki := 0;
-    // calculate average peak across channels
-    for j := 0 to ftrack.channelcount - 1 do
+    Peak := 0;
+    // calculate average Peak across channels
+    for j := 0 to FTrack.ChannelCount - 1 do
     begin
-      if i < length(ftrack.channels[j].peak) then
-        peaki := peaki + ftrack.channels[j].peak[i];
+      Peak := Peak + FTrack.DRMeter.Peak(j, i);
     end;
-    peaki := peaki / ftrack.channelcount;
+    Peak := Peak / FTrack.ChannelCount;
 
-    // draw red block from rms to peak
-    points[0].x := (i + 1) - 0.35;
-    points[0].y := fmaxdB + db(rmsi);
-    points[1].x := (i + 1) - 0.35;
-    points[1].y := fmaxdB + db(peaki);
-    points[2].x := (i + 1) + 0.35;
-    points[2].y := fmaxdB + db(peaki);
-    points[3].x := (i + 1) + 0.35;
-    points[3].y := fmaxdB + db(rmsi);
+    // draw red block from rms to Peak
+    Points[0].x := (i + 1) - 0.35;
+    Points[0].y := OffSet + Decibel(Sqrt(Rms2));
+    Points[1].x := (i + 1) - 0.35;
+    Points[1].y := OffSet + Decibel(Peak);
+    Points[2].x := (i + 1) + 0.35;
+    Points[2].y := OffSet + Decibel(Peak);
+    Points[3].x := (i + 1) + 0.35;
+    Points[3].y := OffSet + Decibel(Sqrt(Rms2));
 
-    chart.pencolor := clblack;
-    chart.texturecolor := clred;
-    chart.addpolygon(points, '');
-    dotick;
+    Chart.PenColor := clBlack;
+    Chart.TextureColor := clrRed;
+    Chart.AddPolygon(Points, '');
   end;
-  setlength(points, 0);
-  // draw chart on screen
-  chart.draw(ascreen.canvas, ascreen.width, ascreen.height, true);
-  chart.free;
+  // draw Chart on screen
+  Chart.Draw(FScreen, FScreen.Width, FScreen.Height, True);
+  Chart.Destroy;
 end;
 
-procedure tscreendrawer.drawspectrum(ascreen: tbitmap);
+// TSpectrumDrawer
+
+procedure TSpectrumDrawer.Draw;
 var
-  chart: tchart;
-  i, j, k: longint;
-  windowsize: longint;
-  windowcount: longint;
-  points: array of tpointf = nil;
+  Chart: TChart;
+  ch, i, j: longint;
+  WindowCount: longint;
+  OutBins: longint;
+  Points: array of TPointF = nil;
   index: longint;
-  x, y: single;
-  factor: single;
+  FreqIndex, Amp, Peak: TDouble;
+  Factor: single;
+  MaxDB: TDouble;
 begin
+  if (FTrack.ChannelCount = 0) then Exit;
+  if (FTrack.Samplecount  = 0) then Exit;
   // create and configure the chart
-  chart := tchart.create;
-  chart.legendenabled := false;
-  chart.title := '';
-  chart.xaxislabel := 'freq [Hz]';
-  chart.yaxislabel := 'audio [dB]';
-  chart.xgridlinewidth := 0;
-  chart.ygridlinewidth := 0;
-  chart.scale := 1.0;
-  chart.backgroundcolor := clblack;
-  chart.xaxisfontcolor := clwhite;
-  chart.yaxisfontcolor := clwhite;
-  chart.xaxislinecolor := clwhite;
-  chart.yaxislinecolor := clwhite;
-  chart.xminf := 0;
-  chart.textureheight := 1;
-  chart.texturewidth := 1;
-  chart.texturebackgroundcolor := clblack;
-  chart.texturecolor := clyellow;
-  chart.pencolor := clyellow;
+  Chart := NewDefaultChart;
+  Chart.Title      := 'Frequency spectrum';
+  Chart.XAxisLabel := 'Freq [Hz]';
+  Chart.YAxisLabel := 'Amplitude [dB]';
+  Chart.TitleFontColor := clrwhite;
+  Chart.XAxisFontColor := clrWhite;
+  Chart.YAxisFontColor := clrWhite;
 
-  // initialize frequency bin array (half of fft size)
-  windowsize  := spectrumwindowsize div 2;
-  windowcount := length(ftrack.channels[0].spectrum) div windowsize;
-  factor      := 0.5 * ftrack.samplerate / (windowsize -1);
+  WindowCount := FTrack.Spectrums.WindowCount;
+  OutBins     := FTrack.Spectrums.OutBins;
+  Factor      := (0.5 * FTrack.Samplerate) / (OutBins - 1);
+  MaxDB       := 6 * FTrack.BitsPerSample;
 
-  setlength(points, 4);
-  for i := 1 to windowsize -1 do
+  SetLength(Points, 4);
+  for i := 1 to OutBins - 1 do
   begin
-    x := i * factor;
-    y := 0;
+    FreqIndex := i * Factor;
 
-    for j := 0 to windowcount -1 do
+    Amp  := 0;
+    Peak := 0;
+    for j := 0 to WindowCount - 1 do
     begin
-      index := j * windowsize + i;
-      for k := 0 to ftrack.channelcount -1 do
+      Index := j * OutBins + i;
+      for ch := 0 to FTrack.ChannelCount - 1 do
       begin
-        y := max(y, fmaxdB + dB(ftrack.channels[k].spectrum[index]));
+        Amp  := Amp + Sqr(FTrack.Spectrums.Channels[ch, Index]);
+        Peak := Max(Peak, FTrack.Spectrums.Channels[ch, Index]);
       end;
     end;
+    Amp := Sqrt(Amp / (WindowCount * FTrack.ChannelCount));
 
-    points[0].x := x -0.25 * factor;
-    points[0].y := 0;
-    points[1].x := x -0.25 * factor;
-    points[1].y := y;
-    points[2].x := x +0.25 * factor;
-    points[2].y := y;
-    points[3].x := x +0.25 * factor;
-    points[3].y := 0;
-    chart.addpolygon(points, '');
-    dotick;
+    Amp := (Decibel(Amp) + MaxDB);
+    if Amp < 0 then Amp := 0;
+
+    Peak := (Decibel(Peak) + MaxDB);
+    if Peak < 0 then Peak := 0;
+
+    Chart.PenColor     := clrYellow;
+    Chart.TextureColor := clrYellow;
+    Points[0].X := FreqIndex -0.25 * Factor;
+    Points[0].Y := 0;
+    Points[1].X := FreqIndex -0.25 * Factor;
+    Points[1].Y := Amp;
+    Points[2].X := FreqIndex +0.25 * Factor;
+    Points[2].Y := Amp;
+    Points[3].X := FreqIndex +0.25 * Factor;
+    Points[3].Y := 0;
+    Chart.AddPolygon(Points, '');
+
+    Chart.PenColor     := clrRed;
+    Chart.TextureColor := clrRed;
+    Points[0].X := FreqIndex -0.25 * Factor;
+    Points[0].Y := Max(Peak - 0.5, 0);
+    Points[1].X := FreqIndex -0.25 * Factor;
+    Points[1].Y := Peak;
+    Points[2].X := FreqIndex +0.25 * Factor;
+    Points[2].Y := Peak;
+    Points[3].X := FreqIndex +0.25 * Factor;
+    Points[3].Y := Max(Peak - 0.5, 0);
+    Chart.AddPolygon(Points, '');
   end;
-  setlength(points, 0);
   // draw chart on screen
-  chart.draw(ascreen.canvas, ascreen.width, ascreen.height, true);
-  chart.free;
+  Chart.Draw(FScreen, FScreen.Width, FScreen.Height, True);
+  Chart.Destroy;
 end;
 
-procedure tscreendrawer.drawspectrogram(ascreen: tbitmap);
-var
-  chart: tchart;
-  index: longint;
-  x, y, ch: longint;
-  amp: double;
-  windowsize: longint;
-  windowcount: longint;
-  xfactor, yfactor: single;
-  bit: tbitmap;
-begin
-  // create chart
-  chart := tchart.create;
-  chart.legendenabled := false;
-  chart.title := '';
-  chart.xaxislabel := 'freq [Hz]';
-  chart.yaxislabel := 'time [s]';
-  chart.xgridlinewidth := 0;
-  chart.ygridlinewidth := 0;
-  chart.scale := 1.0;
-  chart.backgroundcolor := clblack;
-  chart.xaxisfontcolor := clwhite;
-  chart.yaxisfontcolor := clwhite;
-  chart.xaxislinecolor := clwhite;
-  chart.yaxislinecolor := clwhite;
-  chart.xminf   := 0;
-  chart.yminf   := 0;
-  chart.addpixel(ftrack.samplerate div 2, ftrack.duration, clblack);
-  chart.draw(ascreen.canvas, ascreen.width, ascreen.height, true);
+// TSpectrogramDrawer
 
-  bit := tbitmap.create;
-  bit.setsize(
-    trunc(chart.getdrawingrect.width *((ftrack.samplerate div 2) / (chart.xmaxf - chart.xminf))),
-    trunc(chart.getdrawingrect.height*((ftrack.duration        ) / (chart.ymaxf - chart.yminf))));
+procedure TSpectrogramDrawer.Draw;
+var
+  Chart: TChart;
+  TimeIndex, FreqIndex: longint;
+  X, Y, ch: longint;
+  Amp: double;
+  WindowCount: longint;
+  OutBins: LongInt;
+  Bit: TBGRABitmap;
+  MaxDB, XFactor, YFactor: TDouble;
+begin
+  if (FTrack.ChannelCount = 0) then Exit;
+  if (FTrack.Samplecount  = 0) then Exit;
+  // create and configure the chart
+  Chart := NewDefaultChart;
+  Chart.Title := 'Spectrogram';
+  Chart.XAxisLabel := 'Freq [Hz]';
+  Chart.YAxisLabel := 'Time [s]';
+  Chart.TitleFontColor := clrwhite;
+  Chart.XAxisFontColor := clrWhite;
+  Chart.YAxisFontColor := clrWhite;
+
+  Chart.AddPixel(FTrack.Samplerate div 2, FTrack.Duration, clblack);
+  Chart.Draw(FScreen, FScreen.Width, FScreen.Height, True);
+
+  Bit := TBGRABitmap.create;
+  Bit.SetSize(
+    Trunc(Chart.GetDrawingRect.Width *((FTrack.Samplerate div 2) / (Chart.XMaxF - Chart.XMinF))),
+    Trunc(Chart.GetDrawingRect.Height*((FTrack.Duration        ) / (Chart.YMaxf - Chart.YMinF))));
 
   // set fft analysis window size (half of total window size)
-  windowsize  := spectrumwindowsize div 2;
-  windowcount := length(ftrack.channels[0].spectrum) div windowsize;
-  xfactor := (windowsize  -1) / (bit.width  -1);
-  yfactor := (windowcount -1) / (bit.height -1);
+  WindowCount := FTrack.Spectrums.WindowCount;
+  OutBins     := FTrack.Spectrums.OutBins;
+
+  XFactor := (OutBins      - 1) / (Bit.Width  - 1);
+  YFactor := (WindowCount  - 1) / (Bit.Height - 1);
+
+  MaxDB := 6 * FTrack.BitsPerSample;
 
   // loop over output bitmap pixels
-  for x := 0 to bit.width -1 do
-    for y := 0 to bit.height -1 do
+  for Y := 0 to Bit.Height -1 do
+  begin
+    TimeIndex  := Trunc(Y * YFactor);
+
+    for X := 0 to Bit.Width -1 do
     begin
-      amp := 0;
+      FreqIndex  :=  Trunc(X * XFactor);
+
       // compute fft bin index for this pixel
-      for ch := 0 to ftrack.channelcount - 1 do
+      Amp := 0;
+      for ch := 0 to FTrack.ChannelCount -1 do
       begin
-        index := trunc(y * yfactor) * windowsize + trunc(x * xfactor);
-        // convert amplitude to dB scale and normalize
-        if (index mod windowsize) <> 0 then
-        begin
-          amp := max(amp, 1 + dB(ftrack.channels[ch].spectrum[index]) / fmaxdB);
-        end;
+        Amp := Max(Amp, FTrack.Spectrums.Channels[ch, TimeIndex * OutBins + FreqIndex]);
       end;
       // map amplitude to color and set pixel
-      if amp <> 0 then
-      begin
-        bit.canvas.pixels[x, bit.height - y] := getcolor(amp);
-      end;
-      dotick;
+      Bit.SetPixel(X, Bit.Height - 1 - Y, GetColor((Decibel(Amp) + MaxDB) / MaxDB));
     end;
-  ascreen.canvas.draw(
-    chart.getdrawingrect.left,
-    chart.getdrawingrect.top + (chart.GetDrawingRect.Height - bit.Height), bit);
-
-  bit.free;
-  chart.free;
+  end;
+  FScreen.PutImage(
+    Chart.GetDrawingRect.Left,
+    Chart.GetDrawingRect.Top + (Chart.GetDrawingRect.Height - Bit.Height), Bit, dmSet);
+  Bit.Destroy;
+  Chart.Destroy;
 end;
 
-procedure tscreendrawer.drawwave(ascreen: tbitmap);
-var
-  ch, i, x, sampleindex: longint;
-  windowxsize, windowysize: longint;
-  windowxcount, windowycount: longint;
-  zmax, zmin: double;
-  p1, p2: tpointf;
-  bit: array of tbitmap = nil;
-  chart: tchart;
-begin
-  // create a bitmap for each audio channel
-  setlength(bit, ftrack.channelcount);
-  for ch := low(bit) to high(bit) do
-    bit[ch] := tbitmap.create;
+// TWaveDrawer
 
-  windowxcount := ascreen.width;       // horizontal resolution (pixels)
-  windowycount := ftrack.channelcount; // one row per channel
+procedure TWaveDrawer.Draw;
+var
+  ch, i, x, SampleIndex: longint;
+  WindowxSize, WindowySize: longint;
+  WindowxCount, WindowyCount: longint;
+  zMax, zMin: double;
+  P1, P2: tpointf;
+  Bit: array of TBGRABitmap = nil;
+  Chart: TChart;
+  OffSet: longint;
+begin
+  if (FTrack.ChannelCount = 0) then Exit;
+  if (FTrack.Samplecount  = 0) then Exit;
+  // create a bitmap for each audio channel
+  SetLength(Bit, FTrack.ChannelCount);
+  for ch := Low(Bit) to High(Bit) do
+    Bit[ch] := TBGRABitmap.create;
+
+  WindowxCount := FScreen.Width;       // horizontal resolution (pixels)
+  WindowyCount := FTrack.ChannelCount; // one row per channel
 
   // loop through each channel
-  for ch := low(bit) to high(bit) do
+  for ch := Low(Bit) to High(Bit) do
   begin
-    chart := tchart.create;
-    chart.legendenabled := false;
-    chart.title := '';
-    chart.xaxislabel := 'time [s]';
-    chart.yaxislabel := '1';
-    chart.scale := 1.0;
-    chart.backgroundcolor := clblack;
-    chart.xaxisfontcolor := clwhite;
-    chart.yaxisfontcolor := clwhite;
-    chart.xaxislinecolor := clwhite;
-    chart.yaxislinecolor := clwhite;
-    chart.xgridlinewidth := 0;
-    chart.ygridlinewidth := 0;
-    chart.ycount  := 8;
-    chart.ydeltaf := 0.25;
-    chart.penwidth := 1;
-    chart.pencolor := clred;
-    chart.texturecolor := clred;
+    Chart := NewDefaultChart;
+    Chart.LegendEnabled := False;
+    Chart.Title := Format('Waveform (%s)', [ChannelName(ch, FTrack.ChannelCount)]);
+    Chart.XAxisLabel := 'Time [s]';
+    Chart.YAxisLabel := 'Amplitude';
+    Chart.TitleFontColor := clrwhite;
+    Chart.XAxisFontColor := clrWhite;
+    Chart.YAxisFontColor := clrWhite;
+
+    Chart.YCount  := 4;
+    Chart.YDeltaF := 0.5;
+
+    Chart.PenWidth     := 1;
+    Chart.PenColor     := clrRed;
+    Chart.TextureColor := clrBlack;
 
     // calculate number of samples per horizontal pixel
-    windowxsize := length(ftrack.channels[ch].samples) div windowxcount;
+    WindowxSize := FTrack.SampleCount div WindowxCount;
     // calculate vertical size per channel section
-    windowysize := ascreen.height div windowycount;
+    WindowySize := FScreen.Height div WindowyCount;
 
     // prepare per-channel bitmap
-    bit[ch].setsize(ascreen.width, windowysize);
+    Bit[ch].SetSize(FScreen.width, WindowySize);
     // loop through horizontal pixels (time segments)
-    for x := 0 to windowxcount - 1 do
+    for x := 0 to WindowxCount - 1 do
     begin
-      zmin :=  infinity;
-      zmax := -infinity;
+      zMin :=  infinity;
+      zMax := -infinity;
 
       // find min and max sample values in this time segment
-      for i := 0 to windowxsize -1 do
+      for i := 0 to WindowxSize -1 do
       begin
-        sampleindex := x * windowxsize + i;
-        zmin := min(zmin, ftrack.channels[ch].samples[sampleindex]);
-        zmax := max(zmax, ftrack.channels[ch].samples[sampleindex]);
+        SampleIndex := x * WindowxSize + i;
+
+        zMin := Min(zMin, FTrack.Channels[ch, SampleIndex]);
+        zMax := Max(zMax, FTrack.Channels[ch, SampleIndex]);
       end;
 
       // create a vertical line for waveform range at this segment
-      p1.x := x / (windowxcount -1) * ftrack.duration;
-      p1.y := zmin;
-      p2.x := x / (windowxcount -1) * ftrack.duration;
-      p2.y := zmax;
+      P1.x := x / (WindowxCount -1) * FTrack.Duration;
+      P1.y := zMin;
+      P2.x := x / (WindowxCount -1) * FTrack.Duration;
+      P2.y := zMax;
 
-      chart.addpolyline([p1, p2], false, '');
-      dotick;
+      Chart.AddPolyline([P1, P2], False, '');
+      // dotick;
     end;
-    // set visible bounds for chart
-    chart.ymaxf := +1.0;
-    chart.yminf := -1.0;
-    chart.xminf := 0;
-    chart.xmaxf := max(1, ftrack.duration);
-    // draw chart on bitmap
-    chart.draw(bit[ch].canvas, bit[ch].width, bit[ch].height);
-    chart.free;
+    // set visible bounds for Chart
+    Chart.YMaxF := +1.0;
+    Chart.YMinF := -1.0;
+    Chart.XMinF := 0;
+    Chart.XMaxF := Max(1, FTrack.Duration);
+    // draw Chart on bitmap
+    Chart.Draw(Bit[ch], Bit[ch].Width, Bit[ch].Height);
+    Chart.Destroy;
   end;
 
   // composite each channel's bitmap into the final output
-  for ch := low(bit) to high(bit) do
+  OffSet := 0;
+  for ch := Low(Bit) to High(Bit) do
   begin
-    ascreen.canvas.draw(0, trunc(ch * (ascreen.height / ftrack.channelcount)), bit[ch]);
-    bit[ch].free;
+    FScreen.PutImage(0, OffSet, Bit[ch], dmSet);
+    Inc(OffSet, FScreen.Height div FTrack.ChannelCount);
+
+    Bit[ch].Destroy;
   end;
-  bit := nil;
-end;
-
-procedure tscreendrawer.drawdefaultblocks(ascreen: tbitmap);
-var
-  points: array of tpointf = nil;
-  chart: tchart;
-begin
-  // create and configure the chart
-  chart := tchart.create;
-  chart.legendenabled := false;
-  chart.title := '';
-  chart.xaxislabel := 'blocknum';
-  chart.yaxislabel := 'audio [dB]';
-  chart.xgridlinewidth := 0;
-  chart.ygridlinewidth := 0;
-  chart.scale := 1.0;
-  chart.backgroundcolor := clblack;
-  chart.titlefontcolor := clwhite;
-  chart.xaxisfontcolor := clwhite;
-  chart.yaxisfontcolor := clwhite;
-  chart.xaxislinecolor := clwhite;
-  chart.yaxislinecolor := clwhite;
-  chart.textureheight := 1;
-  chart.texturewidth := 1;
-  chart.texturebackgroundcolor := clblack;
-  chart.pencolor := clblack;
-
-  setlength(points, 2);
-  points[0].x := 0;
-  points[0].y := 0;
-  points[1].x := 30;
-  points[1].y := 96;
-  chart.addpolygon(points, '');
-  setlength(points, 0);
-  // draw chart on screen
-  chart.draw(ascreen.canvas, ascreen.width, ascreen.height, true);
-  chart.free;
-end;
-
-procedure tscreendrawer.drawdefaultspectrum(ascreen: tbitmap);
-var
-  points: array of tpointf = nil;
-  chart: tchart;
-begin
-  // create and configure the chart
-  chart := tchart.create;
-  chart.legendenabled := false;
-  chart.title := '';
-  chart.xaxislabel := 'freq [Hz]';
-  chart.yaxislabel := 'audio [dB]';
-  chart.xgridlinewidth := 0;
-  chart.ygridlinewidth := 0;
-  chart.scale := 1.0;
-  chart.backgroundcolor := clblack;
-  chart.titlefontcolor := clwhite;
-  chart.xaxisfontcolor := clwhite;
-  chart.yaxisfontcolor := clwhite;
-  chart.xaxislinecolor := clwhite;
-  chart.yaxislinecolor := clwhite;
-  chart.textureheight := 1;
-  chart.texturewidth := 1;
-  chart.texturebackgroundcolor := clblack;
-  chart.pencolor := clblack;
-
-  setlength(points, 2);
-  points[0].x := 0;
-  points[0].y := 0;
-  points[1].x := 44000;
-  points[1].y := 96;
-  chart.addpolygon(points, '');
-  setlength(points, 0);
-  // draw chart on screen
-  chart.draw(ascreen.canvas, ascreen.width, ascreen.height, true);
-  chart.free;
-end;
-
-procedure tscreendrawer.drawdefaultspectrogram(ascreen: tbitmap);
-var
-  points: array of tpointf = nil;
-  chart: tchart;
-begin
-  // create and configure the chart
-  chart := tchart.create;
-  chart.legendenabled := false;
-  chart.title := '';
-  chart.xaxislabel := 'freq [Hz]';
-  chart.yaxislabel := 'time [s]';
-  chart.xgridlinewidth := 0;
-  chart.ygridlinewidth := 0;
-  chart.scale := 1.0;
-  chart.backgroundcolor := clblack;
-  chart.titlefontcolor := clwhite;
-  chart.xaxisfontcolor := clwhite;
-  chart.yaxisfontcolor := clwhite;
-  chart.xaxislinecolor := clwhite;
-  chart.yaxislinecolor := clwhite;
-  chart.textureheight := 1;
-  chart.texturewidth := 1;
-  chart.texturebackgroundcolor := clblack;
-  chart.pencolor := clblack;
-
-  setlength(points, 2);
-  points[0].x := 0;
-  points[0].y := 0;
-  points[1].x := 44000;
-  points[1].y := 96;
-  chart.addpolygon(points, '');
-  setlength(points, 0);
-  // draw chart on screen
-  chart.draw(ascreen.canvas, ascreen.width, ascreen.height, true);
-  chart.free;
-end;
-
-procedure tscreendrawer.drawdefaultwave(ascreen: tbitmap);
-var
-  points: array of tpointf = nil;
-  chart: tchart;
-begin
-  // create and configure the chart
-  chart := tchart.create;
-  chart.legendenabled := false;
-  chart.title := '';
-  chart.xaxislabel := 'time [s]';
-  chart.yaxislabel := '';
-  chart.xgridlinewidth := 0;
-  chart.ygridlinewidth := 0;
-  chart.scale := 1.0;
-  chart.backgroundcolor := clblack;
-  chart.titlefontcolor := clwhite;
-  chart.xaxisfontcolor := clwhite;
-  chart.yaxisfontcolor := clwhite;
-  chart.xaxislinecolor := clwhite;
-  chart.yaxislinecolor := clwhite;
-  chart.textureheight := 1;
-  chart.texturewidth := 1;
-  chart.texturebackgroundcolor := clblack;
-  chart.pencolor := clblack;
-
-  chart.ymaxf := +1.0;
-  chart.yminf := -1.0;
-  chart.xminf := 0;
-  chart.xmaxf := 100;
-  chart.ycount  := 8;
-  chart.ydeltaf := 0.25;
-
-  setlength(points, 2);
-  points[0].x := 0;
-  points[0].y := -1;
-  points[1].x := 100;
-  points[1].y := 1;
-  chart.addpolygon(points, '');
-  setlength(points, 0);
-  // draw chart on screen
-  chart.draw(ascreen.canvas, ascreen.width, ascreen.height, true);
-  chart.free;
-end;
-
-function tscreendrawer.getscreen(aindex: longint):tbitmap;
-begin
-  result := fscreens[aindex];
 end;
 
 end.

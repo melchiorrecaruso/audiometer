@@ -19,21 +19,23 @@
   MA 02111-1307, USA.
 }
 
-program audiometer;
+program AudioMeter;
 
 {$mode objfpc}{$H+}
 
 uses
-  {$IFDEF UNIX} cthreads, {$ENDIF} interfaces, forms, mainfrm, drawers;
+  CMem, {$IFDEF UNIX} CThreads, {$ENDIF} Interfaces, Forms, MainFrm, Drawers,
+  Loudness, Dynamicrange, Common, Spectrum, ReportFrm;
 
 {$R *.res}
 
 begin
-  requirederivedformresource:=true;
-  application.title:='AudioMeter';
-  application.scaled:=true;
-  application.initialize;
-  application.createform(taudiofrm, audiofrm);
-  application.run;
+  RequireDerivedFormResource:=True;
+  Application.Title:='AudioMeter';
+  Application.Scaled:=True;
+  Application.Initialize;
+  Application.CreateForm(TAudioFrm, AudioFrm);
+  Application.CreateForm(TReportForm, ReportForm);
+  Application.Run;
 end.
 
