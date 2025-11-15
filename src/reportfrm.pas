@@ -73,7 +73,7 @@ begin
   {$ifdef WINDOWS}
   Memo.Font.Name := 'Courier New';
   {$endif}
-  Memo.Font.Color := clYellow;
+  Memo.Font.Color := clWhite;
   Memo.Color := clBlack;
 end;
 
