@@ -447,7 +447,7 @@ object AudioFrm: TAudioFrm
       Height = 567
       Top = 0
       Width = 1171
-      OnRedraw = VirtualScreenRedraw
+      OnRedraw = RedrawVirtualScreen
       Align = alClient
       Alignment = taLeftJustify
       Anchors = []

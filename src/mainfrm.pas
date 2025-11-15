@@ -29,7 +29,7 @@ uses
   Classes, sysutils, uPlaySound, forms, controls, graphics, dialogs, Buttons,
   stdctrls, extctrls, comctrls, IniPropStorage, bufstream, soundwav,
   bclistbox, process, inifiles, bgrabitmap,
-  bgrabitmaptypes, bgravirtualscreen, BCFluentProgressRing, drawers, Common;
+  bgrabitmaptypes, bgravirtualscreen, BCFluentProgressRing, drawers, Common, BCTypes;
 
 type
   { TAudioFrm }
@@ -94,12 +94,12 @@ type
     bit8: tlabel;
     DRLabel: TStaticText;
     DRValue: TStaticText;
-    khz176: tlabel;
-    khz192: tlabel;
-    khz44: tlabel;
-    khz48: tlabel;
-    khz88: tlabel;
-    khz96: tlabel;
+    kHz176: tlabel;
+    kHz192: tlabel;
+    kHz44: tlabel;
+    kHz48: tlabel;
+    kHz88: tlabel;
+    kHz96: tlabel;
     DetailsPanel: tpanel;
     bitspanel: tpanel;
     lefthzpanel: tpanel;
@@ -112,7 +112,7 @@ type
     FileDialog: TOpenDialog;
 
     procedure FormCreate(sender: tobject);
-    procedure formclosequery(sender: tobject; var canclose: boolean);
+    procedure FormCloseQuery(sender: tobject; var canclose: boolean);
     procedure FormResize(sender: tobject);
     procedure FormDestroy(sender: tobject);
     // buttons
@@ -138,13 +138,12 @@ type
     procedure ScreenTimerTimer(Sender: TObject);
     procedure StopBtnClick(Sender: TObject);
 
-    procedure VirtualScreenRedraw(Sender: TObject; Bitmap: TBGRABitmap);
-    procedure MainBoardRedraw(ATrack: TTrack);
-
+    procedure RedrawScreen(ATrack: TTrack);
+    procedure RedrawVirtualScreen(Sender: TObject; Bitmap: TBGRABitmap);
   private
-    VirtualScreens: TVirtualScreens;
     Buffer: TReadBufStream;
     Stream: TFileStream;
+    VirtualScreens: TVirtualScreens;
 
     TrackIndex: longint;
     TrackList: TTrackList;
@@ -264,6 +263,7 @@ begin
   begin
     TrackList.Save(ReportForm.Memo.Lines);
   end;
+
   EnableButtons;
   Execute;
 end;
@@ -289,7 +289,7 @@ begin
     VirtualScreens[2].PutImage(0, 0, ScreenDrawer.Screens[2], dmSet);
     VirtualScreens[3].PutImage(0, 0, ScreenDrawer.Screens[3], dmSet);
 
-    MainBoardRedraw(ScreenDrawer.Track);
+    RedrawScreen(ScreenDrawer.Track);
   end;
   ScreenDrawer := nil;
   VirtualScreen.RedrawBitmap;
@@ -305,10 +305,11 @@ var
   Ini: TIniFile;
   Mem: TMemoryStream;
   Process: TProcess;
-  Track: TTRack;
+  Track: TTrack;
 begin
   if IsNeededKillAnalyzer then Exit;
   if TrackIndex >= TrackList.Count then Exit;
+  if TrackIndex < 0 then Exit;
 
   Track := TrackList[TrackIndex];
   try
@@ -419,12 +420,12 @@ begin
   bit8  .Font.Color := clGray;
   bit16 .Font.Color := clGray;
   bit24 .Font.Color := clGray;
-  khz44 .Font.Color := clGray;
-  khz48 .Font.Color := clGray;
-  khz88 .Font.Color := clGray;
-  khz96 .Font.Color := clGray;
-  khz176.Font.Color := clGray;
-  khz192.Font.Color := clGray;
+  kHz44 .Font.Color := clGray;
+  kHz48 .Font.Color := clGray;
+  kHz88 .Font.Color := clGray;
+  kHz96 .Font.Color := clGray;
+  kHz176.Font.Color := clGray;
+  kHz192.Font.Color := clGray;
   Mono  .Font.Color := clGray;
   Stereo.Font.Color := clGray;
 
@@ -538,6 +539,7 @@ end;
 
 procedure TAudioFrm.ReportBtnClick(Sender: TObject);
 begin
+  ReportForm.SaveDialog.FileName := TrackFile;
   ReportForm.ShowModal;
 end;
 
@@ -588,7 +590,7 @@ var
 begin
   if ScreenDrawer <> nil then Exit;
 
-  if LastWidth <> Width  then
+  if LastWidth <> Width then
   begin
     LastWidth := Width;
     IsNeededUpdateScreens := True;
@@ -605,10 +607,9 @@ begin
   Index := TrackIndex -1;
   if (Index >= 0) and (Index < TrackList.Count) then
   begin
-    if Index <> LastIndex then
+    if LastIndex <> Index then
     begin
       LastIndex := Index;
-      // release memory
       for i := Index -1 downto 0 do
         TrackList [i].ClearChannels;
       IsNeededUpdateScreens := True;
@@ -618,6 +619,8 @@ begin
 
   if IsNeededUpdateScreens then
   begin
+    IsNeededUpdateScreens := False;
+
     Track := nil;
     if (LastIndex > -1) and (LastIndex < TrackList.Count) then
     begin
@@ -628,11 +631,10 @@ begin
     ScreenDrawer.OnStart := @OnStartDrawer;
     ScreenDrawer.OnStop  := @OnStopDrawer;
     ScreenDrawer.Start;
-    IsNeededUpdateScreens := False;
   end;
 end;
 
-procedure TAudioFrm.MainBoardRedraw(ATrack: TTrack);
+procedure TAudioFrm.RedrawScreen(ATrack: TTrack);
 begin
   if Assigned(ATrack) then
   begin
@@ -648,24 +650,24 @@ begin
     bit16 .Font.Color := clGray; if ATrack.Bitspersample = 16     then bit16 .Font.Color := clWhite;
     bit24 .Font.Color := clGray; if ATrack.Bitspersample = 24     then bit24 .Font.Color := clWhite;
 
-    khz44 .Font.Color := clGray; if ATrack.Samplerate    = 44100  then khz44 .Font.Color := clWhite;
-    khz48 .Font.Color := clGray; if ATrack.Samplerate    = 48000  then khz48 .Font.Color := clWhite;
-    khz88 .Font.Color := clGray; if ATrack.Samplerate    = 88000  then khz88 .Font.Color := clWhite;
-    khz96 .Font.Color := clGray; if ATrack.Samplerate    = 96000  then khz96 .Font.Color := clWhite;
-    khz176.Font.Color := clGray; if ATrack.Samplerate    = 176400 then khz176.Font.Color := clWhite;
-    khz192.Font.Color := clGray; if ATrack.Samplerate    = 192000 then khz192.Font.Color := clWhite;
+    kHz44 .Font.Color := clGray; if ATrack.Samplerate    = 44100  then kHz44 .Font.Color := clWhite;
+    kHz48 .Font.Color := clGray; if ATrack.Samplerate    = 48000  then kHz48 .Font.Color := clWhite;
+    kHz88 .Font.Color := clGray; if ATrack.Samplerate    = 88000  then kHz88 .Font.Color := clWhite;
+    kHz96 .Font.Color := clGray; if ATrack.Samplerate    = 96000  then kHz96 .Font.Color := clWhite;
+    kHz176.Font.Color := clGray; if ATrack.Samplerate    = 176400 then kHz176.Font.Color := clWhite;
+    kHz192.Font.Color := clGray; if ATrack.Samplerate    = 192000 then kHz192.Font.Color := clWhite;
 
     Mono  .Font.Color := clGray; if ATrack.ChannelCount  = 1      then Mono  .Font.Color := clWhite;
     Stereo.Font.Color := clGray; if ATrack.ChannelCount  = 2      then Stereo.Font.Color := clWhite;
 
     TruePeakLabel.Font.Color := clWhite;
-    if ATrack.ChannelCount > 0 then if Decibel(ATrack.Loudness.TruePeak(0)) <  0.0 then tplleftvalue .Font.Color := clLime;
-    if ATrack.ChannelCount > 0 then if Decibel(ATrack.Loudness.TruePeak(0)) >= 0.0 then tplleftvalue .Font.Color := clYellow;
-    if ATrack.ChannelCount > 0 then if Decibel(ATrack.Loudness.TruePeak(0)) >  0.5 then tplleftvalue .Font.Color := clRed;
+    if ATrack.ChannelCount > 0 then if Decibel(ATrack.Loudness.TruePeak(0)) <= 0.0 then TPLLeftValue .Font.Color := clLime;
+    if ATrack.ChannelCount > 0 then if Decibel(ATrack.Loudness.TruePeak(0)) >  0.0 then TPLLeftValue .Font.Color := clYellow;
+    if ATrack.ChannelCount > 0 then if Decibel(ATrack.Loudness.TruePeak(0)) >  0.5 then TPLLeftValue .Font.Color := clRed;
 
-    if ATrack.ChannelCount > 1 then if Decibel(ATrack.Loudness.TruePeak(1)) <  0.0 then tplrightvalue.Font.Color := clLime;
-    if ATrack.ChannelCount > 1 then if Decibel(ATrack.Loudness.TruePeak(1)) >= 0.0 then tplrightvalue.Font.Color := clYellow;
-    if ATrack.ChannelCount > 1 then if Decibel(ATrack.Loudness.TruePeak(1)) >  0.5 then tplrightvalue.Font.Color := clRed;
+    if ATrack.ChannelCount > 1 then if Decibel(ATrack.Loudness.TruePeak(1)) <= 0.0 then TPLRightValue.Font.Color := clLime;
+    if ATrack.ChannelCount > 1 then if Decibel(ATrack.Loudness.TruePeak(1)) >  0.0 then TPLRightValue.Font.Color := clYellow;
+    if ATrack.ChannelCount > 1 then if Decibel(ATrack.Loudness.TruePeak(1)) >  0.5 then TPLRightValue.Font.Color := clRed;
 
     if ATrack.ChannelCount > 0 then PLleftvalue    .Font.Color := clWhite;
     if ATrack.ChannelCount > 1 then PLRightvalue   .Font.Color := clWhite;
@@ -682,8 +684,8 @@ begin
     if ATrack.ChannelCount > 0 then plleftvalue .Caption := Format('%0.2f', [ATrack.Loudness.Peak(0)]);
     if ATrack.ChannelCount > 1 then plrightvalue.Caption := Format('%0.2f', [ATrack.Loudness.Peak(1)]);
 
-    if ATrack.ChannelCount > 0 then tplleftvalue   .Caption := Format('%0.2f', [ATrack.Loudness.TruePeak(0)]);
-    if ATrack.ChannelCount > 1 then tplrightvalue  .Caption := Format('%0.2f', [ATrack.Loudness.TruePeak(1)]);
+    if ATrack.ChannelCount > 0 then TPLLeftValue   .Caption := Format('%0.2f', [ATrack.Loudness.TruePeak(0)]);
+    if ATrack.ChannelCount > 1 then TPLRightValue  .Caption := Format('%0.2f', [ATrack.Loudness.TruePeak(1)]);
     if ATrack.ChannelCount > 0 then rmsleftvalue   .Caption := Format('%0.2f', [ATrack.Loudness.Rms(0)]);
     if ATrack.ChannelCount > 1 then rmsrightvalue  .Caption := Format('%0.2f', [ATrack.Loudness.Rms(1)]);
     if ATrack.ChannelCount > 0 then crestleftvalue .Caption := Format('%0.2f', [ATrack.Loudness.CrestFactor(0)]);
@@ -699,7 +701,7 @@ begin
     DRLabel.Font.Color := clWhite;
     if (ATrack.DRMeter.DR) > 0 then
     begin
-      DRValue.Caption := format('%2.0f', [ATrack.DRMeter.DR]);
+      DRValue.Caption := Format('%2.0f', [ATrack.DRMeter.DR]);
       if DRValue.Caption = ' 0' then DRValue.Font.Color := RGBToColor(255,   0, 0) else
       if DRValue.Caption = ' 1' then DRValue.Font.Color := RGBToColor(255,   0, 0) else
       if DRValue.Caption = ' 2' then DRValue.Font.Color := RGBToColor(255,   0, 0) else
@@ -719,7 +721,7 @@ begin
   end;
 end;
 
-procedure TAudioFrm.VirtualScreenRedraw(Sender: TObject; Bitmap: TBGRABitmap);
+procedure TAudioFrm.RedrawVirtualScreen(Sender: TObject; Bitmap: TBGRABitmap);
 var
   i: longint;
   OffSet: longint;
