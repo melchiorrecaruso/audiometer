@@ -264,6 +264,10 @@ begin
 end;
 
 procedure TTrackAnalyzer.Execute;
+{$ifopt D+}
+var
+  ch: longint;
+{$endif}
 begin
   FPercentage := 0;
   if Assigned(FOnStart) then
@@ -280,6 +284,11 @@ begin
   writeln('Track.LRA         ', FTrack.Loudness.LoudnessRange      :2:2);
   writeln('Track.PLR         ', FTrack.Loudness.PeakToLoudnessRatio:2:2);
   writeln;
+
+  for ch := 0 to FTrack.FChannelCount -1 do
+  begin
+    writeln(ChannelName(ch, FTrack.FChannelCount),'.Peak        ', FTrack.Loudness.Peak(ch):2:2);
+  end;
   {$endif}
 
   FPercentage := 100;
