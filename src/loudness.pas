@@ -388,6 +388,8 @@ begin
         Inc(OffSet, TailSize);
       end;
     end;
+
+    FBlockCount := FBlockCount + Ord(TailSize > 0);
   end;
 end;
 
