@@ -539,7 +539,8 @@ end;
 
 procedure TAudioFrm.ReportBtnClick(Sender: TObject);
 begin
-  ReportForm.SaveDialog.FileName := TrackFile;
+  ReportForm.SaveDialog.InitialDir := ExtractFileDir (TrackFile);
+  ReportForm.SaveDialog.FileName   := ExtractFileName(TrackFile);
   ReportForm.ShowModal;
 end;
 
