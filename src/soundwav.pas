@@ -586,11 +586,16 @@ begin
     begin
       Track := GetTrack(i);
       S.Add(Format('DR%2.0f %7.2f dB %7.2f dB %4.0d %4.0d %7.0d %-s     %s',
-        [(Track.DRMeter.DR), Track.Loudness.Peak,
-        Track.Loudness.Rms,  Track.Bitspersample,
-        Track.Channelcount,  Track.Samplerate,
-        Format('%3.2d:%2.2d', [Track.FDuration div (60), Track.FDuration mod (60)]),
-        ExtractFileName(Track.FFilename)]));
+        [Track.DRMeter.DR,
+         Decibel(Track.DRMeter.Peak),
+         Decibel(Track.DRMeter.Rms),
+         Track.Bitspersample,
+         Track.Channelcount,
+         Track.Samplerate,
+         Format('%3.2d:%2.2d', [
+           Track.FDuration div (60),
+           Track.FDuration mod (60)]),
+           ExtractFileName(Track.FFilename)]));
 
       DR := DR + Track.DRMeter.DR;
     end;
@@ -599,7 +604,7 @@ begin
     S.Add(Splitter);
     S.Add('');
     S.Add('Number of tracks:  %d', [Count]);
-    if DR > 0 then S.Add('Official DR value: %1.0f', [DR]);
+    if DR > 0 then S.Add('Official DR value: DR%1.0f', [DR]);
     if DR <= 0 then S.Add('Official DR value: ---');
 
     S.Add('');
