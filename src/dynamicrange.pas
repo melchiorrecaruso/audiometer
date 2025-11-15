@@ -132,13 +132,13 @@ begin
   result := 0;
   for ch := 0 to FChannelCount -1 do
   begin
-    result := max(result, Peak(ch));
+    result := Max(result, Peak(ch));
   end;
 end;
 
 function TDynamicRangeMeter.Rms(AChannel: longint): double;
 begin
-  result := Sqrt(Rms2(AChannel));
+  result := Sqrt(2 * Rms2(AChannel));
 end;
 
 function TDynamicRangeMeter.Rms: double;
@@ -152,7 +152,7 @@ begin
   begin
     result := result + Rms2(ch);
   end;
-  result := sqrt(result / ChannelCount);
+  result := Sqrt(2 * result / FChannelCount);
 end;
 
 function TDynamicRangeMeter.DR(AChannel: longint): double;
