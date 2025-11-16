@@ -489,25 +489,25 @@ procedure TTrackAnalyzer.PrepareSamplesForAnalysis;
 var
   i, j: longint;
   MinValue, MaxValue: TDouble;
-  Meanvalue: TDouble;
+  MeanValue: TDouble;
   Norm: TDouble;
 begin
   Norm := 1 shl (FTrack.FBitsPerSample - 1);
 
   for i := Low(FTrack.FChannels) to High(FTrack.FChannels) do
   begin
-    MinValue :=  maxfloat;
-    MaxValue := -maxfloat;
+    MinValue :=  MaxFloat;
+    MaxValue := -MaxFloat;
     for j := Low(FTrack.FChannels[i]) to High(FTrack.FChannels[i]) do
     begin
-      MinValue := min(MinValue, FTrack.FChannels[i][j]);
-      MaxValue := max(MaxValue, FTrack.FChannels[i][j]);
+      MinValue := Min(MinValue, FTrack.FChannels[i][j]);
+      MaxValue := Max(MaxValue, FTrack.FChannels[i][j]);
     end;
 
-    Meanvalue := (MaxValue + MinValue) / 2;
+    MeanValue := (MaxValue + MinValue) / 2;
     for j := Low(FTrack.FChannels[i]) to High(FTrack.FChannels[i]) do
     begin
-      FTrack.FChannels[i][j] := (FTrack.FChannels[i][j] - Meanvalue) / Norm;
+      FTrack.FChannels[i][j] := (FTrack.FChannels[i][j] - MeanValue) / Norm;
     end;
   end;
 end;
