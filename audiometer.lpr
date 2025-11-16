@@ -25,7 +25,7 @@ program AudioMeter;
 
 uses
   CMem, {$IFDEF UNIX} CThreads, {$ENDIF} Interfaces, Forms, MainFrm, Drawers,
-  Loudness, Dynamicrange, Common, Spectrum, ReportFrm;
+  Loudness, DynamicRange, Common, Spectrum, ReportFrm;
 
 {$R *.res}
 
