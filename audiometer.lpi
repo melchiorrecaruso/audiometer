@@ -69,7 +69,7 @@
         <CompilerOptions>
           <Version Value="11"/>
           <Target>
-            <Filename Value="build/audiometer64"/>
+            <Filename Value="build/audiometer"/>
           </Target>
           <SearchPaths>
             <IncludeFiles Value="$(ProjOutDir)"/>
