@@ -464,7 +464,7 @@ var
   OffSet: TDouble;
 begin
   if (FTrack.ChannelCount = 0) then Exit;
-  if (FTrack.Samplecount  = 0) then Exit;
+  if (FTrack.SampleCount  = 0) then Exit;
   // create and configure the chart
   Chart := NewDefaultChart;
   Chart.Title      := 'Energy & peaks (1s blocks)';
@@ -492,9 +492,9 @@ begin
     Points[0].x := (i + 1) - 0.35;
     Points[0].y := 0;
     Points[1].x := (i + 1) - 0.35;
-    Points[1].y := OffSet + Decibel(Sqrt(Rms2));
+    Points[1].y := OffSet + Max(Decibel(Sqrt(Rms2)), -OffSet);
     Points[2].x := (i + 1) + 0.35;
-    Points[2].y := OffSet + Decibel(Sqrt(Rms2));
+    Points[2].y := OffSet + Max(Decibel(Sqrt(Rms2)), -OffSet);
     Points[3].x := (i + 1) + 0.35;
     Points[3].y := 0;
 
@@ -512,13 +512,13 @@ begin
 
     // draw red block from rms to Peak
     Points[0].x := (i + 1) - 0.35;
-    Points[0].y := OffSet + Decibel(Sqrt(Rms2));
+    Points[0].y := OffSet + Max(Decibel(Sqrt(Rms2)), -OffSet);
     Points[1].x := (i + 1) - 0.35;
-    Points[1].y := OffSet + Decibel(Peak);
+    Points[1].y := OffSet + Max(Decibel(Peak), -OffSet);
     Points[2].x := (i + 1) + 0.35;
-    Points[2].y := OffSet + Decibel(Peak);
+    Points[2].y := OffSet + Max(Decibel(Peak),-OffSet);
     Points[3].x := (i + 1) + 0.35;
-    Points[3].y := OffSet + Decibel(Sqrt(Rms2));
+    Points[3].y := OffSet + Max(Decibel(Sqrt(Rms2)), -OffSet);
 
     Chart.PenColor := clBlack;
     Chart.TextureColor := clrRed;

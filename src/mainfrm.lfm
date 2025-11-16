@@ -1,7 +1,7 @@
 object AudioFrm: TAudioFrm
-  Left = 840
+  Left = 736
   Height = 800
-  Top = 332
+  Top = 390
   Width = 1171
   Caption = 'AudioMeter 0.5.0 - Dynamic Range Meter'
   ClientHeight = 800
@@ -13,8 +13,7 @@ object AudioFrm: TAudioFrm
   Font.Color = clWhite
   Font.Style = [fsBold]
   ParentDoubleBuffered = False
-  Position = poDefault
-  SessionProperties = 'Left;Top;Width;Height;WindowState'
+  SessionProperties = 'Left;Top;Height;Width;WindowState'
   LCLVersion = '4.99.0.0'
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
@@ -1862,17 +1861,16 @@ object AudioFrm: TAudioFrm
     Left = 984
     Top = 80
   end
-  object PropStorage: TIniPropStorage
-    StoredValues = <>
-    IniFileName = 'audiometer.ini'
-    Active = False
-    Left = 888
-    Top = 80
-  end
   object ScreenTimer: TIdleTimer
     Interval = 100
     OnTimer = ScreenTimerTimer
     Left = 784
+    Top = 80
+  end
+  object PropStorage: TIniPropStorage
+    StoredValues = <>
+    Active = False
+    Left = 888
     Top = 80
   end
 end

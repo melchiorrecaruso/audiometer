@@ -233,7 +233,7 @@ object ReportForm: TReportForm
   end
   object PropStorage: TIniPropStorage
     StoredValues = <>
-    IniFileName = 'audiometer.ini'
+    Active = False
     Left = 160
     Top = 640
   end

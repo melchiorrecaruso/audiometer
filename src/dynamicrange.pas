@@ -27,7 +27,7 @@ unit DynamicRange;
 interface
 
 uses
-  Common, Sysutils;
+  Common, SysUtils;
 
 type
   TDynamicRangeMeter = record
@@ -171,7 +171,7 @@ begin
   begin
     result := result + FDynamicRange[ch];
   end;
-  result := RoundTo(result / FChannelCount, -1);
+  result := SimpleRoundTo(result / FChannelCount, 0);
 end;
 
 procedure TDynamicRangeMeter.Init(const ATick: TTickMethod = nil);
@@ -200,14 +200,23 @@ procedure TDynamicRangeMeter.Process(const AChannels: TDoubleMatrix; ASampleCoun
 var
   ch, i, index, Num: longint;
   CurrEnergy, Peak2nd: TDouble;
-  RmsVec, PeakVec: TDoubleVector;
+  Rms2Vec, PeakVec: TDoubleVector;
   TailSize: longint;
 begin
   Finalize;
   FChannelCount := Length(AChannels);
   if FChannelCount = 0 then Exit;
 
-  FBlockSize  := 3 * ASampleRate;
+  case ASampleRate of
+     44100: FBlockSize := 3 * ASampleRate + 180;
+     48000: FBlockSize := 3 * ASampleRate;
+     88200: FBlockSize := 3 * ASampleRate + 360;
+     96000: FBlockSize := 3 * ASampleRate;
+    176400: FBlockSize := 3 * ASampleRate + 720;
+    192000: FBlockSize := 3 * ASampleRate;
+    else    FBlockSize := 3 * ASampleRate;
+  end;
+
   FBlockCount := ASampleCount div FBlockSize;
   TailSize    := ASampleCount mod FBlockSize;
 
@@ -235,38 +244,39 @@ begin
       FPeak[ch][FBlockCount] := Common.Peak(@AChannels[ch][index], TailSize);
     end;
   end;
+  FBlockCount := FBlockCount + Ord(TailSize > 0);
 
   // compute dynamic range values
-  SetLength(RmsVec,  FBlockCount + Ord(TailSize > 0));
-  SetLength(PeakVec, FBlockCount + Ord(TailSize > 0));
+  SetLength(Rms2Vec, FBlockCount);
+  SetLength(PeakVec, FBlockCount);
   for ch := 0 to FChannelCount - 1 do
   begin
-    for i := Low(RmsVec) to High(RmsVec) do
+    for i := 0 to FBlockCount -1 do
     begin
-      RmsVec [i] := Sqrt(2 * FRms2[ch][i]);
+      Rms2Vec[i] := FRms2[ch][i];
       PeakVec[i] := FPeak[ch][i];
     end;
 
-    QuickSort(RmsVec,  Low(RmsVec), High(RmsVec));
-    QuickSort(PeakVec, Low(RmsVec), High(PeakVec));
+    QuickSort(Rms2Vec, 0, FBlockCount -1);
+    QuickSort(PeakVec, 0, FBlockCount -1);
 
-    Num := Trunc(0.2 * Length(RmsVec));
+    Num := Trunc(0.2 * FBlockCount);
     if Num < 1 then Num := 1;
 
-    if High(PeakVec) >= 1 then
-      Peak2nd := PeakVec[High(PeakVec) - 1]
+    if FBlockCount > 1 then
+      Peak2nd := PeakVec[FBlockCount -2]
     else
       Peak2nd := PeakVec[0];
 
     CurrEnergy := 0;
-    for index := Length(RmsVec) - Num to High(RmsVec) do
+    for index := FBlockCount - Num to FBlockCount -1 do
     begin
-      CurrEnergy := CurrEnergy + Sqr(RmsVec[index]);
+      CurrEnergy := CurrEnergy + Rms2Vec[index];
     end;
     CurrEnergy := CurrEnergy / Num;
 
     if Peak2nd > 1e-10 then
-      FDynamicRange[ch] := -Decibel(Sqrt(CurrEnergy) / Peak2nd)
+      FDynamicRange[ch] := -Decibel(Sqrt(2 * CurrEnergy) / Peak2nd)
     else
       FDynamicRange[ch] := 0;
   end;
