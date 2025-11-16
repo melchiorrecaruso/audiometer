@@ -464,7 +464,7 @@ var
   OffSet: TDouble;
 begin
   if (FTrack.ChannelCount = 0) then Exit;
-  if (FTrack.Samplecount  = 0) then Exit;
+  if (FTrack.SampleCount  = 0) then Exit;
   // create and configure the chart
   Chart := NewDefaultChart;
   Chart.Title      := 'Energy & peaks (1s blocks)';
