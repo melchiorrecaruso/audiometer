@@ -27,7 +27,7 @@ unit DynamicRange;
 interface
 
 uses
-  Common, Sysutils;
+  Common, SysUtils;
 
 type
   TDynamicRangeMeter = record
@@ -200,14 +200,14 @@ procedure TDynamicRangeMeter.Process(const AChannels: TDoubleMatrix; ASampleCoun
 var
   ch, i, index, Num: longint;
   CurrEnergy, Peak2nd: TDouble;
-  RmsVec, PeakVec: TDoubleVector;
+  Rms2Vec, PeakVec: TDoubleVector;
   TailSize: longint;
 begin
   Finalize;
   FChannelCount := Length(AChannels);
   if FChannelCount = 0 then Exit;
 
-  FBlockSize  := 3 * ASampleRate;
+  FBlockSize  := 132480; // 3 * ASampleRate;
   FBlockCount := ASampleCount div FBlockSize;
   TailSize    := ASampleCount mod FBlockSize;
 
@@ -235,38 +235,39 @@ begin
       FPeak[ch][FBlockCount] := Common.Peak(@AChannels[ch][index], TailSize);
     end;
   end;
+  FBlockCount := FBlockCount + Ord(TailSize > 0);
 
   // compute dynamic range values
-  SetLength(RmsVec,  FBlockCount + Ord(TailSize > 0));
-  SetLength(PeakVec, FBlockCount + Ord(TailSize > 0));
+  SetLength(Rms2Vec, FBlockCount);
+  SetLength(PeakVec, FBlockCount);
   for ch := 0 to FChannelCount - 1 do
   begin
-    for i := Low(RmsVec) to High(RmsVec) do
+    for i := 0 to FBlockCount -1 do
     begin
-      RmsVec [i] := Sqrt(2 * FRms2[ch][i]);
+      Rms2Vec[i] := FRms2[ch][i];
       PeakVec[i] := FPeak[ch][i];
     end;
 
-    QuickSort(RmsVec,  Low(RmsVec), High(RmsVec));
-    QuickSort(PeakVec, Low(RmsVec), High(PeakVec));
+    QuickSort(Rms2Vec, 0, FBlockCount -1);
+    QuickSort(PeakVec, 0, FBlockCount -1);
 
-    Num := Trunc(0.2 * Length(RmsVec));
+    Num := Trunc(0.2 * FBlockCount -1);
     if Num < 1 then Num := 1;
 
-    if High(PeakVec) >= 1 then
-      Peak2nd := PeakVec[High(PeakVec) - 1]
+    if FBlockCount > 1 then
+      Peak2nd := PeakVec[FBlockCount -2]
     else
       Peak2nd := PeakVec[0];
 
     CurrEnergy := 0;
-    for index := Length(RmsVec) - Num to High(RmsVec) do
+    for index := FBlockCount - Num to FBlockCount -1 do
     begin
-      CurrEnergy := CurrEnergy + Sqr(RmsVec[index]);
+      CurrEnergy := CurrEnergy + Rms2Vec[index];
     end;
     CurrEnergy := CurrEnergy / Num;
 
     if Peak2nd > 1e-10 then
-      FDynamicRange[ch] := -Decibel(Sqrt(CurrEnergy) / Peak2nd)
+      FDynamicRange[ch] := -Decibel(Sqrt(2 * CurrEnergy) / Peak2nd)
     else
       FDynamicRange[ch] := 0;
   end;
