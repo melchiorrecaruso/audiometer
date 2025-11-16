@@ -27,18 +27,18 @@ interface
 
 uses
   Classes, sysutils, uPlaySound, forms, controls, graphics, dialogs, Buttons,
-  stdctrls, extctrls, comctrls, IniPropStorage, bufstream, soundwav,
-  bclistbox, process, inifiles, bgrabitmap,
-  bgrabitmaptypes, bgravirtualscreen, BCFluentProgressRing, drawers, Common, BCTypes;
+  stdctrls, extctrls, comctrls, IniPropStorage, XMLPropStorage, bufstream,
+  soundwav, bclistbox, process, inifiles, bgrabitmap, bgrabitmaptypes,
+  bgravirtualscreen, BCFluentProgressRing, drawers, Common, BCTypes;
 
 type
   { TAudioFrm }
 
   TAudioFrm = class(TForm)
+    PropStorage: TIniPropStorage;
     ProgressPanel: TPanel;
     Bevel4: TBevel;
     Bevel5: TBevel;
-    PropStorage: TIniPropStorage;
     IntegratedLoudnessValue: TLabel;
     CRESTRightValue: TLabel;
     IntegratedLoudnessLabel: TLabel;
