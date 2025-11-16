@@ -3,7 +3,7 @@ object AudioFrm: TAudioFrm
   Height = 800
   Top = 390
   Width = 1171
-  Caption = 'AudioMeter 0.5.0 - Dynamic Range Meter'
+  Caption = 'AudioMeter 0.5.2 - Dynamic Range Meter'
   ClientHeight = 800
   ClientWidth = 1171
   Color = clGray
