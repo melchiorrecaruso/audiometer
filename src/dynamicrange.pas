@@ -171,7 +171,7 @@ begin
   begin
     result := result + FDynamicRange[ch];
   end;
-  result := RoundTo(result / FChannelCount, -1);
+  result := SimpleRoundTo(result / FChannelCount, 0);
 end;
 
 procedure TDynamicRangeMeter.Init(const ATick: TTickMethod = nil);
@@ -207,7 +207,16 @@ begin
   FChannelCount := Length(AChannels);
   if FChannelCount = 0 then Exit;
 
-  FBlockSize  := 132480; // 3 * ASampleRate;
+  case ASampleRate of
+     44100: FBlockSize := 3 * ASampleRate + 180;
+     48000: FBlockSize := 3 * ASampleRate;
+     88200: FBlockSize := 3 * ASampleRate + 360;
+     96000: FBlockSize := 3 * ASampleRate;
+    176400: FBlockSize := 3 * ASampleRate + 720;
+    192000: FBlockSize := 3 * ASampleRate;
+    else    FBlockSize := 3 * ASampleRate;
+  end;
+
   FBlockCount := ASampleCount div FBlockSize;
   TailSize    := ASampleCount mod FBlockSize;
 
@@ -251,7 +260,7 @@ begin
     QuickSort(Rms2Vec, 0, FBlockCount -1);
     QuickSort(PeakVec, 0, FBlockCount -1);
 
-    Num := Trunc(0.2 * FBlockCount -1);
+    Num := Trunc(0.2 * FBlockCount);
     if Num < 1 then Num := 1;
 
     if FBlockCount > 1 then
