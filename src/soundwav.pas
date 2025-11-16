@@ -276,19 +276,24 @@ begin
   ReadStream(FStream);
   {$ifopt D+}
   writeln;
-  writeln('Track.DR:         ', FTrack.DRMeter.DR                  :2:2);
+  writeln('LOUDNESS:');
   writeln('Track.Rms         ', FTrack.Loudness.Rms                :2:2);
   writeln('Track.Peak        ', FTrack.Loudness.Peak               :2:2);
   writeln('Track.TruePeak    ', FTrack.Loudness.TruePeak           :2:2);
   writeln('Track.Lk          ', FTrack.Loudness.IntegratedLoudness :2:2);
   writeln('Track.LRA         ', FTrack.Loudness.LoudnessRange      :2:2);
   writeln('Track.PLR         ', FTrack.Loudness.PeakToLoudnessRatio:2:2);
-  writeln;
 
+  writeln;
+  writeln('DYNAMIC RANGE:');
+  writeln('Track.DR:         ', FTrack.DRMeter.DR                  :2:2);
   for ch := 0 to FTrack.FChannelCount -1 do
   begin
-    writeln(ChannelName(ch, FTrack.FChannelCount),'.Peak        ', FTrack.Loudness.Peak(ch):2:2);
+    writeln(ChannelName(ch, FTrack.FChannelCount),'.Rms         ', Decibel(FTrack.DRMeter.Rms (ch)):2:2);
+    writeln(ChannelName(ch, FTrack.FChannelCount),'.Peak        ', Decibel(FTrack.DRMeter.Peak(ch)):2:2);
+    writeln(ChannelName(ch, FTrack.FChannelCount),'.DR          ', FTrack.DRMeter.DR(ch):2:2);
   end;
+  writeln;
   {$endif}
 
   FPercentage := 100;
@@ -608,12 +613,12 @@ begin
 
       DR := DR + Track.DRMeter.DR;
     end;
-    DR := DR / Count;
+    DR := Trunc(DR / Count);
 
     S.Add(Splitter);
     S.Add('');
     S.Add('Number of tracks:  %d', [Count]);
-    if DR > 0 then S.Add('Official DR value: DR%1.0f', [DR]);
+    if DR >  0 then S.Add('Official DR value: DR%1.0f', [DR]);
     if DR <= 0 then S.Add('Official DR value: ---');
 
     S.Add('');
