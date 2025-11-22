@@ -31,6 +31,8 @@ uses
 type
   TVirtualScreens = array[0..3] of TBGRABitmap;
 
+  TScreenDrawerMode = (smFull, smDynamicRange, smSpectrogram);
+
   TScreenDrawer = class(TThread)
   private
     FOnStart: TThreadMethod;
@@ -39,6 +41,7 @@ type
     FScreenWidth: longint;
     FScreenHeight: longint;
     FTrack: TTrack;
+    FMode: TScreenDrawerMode;
     function GetScreen(AIndex: longint):TBGRABitmap;
   public
     constructor Create(ATrack: TTrack; AWidth, AHeight: longint);
@@ -49,6 +52,7 @@ type
     property OnStop: TThreadMethod read FOnStop write FOnStop;
     property Screens[AIndex: longint]: TBGRABitmap read GetScreen;
     property Track: TTrack read FTrack;
+    property Mode: TScreenDrawerMode read FMode write FMode;
   end;
 
   TCustomDrawer = class(TThread)
@@ -306,6 +310,7 @@ var
 begin
   FOnStart := nil;
   FOnStop  := nil;
+  FMode    := smSpectrogram;
   FTrack   := ATrack;
 
   FScreenWidth  := AWidth;
@@ -344,34 +349,73 @@ begin
   begin
     if Assigned(FTrack) then
     begin
-      ChartCount := 3;
-      WavesCount := 1 + Max(0, FTrack.ChannelCount - 1);
-      BaseHeight := FScreenHeight div (ChartCount + WavesCount);
 
-      FScreens[0].SetSize(FScreenWidth, BaseHeight);
-      FScreens[1].SetSize(FScreenWidth, BaseHeight * WavesCount);
-      FScreens[2].SetSize(FScreenWidth, BaseHeight);
-      FScreens[3].SetSize(FScreenWidth, BaseHeight);
 
-      BlockDrawer := TBlockDrawer.Create(FTrack, FScreens[0]);
-      BlockDrawer.Start;
-      BlockDrawer.WaitFor;
-      BlockDrawer.Destroy;
+      if FMode = smFull then
+      begin
+        ChartCount := 3;
+        WavesCount := 1 + Max(0, FTrack.ChannelCount - 1);
+        BaseHeight := FScreenHeight div (ChartCount + WavesCount);
 
-      WaveDrawer := TWaveDrawer.Create(FTrack, FScreens[1]);
-      WaveDrawer.Start;
-      WaveDrawer.WaitFor;
-      WaveDrawer.Destroy;
+        FScreens[0].SetSize(FScreenWidth, BaseHeight);
+        FScreens[1].SetSize(FScreenWidth, BaseHeight * WavesCount);
+        FScreens[2].SetSize(FScreenWidth, BaseHeight);
+        FScreens[3].SetSize(FScreenWidth, BaseHeight);
 
-      SpectrumDrawer := TSpectrumDrawer.Create(FTrack, FScreens[2]);
-      SpectrumDrawer.Start;
-      SpectrumDrawer.WaitFor;
-      SpectrumDrawer.Destroy;
+        BlockDrawer := TBlockDrawer.Create(FTrack, FScreens[0]);
+        BlockDrawer.Start;
+        BlockDrawer.WaitFor;
+        BlockDrawer.Destroy;
 
-      SpectrogramDrawer := TSpectrogramDrawer.Create(FTrack, FScreens[3]);
-      SpectrogramDrawer.Start;
-      SpectrogramDrawer.WaitFor;
-      SpectrogramDrawer.Destroy;
+        WaveDrawer := TWaveDrawer.Create(FTrack, FScreens[1]);
+        WaveDrawer.Start;
+        WaveDrawer.WaitFor;
+        WaveDrawer.Destroy;
+
+        SpectrumDrawer := TSpectrumDrawer.Create(FTrack, FScreens[2]);
+        SpectrumDrawer.Start;
+        SpectrumDrawer.WaitFor;
+        SpectrumDrawer.Destroy;
+
+        SpectrogramDrawer := TSpectrogramDrawer.Create(FTrack, FScreens[3]);
+        SpectrogramDrawer.Start;
+        SpectrogramDrawer.WaitFor;
+        SpectrogramDrawer.Destroy;
+
+      end else
+      if FMode = smDynamicRange then
+      begin
+
+        FScreens[0].SetSize(FScreenWidth, FScreenHeight);
+        FScreens[1].SetSize(0, 0);
+        FScreens[2].SetSize(0, 0);
+        FScreens[3].SetSize(0, 0);
+
+        BlockDrawer := TBlockDrawer.Create(FTrack, FScreens[0]);
+        BlockDrawer.Start;
+        BlockDrawer.WaitFor;
+        BlockDrawer.Destroy;
+
+
+      end else
+      if FMode = smSpectrogram then
+      begin
+
+        FScreens[0].SetSize(0, 0);
+        FScreens[1].SetSize(0, 0);
+        FScreens[2].SetSize(0, 0);
+        FScreens[3].SetSize(FScreenWidth, FScreenHeight);
+
+        SpectrogramDrawer := TSpectrogramDrawer.Create(FTrack, FScreens[3]);
+        SpectrogramDrawer.Start;
+        SpectrogramDrawer.WaitFor;
+        SpectrogramDrawer.Destroy;
+
+
+      end;
+
+
+
     end else
     begin
       FScreens[0].SetSize(FScreenWidth, FScreenHeight div 4);
