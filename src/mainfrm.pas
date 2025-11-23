@@ -35,6 +35,7 @@ type
   { TAudioFrm }
 
   TAudioFrm = class(TForm)
+    Mode: TComboBox;
     PropStorage: TIniPropStorage;
     ProgressPanel: TPanel;
     Bevel4: TBevel;
@@ -143,7 +144,7 @@ type
   private
     Buffer: TReadBufStream;
     Stream: TFileStream;
-    VirtualScreens: TVirtualScreens;
+    Screen: TBGRABitmap;
 
     TrackIndex: longint;
     TrackList: TTrackList;
@@ -153,6 +154,7 @@ type
     LastIndex: longint;
     LastWidth: longint;
     LastHeight: longint;
+    LastMode: longint;
 
     IsNeededUpdateScreens: boolean;
     IsNeededKillAnalyzer:  boolean;
@@ -180,16 +182,16 @@ end;
 
 procedure TAudioFrm.FormCreate(Sender: TObject);
 begin
+  Mode.ItemIndex := Mode.Items.Count -1;
+  // ---
   PropStorage.IniFileName := GetAppFile('audiometer.ini');
   PropStorage.Active := True;
   // ---
-  VirtualScreens[0] := TBGRABitmap.Create;
-  VirtualScreens[1] := TBGRABitmap.Create;
-  VirtualScreens[2] := TBGRABitmap.Create;
-  VirtualScreens[3] := TBGRABitmap.Create;
+  Screen := TBGRABitmap.Create;
   IsNeededUpdateScreens := False;
   IsNeededKillAnalyzer  := False;
   // ---
+  LastMode   := -1;
   LastIndex  := -1;
   TrackIndex := -1;
   TrackList  := TTrackList.create;
@@ -204,10 +206,7 @@ end;
 
 procedure TAudioFrm.FormDestroy(Sender: TObject);
 begin
-  FreeAndNil(VirtualScreens[0]);
-  FreeAndNil(VirtualScreens[1]);
-  FreeAndNil(VirtualScreens[2]);
-  FreeAndNil(VirtualScreens[3]);
+  FreeAndNil(Screen);
   TrackList.Destroy;
 end;
 
@@ -272,23 +271,13 @@ end;
 
 procedure TAudioFrm.OnStartDrawer;
 begin
-  // nothing to do
+  Screen.SetSize(VirtualScreen.Width, VirtualScreen.Height);
 end;
 
 procedure TAudioFrm.OnStopDrawer;
 begin
   if IsNeededUpdateScreens = False then
   begin
-    VirtualScreens[0].SetSize(ScreenDrawer.Screens[0].Width, ScreenDrawer.Screens[0].Height);
-    VirtualScreens[1].SetSize(ScreenDrawer.Screens[1].Width, ScreenDrawer.Screens[1].Height);
-    VirtualScreens[2].SetSize(ScreenDrawer.Screens[2].Width, ScreenDrawer.Screens[2].Height);
-    VirtualScreens[3].SetSize(ScreenDrawer.Screens[3].Width, ScreenDrawer.Screens[3].Height);
-
-    VirtualScreens[0].PutImage(0, 0, ScreenDrawer.Screens[0], dmSet);
-    VirtualScreens[1].PutImage(0, 0, ScreenDrawer.Screens[1], dmSet);
-    VirtualScreens[2].PutImage(0, 0, ScreenDrawer.Screens[2], dmSet);
-    VirtualScreens[3].PutImage(0, 0, ScreenDrawer.Screens[3], dmSet);
-
     RedrawScreen(ScreenDrawer.Track);
   end;
   ScreenDrawer := nil;
@@ -562,6 +551,7 @@ end;
 
 procedure TAudioFrm.DisableButtons;
 begin
+  Mode         .Enabled := False;
   PlayBtn      .Enabled := False;
   StopBtn      .Enabled := False;
   OpenFileBtn  .Enabled := False;
@@ -574,6 +564,7 @@ end;
 
 procedure TAudioFrm.EnableButtons;
 begin
+  Mode         .Enabled := True;
   PlayBtn      .Enabled := True;
   StopBtn      .Enabled := True;
   OpenFileBtn  .Enabled := True;
@@ -605,6 +596,13 @@ begin
     Exit;
   end;
 
+  if LastMode <> Mode.ItemIndex then
+  begin
+    LastMode := Mode.ItemIndex;
+    IsNeededUpdateScreens := True;
+    Exit;
+  end;
+
   Index := TrackIndex -1;
   if (Index >= 0) and (Index < TrackList.Count) then
   begin
@@ -628,9 +626,24 @@ begin
       Track := TrackList[LastIndex]
     end;
 
-    ScreenDrawer := TScreenDrawer.Create(Track, VirtualScreen.Width, VirtualScreen.Height);
+    ScreenDrawer := TScreenDrawer.Create(Track, Screen);
     ScreenDrawer.OnStart := @OnStartDrawer;
     ScreenDrawer.OnStop  := @OnStopDrawer;
+    ScreenDrawer.Mode := [];
+
+    case LastMode of
+      0: ScreenDrawer.Mode := [smDynamicRange];
+      1: ScreenDrawer.Mode := [smWaveform];
+      2: ScreenDrawer.Mode := [smFreqSpectrum];
+      3: ScreenDrawer.Mode := [smSpectrogram];
+
+      4: ScreenDrawer.Mode := [smDynamicRange, smWaveform];
+      5: ScreenDrawer.Mode := [smDynamicRange, smWaveform, smSpectrogram];
+      6: ScreenDrawer.Mode := [smWaveform, smFreqSpectrum, smSpectrogram];
+
+    else ScreenDrawer.Mode := [smDynamicRange, smWaveform, smFreqSpectrum, smSpectrogram];
+    end;
+
     ScreenDrawer.Start;
   end;
 end;
@@ -723,18 +736,10 @@ begin
 end;
 
 procedure TAudioFrm.RedrawVirtualScreen(Sender: TObject; Bitmap: TBGRABitmap);
-var
-  i: longint;
-  OffSet: longint;
 begin
-  if ScreenDrawer <> nil then Exit;
-
-  OffSet := 0;
-  Bitmap.FillTransparent;
-  for i := Low(VirtualScreens) to High(VirtualScreens) do
+  if ScreenDrawer = nil then
   begin
-    Bitmap.PutImage(0, OffSet , VirtualScreens[i], dmSet);
-    Inc(OffSet, VirtualScreens[i].Height);
+    Bitmap.PutImage(0, 0, Screen, dmSet);
   end;
 end;
 
