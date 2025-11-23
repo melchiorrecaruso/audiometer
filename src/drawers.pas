@@ -29,30 +29,25 @@ uses
   BGRABitmap, BaseGraphics, BGRABitmapTypes, Classes, Common, FPImage, Graphics, SoundWav, Spectrum, SysUtils, Types;
 
 type
-  TVirtualScreens = array[0..3] of TBGRABitmap;
-
-  TScreenDrawerMode = (smFull, smDynamicRange, smSpectrogram);
+  TScreenDrawerMode  = (smDynamicRange, smWaveform, smFreqSpectrum, smSpectrogram);
+  TScreenDrawerModes = set of TScreenDrawerMode;
 
   TScreenDrawer = class(TThread)
   private
+    FModes: TScreenDrawerModes;
     FOnStart: TThreadMethod;
     FOnStop: TThreadMethod;
-    FScreens: TVirtualScreens;
-    FScreenWidth: longint;
-    FScreenHeight: longint;
+    FScreen: TBGRABitmap;
     FTrack: TTrack;
-    FMode: TScreenDrawerMode;
-    function GetScreen(AIndex: longint):TBGRABitmap;
   public
-    constructor Create(ATrack: TTrack; AWidth, AHeight: longint);
+    constructor Create(ATrack: TTrack; AScreen: TBGRABitmap);
     destructor Destroy; override;
     procedure Execute; override;
   public
+    property Mode: TScreenDrawerModes read FModes write FModes;
     property OnStart: TThreadMethod read FOnStart write FOnStart;
     property OnStop: TThreadMethod read FOnStop write FOnStop;
-    property Screens[AIndex: longint]: TBGRABitmap read GetScreen;
     property Track: TTrack read FTrack;
-    property Mode: TScreenDrawerMode read FMode write FMode;
   end;
 
   TCustomDrawer = class(TThread)
@@ -304,31 +299,20 @@ end;
 
 // TScreenDrawer
 
-constructor TScreenDrawer.Create(ATrack: TTrack; AWidth, AHeight: longint);
-var
-  i: longint;
+constructor TScreenDrawer.Create(ATrack: TTrack; AScreen: TBGRABitmap);
 begin
+  FModes   := [smDynamicRange, smWaveform, smFreqSpectrum, smSpectrogram];
   FOnStart := nil;
   FOnStop  := nil;
-  FMode    := smSpectrogram;
+  FScreen  := AScreen;
   FTrack   := ATrack;
 
-  FScreenWidth  := AWidth;
-  FScreenHeight := AHeight;
-  for i := Low(FScreens) to High(FScreens) do
-    FScreens[i] := TBGRABitmap.Create;
   FreeOnTerminate := True;
   inherited Create(True);
 end;
 
 destructor TScreenDrawer.Destroy;
-var
-  i: longint;
 begin
-  for i := Low(FScreens) to High(FScreens) do
-  begin
-    FreeAndNil(FScreens[i]);
-  end;
   inherited Destroy;
 end;
 
@@ -339,104 +323,104 @@ var
   SpectrogramDrawer: TSpectrogramDrawer;
   WaveDrawer: TWaveDrawer;
   ChartCount: longint;
-  WavesCount: longint;
   BaseHeight: longint;
+  Bit: TBGRABitmap;
+  OffSet: longint;
 begin
   if Assigned(FOnStart) then
     Synchronize(FOnStart);
 
-  if (FScreenWidth  > 0) and (FScreenHeight > 0) then
+  if (FScreen.Width > 0) and (FScreen.Height > 0) then
   begin
-    if Assigned(FTrack) then
+    OffSet := 0;
+    if Assigned(FTrack) and (FTrack.ChannelCount > 0) then
     begin
+      ChartCount := 0;
+      if smDynamicRange in FModes then Inc(ChartCount);
+      if smWaveform        in FModes then Inc(ChartCount, FTrack.ChannelCount);
+      if smFreqSpectrum     in FModes then Inc(ChartCount);
+      if smSpectrogram  in FModes then Inc(ChartCount);
 
-
-      if FMode = smFull then
+      BaseHeight := FScreen.Height div ChartCount;
+      if smDynamicRange in FModes then
       begin
-        ChartCount := 3;
-        WavesCount := 1 + Max(0, FTrack.ChannelCount - 1);
-        BaseHeight := FScreenHeight div (ChartCount + WavesCount);
-
-        FScreens[0].SetSize(FScreenWidth, BaseHeight);
-        FScreens[1].SetSize(FScreenWidth, BaseHeight * WavesCount);
-        FScreens[2].SetSize(FScreenWidth, BaseHeight);
-        FScreens[3].SetSize(FScreenWidth, BaseHeight);
-
-        BlockDrawer := TBlockDrawer.Create(FTrack, FScreens[0]);
+        Bit := TBGRABitmap.Create(FScreen.Width, BaseHeight);
+        BlockDrawer := TBlockDrawer.Create(FTrack, Bit);
         BlockDrawer.Start;
         BlockDrawer.WaitFor;
         BlockDrawer.Destroy;
 
-        WaveDrawer := TWaveDrawer.Create(FTrack, FScreens[1]);
+        FScreen.PutImage(0, OffSet, Bit, dmSet);
+        Inc(OffSet, Bit.Height);
+        Bit.Destroy;
+      end;
+
+      if smWaveform in FModes then
+      begin
+        Bit := TBGRABitmap.Create(FScreen.Width, BaseHeight * FTrack.ChannelCount);
+        WaveDrawer := TWaveDrawer.Create(FTrack, Bit);
         WaveDrawer.Start;
         WaveDrawer.WaitFor;
         WaveDrawer.Destroy;
 
-        SpectrumDrawer := TSpectrumDrawer.Create(FTrack, FScreens[2]);
+        FScreen.PutImage(0, OffSet, Bit, dmSet);
+        Inc(OffSet, Bit.Height);
+        Bit.Destroy;
+      end;
+
+      if smFreqSpectrum in FModes then
+      begin
+        Bit := TBGRABitmap.Create(FScreen.Width, BaseHeight);
+        SpectrumDrawer := TSpectrumDrawer.Create(FTrack, Bit);
         SpectrumDrawer.Start;
         SpectrumDrawer.WaitFor;
         SpectrumDrawer.Destroy;
 
-        SpectrogramDrawer := TSpectrogramDrawer.Create(FTrack, FScreens[3]);
-        SpectrogramDrawer.Start;
-        SpectrogramDrawer.WaitFor;
-        SpectrogramDrawer.Destroy;
-
-      end else
-      if FMode = smDynamicRange then
-      begin
-
-        FScreens[0].SetSize(FScreenWidth, FScreenHeight);
-        FScreens[1].SetSize(0, 0);
-        FScreens[2].SetSize(0, 0);
-        FScreens[3].SetSize(0, 0);
-
-        BlockDrawer := TBlockDrawer.Create(FTrack, FScreens[0]);
-        BlockDrawer.Start;
-        BlockDrawer.WaitFor;
-        BlockDrawer.Destroy;
-
-
-      end else
-      if FMode = smSpectrogram then
-      begin
-
-        FScreens[0].SetSize(0, 0);
-        FScreens[1].SetSize(0, 0);
-        FScreens[2].SetSize(0, 0);
-        FScreens[3].SetSize(FScreenWidth, FScreenHeight);
-
-        SpectrogramDrawer := TSpectrogramDrawer.Create(FTrack, FScreens[3]);
-        SpectrogramDrawer.Start;
-        SpectrogramDrawer.WaitFor;
-        SpectrogramDrawer.Destroy;
-
-
+        FScreen.PutImage(0, OffSet, Bit, dmSet);
+        Inc(OffSet, Bit.Height);
+        Bit.Destroy;
       end;
 
+      if smSpectrogram in FModes then
+      begin
+       Bit := TBGRABitmap.Create(FScreen.Width, BaseHeight);
+       SpectrogramDrawer := TSpectrogramDrawer.Create(FTrack, Bit);
+       SpectrogramDrawer.Start;
+       SpectrogramDrawer.WaitFor;
+       SpectrogramDrawer.Destroy;
+
+       FScreen.PutImage(0, OffSet, Bit, dmSet);
+       Inc(OffSet, Bit.Height);
+       Bit.Destroy;
+     end;
 
 
     end else
     begin
-      FScreens[0].SetSize(FScreenWidth, FScreenHeight div 4);
-      FScreens[1].SetSize(FScreenWidth, FScreenHeight div 4);
-      FScreens[2].SetSize(FScreenWidth, FScreenHeight div 4);
-      FScreens[3].SetSize(FScreenWidth, FScreenHeight div 4);
+      Bit := TBGRABitmap.Create(FScreen.Width, FScreen.Height div 4);
 
-      DrawDefaultBlockChart      (FScreens[0]);
-      DrawDefaultWaveChart       (FScreens[1]);
-      DrawDefaultSpectrumChart   (FScreens[2]);
-      DrawDefaultSpectrogramChart(FScreens[3]);
+      DrawDefaultBlockChart(Bit);
+      FScreen.PutImage(0, OffSet, Bit, dmSet);
+      Inc(OffSet, Bit.Height);
+
+      DrawDefaultWaveChart(Bit);
+      FScreen.PutImage(0, OffSet, Bit, dmSet);
+      Inc(OffSet, Bit.Height);
+
+      DrawDefaultSpectrumChart(Bit);
+      FScreen.PutImage(0, OffSet, Bit, dmSet);
+      Inc(OffSet, Bit.Height);
+
+      DrawDefaultSpectrogramChart(Bit);
+      FScreen.PutImage(0, OffSet, Bit, dmSet);
+      Inc(OffSet, Bit.Height);
+
+      Bit.Destroy;
     end;
   end;
 
   if Assigned(FOnStop) then
     Synchronize(FOnStop);
-end;
-
-function TScreenDrawer.GetScreen(AIndex: longint):TBGRABitmap;
-begin
-  result := FScreens[AIndex];
 end;
 
 // TDrawer
