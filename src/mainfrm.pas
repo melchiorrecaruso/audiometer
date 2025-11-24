@@ -27,15 +27,20 @@ interface
 
 uses
   Classes, sysutils, uPlaySound, forms, controls, graphics, dialogs, Buttons,
-  stdctrls, extctrls, comctrls, IniPropStorage, XMLPropStorage, bufstream,
-  soundwav, bclistbox, process, inifiles, bgrabitmap, bgrabitmaptypes,
-  bgravirtualscreen, BCFluentProgressRing, drawers, Common, BCTypes;
+  stdctrls, extctrls, comctrls, IniPropStorage, XMLPropStorage, Menus,
+  bufstream, soundwav, bclistbox, process, inifiles, bgrabitmap,
+  bgrabitmaptypes, bgravirtualscreen, BCFluentProgressRing, drawers, Common,
+  BCTypes, LCLType;
 
 type
   { TAudioFrm }
 
   TAudioFrm = class(TForm)
-    Mode: TComboBox;
+    DynamicRangeItem: TMenuItem;
+    WaveFormItem: TMenuItem;
+    FreqSpectrumItem: TMenuItem;
+    SpectrogramItem: TMenuItem;
+    Popup: TPopupMenu;
     PropStorage: TIniPropStorage;
     ProgressPanel: TPanel;
     Bevel4: TBevel;
@@ -116,6 +121,7 @@ type
     procedure FormCloseQuery(sender: tobject; var canclose: boolean);
     procedure FormResize(sender: tobject);
     procedure FormDestroy(sender: tobject);
+    procedure MenuItemClick(Sender: TObject);
     // buttons
     procedure OpenFileBtnClick(sender: tobject);
     procedure OpenFolderBtnClick(sender: tobject);
@@ -154,7 +160,7 @@ type
     LastIndex: longint;
     LastWidth: longint;
     LastHeight: longint;
-    LastMode: longint;
+    LastMode: TScreenDrawerModes;
 
     IsNeededUpdateScreens: boolean;
     IsNeededKillAnalyzer:  boolean;
@@ -182,8 +188,6 @@ end;
 
 procedure TAudioFrm.FormCreate(Sender: TObject);
 begin
-  Mode.ItemIndex := Mode.Items.Count -1;
-  // ---
   PropStorage.IniFileName := GetAppFile('audiometer.ini');
   PropStorage.Active := True;
   // ---
@@ -191,7 +195,7 @@ begin
   IsNeededUpdateScreens := False;
   IsNeededKillAnalyzer  := False;
   // ---
-  LastMode   := -1;
+  LastMode   := [];
   LastIndex  := -1;
   TrackIndex := -1;
   TrackList  := TTrackList.create;
@@ -549,9 +553,26 @@ begin
   PlaySound.StopSound;
 end;
 
+procedure TAudioFrm.MenuItemClick(Sender: TObject);
+var
+  Mode: TScreenDrawerModes;
+begin
+  TMenuItem(Sender).Checked := not TMenuItem(Sender).Checked;
+
+  Mode := [];
+  if DynamicRangeItem.Checked then Include(Mode, smDynamicRange);
+  if WaveFormItem    .Checked then Include(Mode, smWaveForm    );
+  if FreqSpectrumItem.Checked then Include(Mode, smFreqSpectrum);
+  if SpectrogramItem .Checked then Include(Mode, smSpectrogram );
+
+  if Mode = [] then
+  begin
+    TMenuItem(Sender).Checked := not TMenuItem(Sender).Checked;
+  end;
+end;
+
 procedure TAudioFrm.DisableButtons;
 begin
-  Mode         .Enabled := False;
   PlayBtn      .Enabled := False;
   StopBtn      .Enabled := False;
   OpenFileBtn  .Enabled := False;
@@ -564,7 +585,6 @@ end;
 
 procedure TAudioFrm.EnableButtons;
 begin
-  Mode         .Enabled := True;
   PlayBtn      .Enabled := True;
   StopBtn      .Enabled := True;
   OpenFileBtn  .Enabled := True;
@@ -579,6 +599,7 @@ procedure TAudioFrm.ScreenTimerTimer(Sender: TObject);
 var
   i, Index: longint;
   Track: TTrack;
+  Mode: TScreenDrawerModes;
 begin
   if ScreenDrawer <> nil then Exit;
 
@@ -596,9 +617,15 @@ begin
     Exit;
   end;
 
-  if LastMode <> Mode.ItemIndex then
+  Mode := [];
+  if DynamicRangeItem.Checked then Include(Mode, smDynamicRange);
+  if WaveFormItem    .Checked then Include(Mode, smWaveForm    );
+  if FreqSpectrumItem.Checked then Include(Mode, smFreqSpectrum);
+  if SpectrogramItem .Checked then Include(Mode, smSpectrogram );
+
+  if LastMode <> Mode then
   begin
-    LastMode := Mode.ItemIndex;
+    LastMode := Mode;
     IsNeededUpdateScreens := True;
     Exit;
   end;
@@ -629,21 +656,7 @@ begin
     ScreenDrawer := TScreenDrawer.Create(Track, Screen);
     ScreenDrawer.OnStart := @OnStartDrawer;
     ScreenDrawer.OnStop  := @OnStopDrawer;
-    ScreenDrawer.Mode := [];
-
-    case LastMode of
-      0: ScreenDrawer.Mode := [smDynamicRange];
-      1: ScreenDrawer.Mode := [smWaveform];
-      2: ScreenDrawer.Mode := [smFreqSpectrum];
-      3: ScreenDrawer.Mode := [smSpectrogram];
-
-      4: ScreenDrawer.Mode := [smDynamicRange, smWaveform];
-      5: ScreenDrawer.Mode := [smDynamicRange, smWaveform, smSpectrogram];
-      6: ScreenDrawer.Mode := [smWaveform, smFreqSpectrum, smSpectrogram];
-
-    else ScreenDrawer.Mode := [smDynamicRange, smWaveform, smFreqSpectrum, smSpectrogram];
-    end;
-
+    ScreenDrawer.Mode    := Mode;
     ScreenDrawer.Start;
   end;
 end;
