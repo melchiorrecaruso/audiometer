@@ -29,7 +29,7 @@ uses
   BGRABitmap, BaseGraphics, BGRABitmapTypes, Classes, Common, FPImage, Graphics, SoundWav, Spectrum, SysUtils, Types;
 
 type
-  TScreenDrawerMode  = (smDynamicRange, smWaveform, smFreqSpectrum, smSpectrogram);
+  TScreenDrawerMode  = (smDynamicRange, smWaveForm, smFreqSpectrum, smSpectrogram);
   TScreenDrawerModes = set of TScreenDrawerMode;
 
   TScreenDrawer = class(TThread)
@@ -301,7 +301,7 @@ end;
 
 constructor TScreenDrawer.Create(ATrack: TTrack; AScreen: TBGRABitmap);
 begin
-  FModes   := [smDynamicRange, smWaveform, smFreqSpectrum, smSpectrogram];
+  FModes   := [smDynamicRange, smWaveForm, smFreqSpectrum, smSpectrogram];
   FOnStart := nil;
   FOnStop  := nil;
   FScreen  := AScreen;
@@ -337,8 +337,8 @@ begin
     begin
       ChartCount := 0;
       if smDynamicRange in FModes then Inc(ChartCount);
-      if smWaveform        in FModes then Inc(ChartCount, FTrack.ChannelCount);
-      if smFreqSpectrum     in FModes then Inc(ChartCount);
+      if smWaveForm     in FModes then Inc(ChartCount, FTrack.ChannelCount);
+      if smFreqSpectrum in FModes then Inc(ChartCount);
       if smSpectrogram  in FModes then Inc(ChartCount);
 
       BaseHeight := FScreen.Height div ChartCount;
@@ -355,7 +355,7 @@ begin
         Bit.Destroy;
       end;
 
-      if smWaveform in FModes then
+      if smWaveForm in FModes then
       begin
         Bit := TBGRABitmap.Create(FScreen.Width, BaseHeight * FTrack.ChannelCount);
         WaveDrawer := TWaveDrawer.Create(FTrack, Bit);
