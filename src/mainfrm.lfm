@@ -1,9 +1,9 @@
 object AudioFrm: TAudioFrm
-  Left = 1204
+  Left = 767
   Height = 800
-  Top = 302
+  Top = 305
   Width = 1171
-  Caption = 'AudioMeter 0.5.2 - Dynamic Range Meter'
+  Caption = 'AudioMeter 0.5.4 - Dynamic Range Meter'
   ClientHeight = 800
   ClientWidth = 1171
   Color = clGray
@@ -13,7 +13,7 @@ object AudioFrm: TAudioFrm
   Font.Color = clWhite
   Font.Style = [fsBold]
   ParentDoubleBuffered = False
-  SessionProperties = 'Height;Left;Top;Width;WindowState;Mode.ItemIndex'
+  SessionProperties = 'DynamicRangeItem.Checked;FreqSpectrumItem.Checked;Height;Left;SpectrogramItem.Checked;Top;WaveformItem.Checked;Width;WindowState'
   LCLVersion = '4.99.0.0'
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
@@ -452,6 +452,7 @@ object AudioFrm: TAudioFrm
       Anchors = []
       Color = clBlack
       ParentColor = False
+      PopupMenu = Popup
       TabOrder = 0
     end
   end
@@ -1833,37 +1834,6 @@ object AudioFrm: TAudioFrm
     Brush.Color = clYellow
     Pen.Color = clYellow
   end
-  object Mode: TComboBox
-    AnchorSideTop.Control = PlayBtn
-    AnchorSideRight.Control = PlayBtn
-    AnchorSideBottom.Control = PlayBtn
-    AnchorSideBottom.Side = asrBottom
-    Left = 670
-    Height = 42
-    Top = 8
-    Width = 250
-    Anchors = [akTop, akRight, akBottom]
-    BorderSpacing.Right = 4
-    Font.Style = [fsBold]
-    ItemHeight = 0
-    ItemIndex = 1
-    Items.Strings = (
-      'Dynamic Range'
-      'Channels Waveform'
-      'Frequency Spectrum'
-      'Frequency Spectrogram'
-      'DR + Waveform'
-      'DR + Waveform + Spectrogram'
-      'Waveform + Spectrum + Spectrogram'
-      'Full mode'
-    )
-    ParentBidiMode = False
-    ParentFont = False
-    ReadOnly = True
-    Style = csDropDownList
-    TabOrder = 6
-    Text = 'Channels Waveform'
-  end
   object FileDialog: TOpenDialog
     Left = 784
     Top = 152
@@ -1903,5 +1873,29 @@ object AudioFrm: TAudioFrm
     Active = False
     Left = 888
     Top = 80
+  end
+  object Popup: TPopupMenu
+    Left = 984
+    Top = 152
+    object DynamicRangeItem: TMenuItem
+      Caption = 'Dynamic range chart'
+      Checked = True
+      OnClick = MenuItemClick
+    end
+    object WaveFormItem: TMenuItem
+      Caption = 'Waveform chart'
+      Checked = True
+      OnClick = MenuItemClick
+    end
+    object FreqSpectrumItem: TMenuItem
+      Caption = 'Spectrum chart'
+      Checked = True
+      OnClick = MenuItemClick
+    end
+    object SpectrogramItem: TMenuItem
+      Caption = 'Spectrogram chart'
+      Checked = True
+      OnClick = MenuItemClick
+    end
   end
 end
