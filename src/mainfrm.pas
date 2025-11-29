@@ -576,7 +576,7 @@ end;
 procedure TAudioFrm.ShowAlltemClick(Sender: TObject);
 begin
   DynamicRangeItem.Checked := True;
-  LoudnessItem    .Checked := True;
+  LoudnessItem    .Checked := False;
   WaveFormItem    .Checked := True;
   FreqSpectrumItem.Checked := True;
   SpectrogramItem .Checked := True;
