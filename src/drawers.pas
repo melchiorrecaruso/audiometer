@@ -29,7 +29,7 @@ uses
   BGRABitmap, BaseGraphics, BGRABitmapTypes, Classes, Common, FPImage, Graphics, SoundWav, Spectrum, SysUtils, Types;
 
 type
-  TScreenDrawerMode  = (smDynamicRange, smWaveForm, smFreqSpectrum, smSpectrogram);
+  TScreenDrawerMode  = (smDynamicRange, smWaveForm, smFreqSpectrum, smSpectrogram, smLoudness);
   TScreenDrawerModes = set of TScreenDrawerMode;
 
   TScreenDrawer = class(TThread)
@@ -82,10 +82,10 @@ type
     procedure Draw; override;
   end;
 
-  procedure DrawDefaultBlockChart      (var ABitmap: TBGRABitmap);
-  procedure DrawDefaultSpectrumChart   (var ABitmap: TBGRABitmap);
-  procedure DrawDefaultSpectrogramChart(var ABitmap: TBGRABitmap);
-  procedure DrawDefaultWaveChart       (var ABitmap: TBGRABitmap);
+  TLoudnessDrawer = class(TCustomDrawer)
+  private
+    procedure Draw; override;
+  end;
 
 const
   {$IFDEF UNIX}
@@ -97,6 +97,7 @@ const
   clrYellow : TBGRAPixel = (red: $FC; green: $E9; blue: $4F; alpha: 255);
   clrWhite  : TBGRAPixel = (red: $FF; green: $FF; blue: $FF; alpha: 255);
   clrGreen  : TBGRAPixel = (red: $8A; green: $E2; blue: $34; alpha: 255);
+  clrSkyBlu : TBGRAPixel = (red: $72; green: $9F; blue: $CF; alpha: 255);
   {$ELSE}
   {** Channels if ordered BGRA ordered }
   clrBlack  : TBGRAPixel = (blue: $00; green: $00; red: $00; alpha: 255);
@@ -106,6 +107,7 @@ const
   clrYellow : TBGRAPixel = (blue: $4F; green: $E9; red: $FC; alpha: 255);
   clrWhite  : TBGRAPixel = (blue: $FF; green: $FF; red: $FF; alpha: 255);
   clrGreen  : TBGRAPixel = (blue: $34; green: $E2; red: $8A; alpha: 255);
+  clrSkyBlu : TBGRAPixel = (blue: $CF; green: $9F; red: $72; alpha: 255);
   {$ENDIF}
 
 var
@@ -297,6 +299,37 @@ begin
   Chart.Destroy;
 end;
 
+procedure DrawDefaultLoudnessChart(var ABitmap: TBGRABitmap);
+var
+  Points: array of TPointF = nil;
+  Chart: TChart;
+begin
+  // create and configure the chart
+  Chart := NewDefaultChart;
+  Chart.LegendEnabled := True;
+  Chart.Title := 'ShortTerm & Momentary Loudness';
+  Chart.XAxisLabel := 'Time [s]';
+  Chart.YAxisLabel := 'Loudness [dB]';
+
+  Chart.YMaxF   := +1.0;
+  Chart.YMinF   := -1.0;
+  Chart.XMinF   := 0;
+  Chart.XMaxF   := 100;
+  Chart.YCount  := 4;
+  Chart.YDeltaF := 0.5;
+
+  SetLength(Points, 2);
+  Points[0].x := 0;
+  Points[0].y := -1;
+  Points[1].x := 100;
+  Points[1].y := 1;
+  Chart.AddPolygon(Points, '');
+  SetLength(Points, 0);
+  // draw Chart on screen
+  Chart.Draw(ABitmap, ABitmap.Width, ABitmap.Height, True);
+  Chart.Destroy;
+end;
+
 // TScreenDrawer
 
 constructor TScreenDrawer.Create(ATrack: TTrack; AScreen: TBGRABitmap);
@@ -319,6 +352,7 @@ end;
 procedure TScreenDrawer.Execute;
 var
   BlockDrawer: TBlockDrawer;
+  LoudnessDrawer: TLoudnessDrawer;
   SpectrumDrawer: TSpectrumDrawer;
   SpectrogramDrawer: TSpectrogramDrawer;
   WaveDrawer: TWaveDrawer;
@@ -330,13 +364,16 @@ begin
   if Assigned(FOnStart) then
     Synchronize(FOnStart);
 
-  if (FScreen.Width > 0) and (FScreen.Height > 0) then
+  FScreen.FillTransparent;
+  if (FScreen.Width > 0) and (FScreen.Height > 0) and (FModes <> []) then
   begin
-    OffSet := 0;
+
     if Assigned(FTrack) and (FTrack.ChannelCount > 0) then
     begin
+      OffSet     := 0;
       ChartCount := 0;
       if smDynamicRange in FModes then Inc(ChartCount);
+      if smLoudness     in FModes then Inc(ChartCount);
       if smWaveForm     in FModes then Inc(ChartCount, FTrack.ChannelCount);
       if smFreqSpectrum in FModes then Inc(ChartCount);
       if smSpectrogram  in FModes then Inc(ChartCount);
@@ -349,6 +386,19 @@ begin
         BlockDrawer.Start;
         BlockDrawer.WaitFor;
         BlockDrawer.Destroy;
+
+        FScreen.PutImage(0, OffSet, Bit, dmSet);
+        Inc(OffSet, Bit.Height);
+        Bit.Destroy;
+      end;
+
+      if smLoudness in FModes then
+      begin
+        Bit := TBGRABitmap.Create(FScreen.Width, BaseHeight);
+        LoudnessDrawer := TLoudnessDrawer.Create(FTrack, Bit);
+        LoudnessDrawer.Start;
+        LoudnessDrawer.WaitFor;
+        LoudnessDrawer.Destroy;
 
         FScreen.PutImage(0, OffSet, Bit, dmSet);
         Inc(OffSet, Bit.Height);
@@ -394,27 +444,53 @@ begin
        Bit.Destroy;
      end;
 
-
     end else
     begin
-      Bit := TBGRABitmap.Create(FScreen.Width, FScreen.Height div 4);
+      OffSet     := 0;
+      ChartCount := 0;
+      if smDynamicRange in FModes then Inc(ChartCount);
+      if smLoudness     in FModes then Inc(ChartCount);
+      if smWaveForm     in FModes then Inc(ChartCount);
+      if smFreqSpectrum in FModes then Inc(ChartCount);
+      if smSpectrogram  in FModes then Inc(ChartCount);
 
-      DrawDefaultBlockChart(Bit);
-      FScreen.PutImage(0, OffSet, Bit, dmSet);
-      Inc(OffSet, Bit.Height);
+      BaseHeight := FScreen.Height div ChartCount;
 
-      DrawDefaultWaveChart(Bit);
-      FScreen.PutImage(0, OffSet, Bit, dmSet);
-      Inc(OffSet, Bit.Height);
+      Bit := TBGRABitmap.Create(FScreen.Width, BaseHeight);
+      if smDynamicRange in FModes then
+      begin
+        DrawDefaultBlockChart(Bit);
+        FScreen.PutImage(0, OffSet, Bit, dmSet);
+        Inc(OffSet, Bit.Height);
+      end;
 
-      DrawDefaultSpectrumChart(Bit);
-      FScreen.PutImage(0, OffSet, Bit, dmSet);
-      Inc(OffSet, Bit.Height);
+      if smLoudness in FModes then
+      begin
+        DrawDefaultLoudnessChart(Bit);
+        FScreen.PutImage(0, OffSet, Bit, dmSet);
+        Inc(OffSet, Bit.Height);
+      end;
 
-      DrawDefaultSpectrogramChart(Bit);
-      FScreen.PutImage(0, OffSet, Bit, dmSet);
-      Inc(OffSet, Bit.Height);
+      if smWaveForm in FModes then
+      begin
+        DrawDefaultWaveChart(Bit);
+        FScreen.PutImage(0, OffSet, Bit, dmSet);
+        Inc(OffSet, Bit.Height);
+      end;
 
+      if smFreqSpectrum in FModes then
+      begin
+        DrawDefaultSpectrumChart(Bit);
+        FScreen.PutImage(0, OffSet, Bit, dmSet);
+        Inc(OffSet, Bit.Height);
+      end;
+
+      if smSpectrogram  in FModes then
+      begin
+        DrawDefaultSpectrogramChart(Bit);
+        FScreen.PutImage(0, OffSet, Bit, dmSet);
+        Inc(OffSet, Bit.Height);
+      end;
       Bit.Destroy;
     end;
   end;
@@ -799,6 +875,74 @@ begin
 
     Bit[ch].Destroy;
   end;
+end;
+
+// TLoudnessDrawer
+
+procedure TLoudnessDrawer.Draw;
+var
+  ch, i, TimeMs, SampleIndex, MaxDB: longint;
+  WindowxSize, WindowxCount: longint;
+  zMax, zMin: double;
+  P1, P2: ArrayOfTPointF;
+  Chart: TChart;
+  OffSet: longint;
+begin
+  if (FTrack.ChannelCount = 0) then Exit;
+  if (FTrack.Samplecount  = 0) then Exit;
+
+  Chart := NewDefaultChart;
+  Chart.LegendEnabled := False;
+  Chart.Title := 'ShortTerm & Momentary Loudness';
+  Chart.XAxisLabel := 'Time [s]';
+  Chart.YAxisLabel := 'Loudness [dB]';
+  Chart.TitleFontColor := clrwhite;
+  Chart.XAxisFontColor := clrWhite;
+  Chart.YAxisFontColor := clrWhite;
+
+//Chart.YCount  := 4;
+//Chart.YDeltaF := 0.5;
+
+  MaxDB := 6 * FTrack.BitsPerSample;
+
+  Chart.PenWidth     := 1.5;
+  Chart.PenColor     := clrSkyBlu;
+  Chart.TextureColor := clrSkyBlu;
+
+  TimeMs := 0;
+  SetLength(P1, FTrack.Duration * 10);
+  for i := Low(P1) to High(P1) do
+  begin
+    P1[i].x := TimeMs / 1000;
+    P1[i].y := MaxDB + FTrack.Loudness.ShortTermLoudness(TimeMs);
+
+    Inc(TimeMs, 100);
+  end;
+  Chart.AddPolyline(P1, False, '');
+
+  Chart.PenWidth     := 1.5;
+  Chart.PenColor     := clrGreen;
+  Chart.TextureColor := clrGreen;
+
+  TimeMs := 0;
+  SetLength(P2, FTrack.Duration * 10);
+  for i := Low(P2) to High(P2) do
+  begin
+    P2[i].x := TimeMs / 1000;
+    P2[i].y := MaxDB + FTrack.Loudness.MomentaryLoudness(TimeMs);
+
+    Inc(TimeMs, 100);
+  end;
+  Chart.AddPolyline(P2, False, '');
+
+  // set visible bounds for Chart
+  //Chart.YMaxF := +1.0;
+  Chart.YMinF := 0;
+  Chart.XMinF := 0;
+  //Chart.XMaxF := Max(1, FTrack.Duration);
+  // draw Chart on bitmap
+  Chart.Draw(FScreen, FScreen.Width, FScreen.Height);
+  Chart.Destroy;
 end;
 
 end.
