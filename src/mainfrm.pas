@@ -37,6 +37,10 @@ type
 
   TAudioFrm = class(TForm)
     DynamicRangeItem: TMenuItem;
+    LoudnessItem: TMenuItem;
+    MenuItem1: TMenuItem;
+    SeparatorItem: TMenuItem;
+    ShowAlltem: TMenuItem;
     WaveFormItem: TMenuItem;
     FreqSpectrumItem: TMenuItem;
     SpectrogramItem: TMenuItem;
@@ -121,6 +125,7 @@ type
     procedure FormCloseQuery(sender: tobject; var canclose: boolean);
     procedure FormResize(sender: tobject);
     procedure FormDestroy(sender: tobject);
+    procedure MenuItem1Click(Sender: TObject);
     procedure MenuItemClick(Sender: TObject);
     // buttons
     procedure OpenFileBtnClick(sender: tobject);
@@ -143,6 +148,7 @@ type
     procedure PlayBtnClick(Sender: TObject);
     procedure ReportBtnClick(Sender: TObject);
     procedure ScreenTimerTimer(Sender: TObject);
+    procedure ShowAlltemClick(Sender: TObject);
     procedure StopBtnClick(Sender: TObject);
 
     procedure RedrawScreen(ATrack: TTrack);
@@ -554,21 +560,26 @@ begin
 end;
 
 procedure TAudioFrm.MenuItemClick(Sender: TObject);
-var
-  Mode: TScreenDrawerModes;
 begin
   TMenuItem(Sender).Checked := not TMenuItem(Sender).Checked;
+end;
 
-  Mode := [];
-  if DynamicRangeItem.Checked then Include(Mode, smDynamicRange);
-  if WaveFormItem    .Checked then Include(Mode, smWaveForm    );
-  if FreqSpectrumItem.Checked then Include(Mode, smFreqSpectrum);
-  if SpectrogramItem .Checked then Include(Mode, smSpectrogram );
+procedure TAudioFrm.MenuItem1Click(Sender: TObject);
+begin
+  DynamicRangeItem.Checked := False;
+  LoudnessItem    .Checked := False;
+  WaveFormItem    .Checked := False;
+  FreqSpectrumItem.Checked := False;
+  SpectrogramItem .Checked := False;
+end;
 
-  if Mode = [] then
-  begin
-    TMenuItem(Sender).Checked := not TMenuItem(Sender).Checked;
-  end;
+procedure TAudioFrm.ShowAlltemClick(Sender: TObject);
+begin
+  DynamicRangeItem.Checked := True;
+  LoudnessItem    .Checked := True;
+  WaveFormItem    .Checked := True;
+  FreqSpectrumItem.Checked := True;
+  SpectrogramItem .Checked := True;
 end;
 
 procedure TAudioFrm.DisableButtons;
@@ -619,6 +630,7 @@ begin
 
   Mode := [];
   if DynamicRangeItem.Checked then Include(Mode, smDynamicRange);
+  if LoudnessItem    .Checked then Include(Mode, smLoudness    );
   if WaveFormItem    .Checked then Include(Mode, smWaveForm    );
   if FreqSpectrumItem.Checked then Include(Mode, smFreqSpectrum);
   if SpectrogramItem .Checked then Include(Mode, smSpectrogram );
