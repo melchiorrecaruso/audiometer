@@ -1,19 +1,19 @@
 object AudioFrm: TAudioFrm
-  Left = 767
-  Height = 800
-  Top = 305
+  Left = 766
+  Height = 250
+  Top = 265
   Width = 1171
   Caption = 'AudioMeter 0.5.4 - Dynamic Range Meter'
-  ClientHeight = 800
+  ClientHeight = 250
   ClientWidth = 1171
   Color = clGray
-  Constraints.MinHeight = 500
+  Constraints.MinHeight = 250
   Constraints.MinWidth = 800
   DoubleBuffered = True
   Font.Color = clWhite
   Font.Style = [fsBold]
   ParentDoubleBuffered = False
-  SessionProperties = 'DynamicRangeItem.Checked;FreqSpectrumItem.Checked;Height;Left;SpectrogramItem.Checked;Top;WaveformItem.Checked;Width;WindowState'
+  SessionProperties = 'DynamicRangeItem.Checked;FreqSpectrumItem.Checked;Height;Left;SpectrogramItem.Checked;Top;WaveformItem.Checked;Width;WindowState;LoudnessItem.Checked'
   LCLVersion = '4.99.0.0'
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
@@ -431,19 +431,19 @@ object AudioFrm: TAudioFrm
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
     Left = 0
-    Height = 567
+    Height = 17
     Top = 233
     Width = 1171
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Top = 10
     BevelOuter = bvNone
-    ClientHeight = 567
+    ClientHeight = 17
     ClientWidth = 1171
     ParentBackground = False
     TabOrder = 2
     object VirtualScreen: TBGRAVirtualScreen
       Left = 0
-      Height = 567
+      Height = 17
       Top = 0
       Width = 1171
       OnRedraw = RedrawVirtualScreen
@@ -1882,6 +1882,11 @@ object AudioFrm: TAudioFrm
       Checked = True
       OnClick = MenuItemClick
     end
+    object LoudnessItem: TMenuItem
+      Caption = 'Short/Momentary Loudness'
+      Visible = False
+      OnClick = MenuItemClick
+    end
     object WaveFormItem: TMenuItem
       Caption = 'Waveform chart'
       Checked = True
@@ -1896,6 +1901,17 @@ object AudioFrm: TAudioFrm
       Caption = 'Spectrogram chart'
       Checked = True
       OnClick = MenuItemClick
+    end
+    object SeparatorItem: TMenuItem
+      Caption = '-'
+    end
+    object MenuItem1: TMenuItem
+      Caption = 'Hide All'
+      OnClick = MenuItem1Click
+    end
+    object ShowAlltem: TMenuItem
+      Caption = 'Show All'
+      OnClick = ShowAlltemClick
     end
   end
 end
