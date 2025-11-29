@@ -1,11 +1,11 @@
 object AudioFrm: TAudioFrm
   Left = 766
-  Height = 250
+  Height = 905
   Top = 265
-  Width = 1171
+  Width = 1087
   Caption = 'AudioMeter 0.5.4 - Dynamic Range Meter'
-  ClientHeight = 250
-  ClientWidth = 1171
+  ClientHeight = 905
+  ClientWidth = 1087
   Color = clGray
   Constraints.MinHeight = 250
   Constraints.MinWidth = 800
@@ -431,21 +431,21 @@ object AudioFrm: TAudioFrm
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
     Left = 0
-    Height = 17
+    Height = 672
     Top = 233
-    Width = 1171
+    Width = 1087
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Top = 10
     BevelOuter = bvNone
-    ClientHeight = 17
-    ClientWidth = 1171
+    ClientHeight = 672
+    ClientWidth = 1087
     ParentBackground = False
     TabOrder = 2
     object VirtualScreen: TBGRAVirtualScreen
       Left = 0
-      Height = 17
+      Height = 672
       Top = 0
-      Width = 1171
+      Width = 1087
       OnRedraw = RedrawVirtualScreen
       Align = alClient
       Alignment = taLeftJustify
@@ -1028,7 +1028,7 @@ object AudioFrm: TAudioFrm
     Left = 4
     Height = 1
     Top = 58
-    Width = 1163
+    Width = 1079
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Left = 4
     BorderSpacing.Top = 8
@@ -1045,7 +1045,7 @@ object AudioFrm: TAudioFrm
     Left = 4
     Height = 1
     Top = 222
-    Width = 1163
+    Width = 1079
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Left = 4
     BorderSpacing.Top = 8
@@ -1092,7 +1092,7 @@ object AudioFrm: TAudioFrm
     AnchorSideRight.Control = StopBtn
     AnchorSideBottom.Control = StopBtn
     AnchorSideBottom.Side = asrBottom
-    Left = 924
+    Left = 840
     Height = 42
     Top = 8
     Width = 42
@@ -1238,7 +1238,7 @@ object AudioFrm: TAudioFrm
     AnchorSideRight.Control = OpenFolderBtn
     AnchorSideBottom.Control = OpenFolderBtn
     AnchorSideBottom.Side = asrBottom
-    Left = 1029
+    Left = 945
     Height = 42
     Top = 8
     Width = 42
@@ -1384,7 +1384,7 @@ object AudioFrm: TAudioFrm
     AnchorSideRight.Control = ReportBtn
     AnchorSideBottom.Control = ReportBtn
     AnchorSideBottom.Side = asrBottom
-    Left = 1075
+    Left = 991
     Height = 42
     Top = 8
     Width = 42
@@ -1530,7 +1530,7 @@ object AudioFrm: TAudioFrm
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Side = asrBottom
-    Left = 1121
+    Left = 1037
     Height = 42
     Top = 8
     Width = 42
@@ -1677,7 +1677,7 @@ object AudioFrm: TAudioFrm
     AnchorSideRight.Control = BtnBevel
     AnchorSideBottom.Control = OpenFileBtn
     AnchorSideBottom.Side = asrBottom
-    Left = 970
+    Left = 886
     Height = 42
     Top = 8
     Width = 42
@@ -1823,7 +1823,7 @@ object AudioFrm: TAudioFrm
     AnchorSideRight.Control = OpenFileBtn
     AnchorSideBottom.Control = OpenFileBtn
     AnchorSideBottom.Side = asrBottom
-    Left = 1020
+    Left = 936
     Height = 30
     Top = 14
     Width = 1
