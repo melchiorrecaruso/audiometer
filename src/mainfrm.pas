@@ -228,7 +228,7 @@ end;
 
 procedure TAudioFrm.FormResize(Sender: TObject);
 begin
-  while (TrackFileName.Left + TrackFileName.Width) > (PlayBtn.Left + PlayBtn.Width) do
+  while (ProgressPanel.Left + ProgressPanel.Width) > (PlayBtn.Left) do
   begin
     TrackFileName.Caption := CutOff(TrackFileName.Caption);
   end;
