@@ -211,12 +211,18 @@ begin
   if AFileExtension = '.ogg'  then exit(True);
   if AFileExtension = '.m4a'  then exit(True);
   if AFileExtension = '.ac3'  then exit(True);
+  if AFileExtension = '.opus' then exit(True);
+  if AFileExtension = '.aac'  then exit(True);
+  if AFileExtension = '.aiff' then exit(True);
+  if AFileExtension = '.alac' then exit(True);
+  if AFileExtension = '.pcm'  then exit(True);
+  if AFileExtension = '.wma'  then exit(True);
   Result := False;
 end;
 
 function OpenDialogFileFilter: string;
 begin
-  Result := 'Supported files|*.wav;*.flac;*.mp3;*.ape;*.ogg;*.m4a;*.ac3;|All files|*.*;';
+  Result := 'Supported files|*.wav;*.flac;*.mp3;*.ape;*.ogg;*.m4a;*.ac3;*.opus;*.aac;*.aiff;*.alac;*.pcm;*.wma;|All files|*.*;';
 end;
 
 // TTrack
