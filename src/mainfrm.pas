@@ -95,7 +95,7 @@ type
     Panel3: TPanel;
     ScreenPanel: TPanel;
 
-    PlaySound: Tplaysound;
+    PlaySound: TPlaySound;
     VirtualScreen: TBGRAVirtualScreen;
     bevel1: tbevel;
     bevel2: tbevel;
@@ -172,7 +172,7 @@ type
     LastHeight: longint;
     LastMode: TScreenDrawerModes;
 
-    PlayTime: longint;
+    PlayStart: TDateTime;
 
     IsNeededUpdateScreens: boolean;
     IsNeededKillAnalyzer:  boolean;
@@ -187,7 +187,7 @@ implementation
 {$R *.lfm}
 
 uses
-  Math, FileUtil, ReportFrm, SoundUtils;
+  DateUtils, Math, FileUtil, ReportFrm, SoundUtils;
 
 function CutOff(const S: string): string;
 begin
@@ -222,6 +222,7 @@ end;
 
 procedure TAudioFrm.FormDestroy(Sender: TObject);
 begin
+  PlayTimer.Enabled := False;
   FreeAndNil(Screen);
   TrackList.Destroy;
 end;
@@ -492,6 +493,7 @@ begin
   if FileDialog.Execute then
   begin
     PlaySound.StopSound;
+    PlayTimer.Enabled := False;
 
     ClearTrackList;
     if IsFileSupported(ExtractFileExt(FileDialog.FileName)) then
@@ -519,6 +521,7 @@ begin
   if DirDialog.Execute then
   begin
     PlaySound.StopSound;
+    PlayTimer.Enabled := False;
 
     ClearTrackList;
     Path := IncludeTrailingBackslash(DirDialog.FileName);
@@ -551,13 +554,15 @@ end;
 
 procedure TAudioFrm.PlayBtnClick(Sender: TObject);
 begin
-  PlayTime := 0;
   PlaySound.StopSound;
+  PlayTimer.Enabled := False;
   if FileExists(TempFile) then
   begin
     PlaySound.PlayStyle := psaSync;
     PlaySound.SoundFile := TempFile;
     PlaySound.Execute;
+
+    PlayStart := Now;
     PlayTimer.Enabled := True;
   end;
 end;
@@ -580,16 +585,21 @@ end;
 procedure TAudioFrm.PlayTimerTimer(Sender: TObject);
 var
   Track: TTrack;
+  PlayTime: longint;
 begin
-  Inc(PlayTime, PlayTimer.Interval);
-
   Track := nil;
   if (LastIndex > -1) and (LastIndex < TrackList.Count) then
   begin
     Track := TrackList[LastIndex];
 
+    PlayTime := MilliSecondsBetween(Now, PlayStart);
     ShortTermLoudnessValue.Caption := Format('%0.2f', [Track.Loudness.ShortTermLoudness(PlayTime)]);
     MomentaryLoudnessValue.Caption := Format('%0.2f', [Track.Loudness.MomentaryLoudness(PlayTime)]);
+
+    if PlayTime > (Track.Duration * 1000) then
+    begin
+      PlayTimer.Enabled := False;
+    end;
   end;
 end;
 
