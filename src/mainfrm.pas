@@ -37,6 +37,7 @@ type
 
   TAudioFrm = class(TForm)
     DynamicRangeItem: TMenuItem;
+    PlayTimer: TIdleTimer;
     LoudnessItem: TMenuItem;
     MenuItem1: TMenuItem;
     SeparatorItem: TMenuItem;
@@ -146,6 +147,9 @@ type
     procedure EnableButtons;
 
     procedure PlayBtnClick(Sender: TObject);
+    procedure PlayTimerStartTimer(Sender: TObject);
+    procedure PlayTimerStopTimer(Sender: TObject);
+    procedure PlayTimerTimer(Sender: TObject);
     procedure ReportBtnClick(Sender: TObject);
     procedure ScreenTimerTimer(Sender: TObject);
     procedure ShowAlltemClick(Sender: TObject);
@@ -167,6 +171,8 @@ type
     LastWidth: longint;
     LastHeight: longint;
     LastMode: TScreenDrawerModes;
+
+    PlayTime: longint;
 
     IsNeededUpdateScreens: boolean;
     IsNeededKillAnalyzer:  boolean;
@@ -545,17 +551,51 @@ end;
 
 procedure TAudioFrm.PlayBtnClick(Sender: TObject);
 begin
+  PlayTime := 0;
   PlaySound.StopSound;
   if FileExists(TempFile) then
   begin
     PlaySound.PlayStyle := psaSync;
     PlaySound.SoundFile := TempFile;
     PlaySound.Execute;
+    PlayTimer.Enabled := True;
+  end;
+end;
+
+procedure TAudioFrm.PlayTimerStartTimer(Sender: TObject);
+begin
+  ShortTermLoudnessValue.Font.Color := clSkyBlue;
+  MomentaryLoudnessValue.Font.Color := clLime;
+end;
+
+procedure TAudioFrm.PlayTimerStopTimer(Sender: TObject);
+begin
+  ShortTermLoudnessValue.Font.Color := clGray;
+  MomentaryLoudnessValue.Font.Color := clGray;
+
+  ShortTermLoudnessValue.Caption := '-';
+  MomentaryLoudnessValue.Caption := '-';
+end;
+
+procedure TAudioFrm.PlayTimerTimer(Sender: TObject);
+var
+  Track: TTrack;
+begin
+  Inc(PlayTime, PlayTimer.Interval);
+
+  Track := nil;
+  if (LastIndex > -1) and (LastIndex < TrackList.Count) then
+  begin
+    Track := TrackList[LastIndex];
+
+    ShortTermLoudnessValue.Caption := Format('%0.2f', [Track.Loudness.ShortTermLoudness(PlayTime)]);
+    MomentaryLoudnessValue.Caption := Format('%0.2f', [Track.Loudness.MomentaryLoudness(PlayTime)]);
   end;
 end;
 
 procedure TAudioFrm.StopBtnClick(Sender: TObject);
 begin
+  PlayTimer.Enabled := False;
   PlaySound.StopSound;
 end;
 

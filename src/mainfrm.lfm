@@ -874,13 +874,17 @@ object AudioFrm: TAudioFrm
       AnchorSideLeft.Side = asrBottom
       AnchorSideTop.Control = Bevel5
       AnchorSideTop.Side = asrBottom
-      Left = 39
+      AnchorSideRight.Control = LUFSPanel
+      AnchorSideRight.Side = asrBottom
+      Left = 62
       Height = 105
       Top = 24
       Width = 36
+      Anchors = [akTop, akRight]
       AutoSize = True
       BorderSpacing.Left = 10
       BorderSpacing.Top = 2
+      BorderSpacing.Right = 45
       BevelOuter = bvNone
       ClientHeight = 105
       ClientWidth = 36
@@ -1007,7 +1011,7 @@ object AudioFrm: TAudioFrm
       AnchorSideLeft.Side = asrBottom
       AnchorSideTop.Control = Bevel5
       AnchorSideTop.Side = asrBottom
-      Left = 99
+      Left = 143
       Height = 1
       Top = 24
       Width = 1
@@ -1913,5 +1917,14 @@ object AudioFrm: TAudioFrm
       Caption = 'Show All'
       OnClick = ShowAlltemClick
     end
+  end
+  object PlayTimer: TIdleTimer
+    Enabled = False
+    Interval = 200
+    OnTimer = PlayTimerTimer
+    OnStartTimer = PlayTimerStartTimer
+    OnStopTimer = PlayTimerStopTimer
+    Left = 784
+    Top = 16
   end
 end
