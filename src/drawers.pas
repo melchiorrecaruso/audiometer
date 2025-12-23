@@ -213,6 +213,10 @@ begin
   Chart.XAxisLabel := 'Block num';
   Chart.YAxisLabel := 'Amplitude [dB]';
 
+  Chart.XMinF  :=   0;
+  Chart.YMinF  := -96;
+  Chart.YMaxF  :=   0;
+
   SetLength(Points, 2);
   Points[0].x := 0;
   Points[0].y := 0;
@@ -565,7 +569,7 @@ var
   Rms2, Peak: TDouble;
   Points: array of TPointF = nil;
   Chart: TChart;
-  OffSet: TDouble;
+  MinDB: double;
 begin
   if (FTrack.ChannelCount = 0) then Exit;
   if (FTrack.SampleCount  = 0) then Exit;
@@ -578,7 +582,12 @@ begin
   Chart.XAxisFontColor := clrWhite;
   Chart.YAxisFontColor := clrWhite;
 
-  OffSet := 6 * FTrack.BitsPerSample;
+  MinDB := -6 * FTrack.BitsPerSample;
+
+  Chart.YMinF := MinDB;
+  Chart.YMaxF := 0;
+  Chart.XMinF := 0;
+  Chart.XMaxF := FTrack.DRMeter.BlockCount;
 
   // loop through each block
   SetLength(Points, 4);
@@ -594,13 +603,13 @@ begin
 
     // draw yellow block for rms level
     Points[0].x := (i + 1) - 0.35;
-    Points[0].y := 0;
+    Points[0].y := MinDB;
     Points[1].x := (i + 1) - 0.35;
-    Points[1].y := OffSet + Max(Decibel(Sqrt(Rms2)), -OffSet);
+    Points[1].y := Max(MinDB, EnergyToDecibel(Rms2));
     Points[2].x := (i + 1) + 0.35;
-    Points[2].y := OffSet + Max(Decibel(Sqrt(Rms2)), -OffSet);
+    Points[2].y := Max(MinDB, EnergyToDecibel(Rms2));
     Points[3].x := (i + 1) + 0.35;
-    Points[3].y := 0;
+    Points[3].y := MinDB;
 
     Chart.PenColor := clBlack;
     Chart.TextureColor := clrYellow;
@@ -616,13 +625,13 @@ begin
 
     // draw red block from rms to Peak
     Points[0].x := (i + 1) - 0.35;
-    Points[0].y := OffSet + Max(Decibel(Sqrt(Rms2)), -OffSet);
+    Points[0].y := Max(MinDB, EnergyToDecibel(Rms2));
     Points[1].x := (i + 1) - 0.35;
-    Points[1].y := OffSet + Max(Decibel(Peak), -OffSet);
+    Points[1].y := Max(MinDB, Decibel(Peak));
     Points[2].x := (i + 1) + 0.35;
-    Points[2].y := OffSet + Max(Decibel(Peak),-OffSet);
+    Points[2].y := Max(MinDB, Decibel(Peak));
     Points[3].x := (i + 1) + 0.35;
-    Points[3].y := OffSet + Max(Decibel(Sqrt(Rms2)), -OffSet);
+    Points[3].y := Max(MinDB, EnergyToDecibel(Rms2));
 
     Chart.PenColor := clBlack;
     Chart.TextureColor := clrRed;
