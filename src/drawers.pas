@@ -565,7 +565,7 @@ var
   Rms2, Peak: TDouble;
   Points: array of TPointF = nil;
   Chart: TChart;
-  MaxDB: double;
+  MaxDB, MinDB: double;
 begin
   if (FTrack.ChannelCount = 0) then Exit;
   if (FTrack.SampleCount  = 0) then Exit;
@@ -573,14 +573,27 @@ begin
   Chart := NewDefaultChart;
   Chart.Title      := 'Energy & peaks (1s blocks)';
   Chart.XAxisLabel := 'Block num';
-  Chart.YAxisLabel := 'Amplitude [dB]';
+  Chart.YAxisLabel := '';
   Chart.TitleFontColor := clrwhite;
   Chart.XAxisFontColor := clrWhite;
   Chart.YAxisFontColor := clrWhite;
 
+  MinDB := 6 * FTrack.BitsPerSample;
   MaxDB := 6 * FTrack.BitsPerSample;
+  for i := 0 to FTrack.DRMeter.BlockCount -1 do
+  begin
+    Rms2 := 0;
+    // calculate average rms across channels
+    for j := 0 to FTrack.ChannelCount -1 do
+    begin
+      Rms2 := Rms2 + FTrack.DRMeter.Rms2(j, i);
+    end;
+    Rms2 := Rms2 / FTrack.ChannelCount;
 
-  Chart.YMinF := 0;
+    MinDB := Min(MinDB, MaxDB + Max(Decibel(Sqrt(Rms2)), -MaxDB));
+  end;
+
+  Chart.YMinF := MinDB;
   Chart.YMaxF := MaxDB;
   Chart.XMinF := 0;
   Chart.XMaxF := FTrack.DRMeter.BlockCount;
@@ -599,13 +612,13 @@ begin
 
     // draw yellow block for rms level
     Points[0].x := (i + 1) - 0.35;
-    Points[0].y := 0;
+    Points[0].y := MinDB;
     Points[1].x := (i + 1) - 0.35;
     Points[1].y := MaxDB + Max(Decibel(Sqrt(Rms2)), -MaxDB);
     Points[2].x := (i + 1) + 0.35;
     Points[2].y := MaxDB + Max(Decibel(Sqrt(Rms2)), -MaxDB);
     Points[3].x := (i + 1) + 0.35;
-    Points[3].y := 0;
+    Points[3].y := MinDB;
 
     Chart.PenColor := clBlack;
     Chart.TextureColor := clrYellow;
