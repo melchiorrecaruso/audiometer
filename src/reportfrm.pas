@@ -63,7 +63,7 @@ uses
 
 procedure TReportForm.FormCreate(Sender: TObject);
 begin
-  PropStorage.IniFileName := GetAppFile('audiometer.ini');
+  PropStorage.IniFileName := GetAppFile('reportfrm.ini');
   PropStorage.Active := True;
   //
   Color := clBlack;
