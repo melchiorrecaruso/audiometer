@@ -642,6 +642,7 @@ begin
 
   DRValue.Visible := True;
   ProgressRing.Value := 0;
+  Popup.AutoPopup := False;
 end;
 
 procedure TAudioFrm.EnableButtons;
@@ -654,6 +655,7 @@ begin
 
   DRValue.Visible := True;
   ProgressRing.Value := 0;
+  Popup.AutoPopup := True;
 end;
 
 procedure TAudioFrm.ScreenTimerTimer(Sender: TObject);
