@@ -356,7 +356,7 @@ begin
   Inc(FTickCount, FTrack.FLoudness.EstimatedTicks(FTrack.FChannelCount, FTrack.FSampleCount, FTrack.FSampleRate));
   if FFFTOn then
   begin
-    Inc(FTickCount, FTrack.Spectrums.EstimatedTicks(FTrack.FChannelCount, FTrack.FSampleCount, FTrack.FSampleRate));
+    Inc(FTickCount, FTrack.Spectrums.EstimatedTicks(FTrack.FChannelCount, FTrack.FSampleCount));
   end;
 
   // Process
@@ -364,7 +364,7 @@ begin
   FTrack.FLoudness.Process(FTrack.FChannels, FTrack.FSampleCount, FTrack.FSampleRate);
   if FFFTOn then
   begin
-    FTrack.Spectrums.Process(FTrack.FChannels, FTrack.FSampleCount, FTrack.FSampleRate);
+    FTrack.Spectrums.Process(FTrack.FChannels, FTrack.FSampleCount);
   end;
 end;
 
