@@ -1,7 +1,7 @@
 {
   Description: ITU-R BS.1770-5 Loudness Measurement Routines.
 
-  Copyright (C) 2025 Melchiorre Caruso <melchiorrecaruso@gmail.com>
+  Copyright (C) 2025-2026 Melchiorre Caruso <melchiorrecaruso@gmail.com>
 
   This source is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free
@@ -189,8 +189,8 @@ end;
 
 procedure THighpassFilter.Init(ASampleRate: longint);
 const
-  f0 = 38;
-  Q  = 0.5;
+  f0 = 38.13547087602444;
+  Q  = 0.5003270373238773;
 var
   Omega, denom: Double;
 begin
@@ -413,8 +413,8 @@ begin
       SumCount  := 0;
       for j := 0 to NumSteps -1 do
       begin
-        index := i + j;
-        if index < FBlockCount then
+        index := i - j;
+        if index >= 0 then
         begin
           SumEnergy := SumEnergy + FBlocks[ch][index];
           SumCount  := SumCount + 1;
@@ -446,8 +446,8 @@ begin
       SumCount  := 0;
       for j := 0 to NumSteps -1 do
       begin
-        index := i + j;
-        if index < FBlockCount then
+        index := i - j;
+        if index >= 0 then
         begin
           SumEnergy := SumEnergy + FBlocks[ch][index];
           SumCount  := SumCount + 1;
@@ -730,4 +730,3 @@ begin
 end;
 
 end.
-
