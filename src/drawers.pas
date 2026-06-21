@@ -179,9 +179,11 @@ begin
   result.Scale := 1.0;
 
   result.BackgroundColor := clBlack;
-  result.TitleFontColor  := clGray;
-  result.XAxisFontColor  := clGray;
-  result.YAxisFontColor  := clGray;
+  result.TitleFontColor  := clLtGray;
+  result.XAxisLabelColor := clGray;
+  result.YAxisLabelColor := clGray;
+  result.XAxisFontColor  := clLtGray;
+  result.YAxisFontColor  := clLtGray;
   result.XAxisLineColor  := clYellow;
   result.YAxisLineColor  := clYellow;
 
@@ -196,8 +198,7 @@ begin
   result.XCount := 6;
   result.YCount := 4;
 
-  result.XAxisLabelLen := 0;
-  result.YAxisLabelLen := result.GetXAxisLabelSize('Amplitude [dB]').Width;
+  result.YAxisLabelLength := result.GetXAxisLabelSize('Amplitude').Width;
 end;
 
 // Draw default chart
@@ -210,8 +211,8 @@ begin
   // create and configure the chart
   Chart := NewDefaultChart;
   Chart.Title      := 'Energy & peaks (1s blocks)';
-  Chart.XAxisLabel := 'Block num';
-  Chart.YAxisLabel := 'Amplitude [dB]';
+  Chart.XAxisLabel := 'Block';
+  Chart.YAxisLabel := 'dBFS';
 
   SetLength(Points, 2);
   Points[0].x := 0;
@@ -219,6 +220,7 @@ begin
   Points[1].x := 30;
   Points[1].y := 96;
   Chart.AddPolygon(Points, '');
+
   // draw chart on screen
   Chart.Draw(ABitmap, ABitmap.Width, ABitmap.Height, True);
   Chart.Destroy;
@@ -232,8 +234,8 @@ begin
   // create and configure the chart
   Chart := NewDefaultChart;
   Chart.Title      := 'Frequency spectrum';
-  Chart.XAxisLabel := 'Freq [Hz]';
-  Chart.YAxisLabel := 'Amplitude [dB]';
+  Chart.XAxisLabel := 'Hz';
+  Chart.YAxisLabel := 'dBFS';
 
   SetLength(Points, 2);
   Points[0].x := 0;
@@ -254,8 +256,8 @@ begin
   // create and configure the chart
   Chart := NewDefaultChart;
   Chart.Title := 'Spectrogram';
-  Chart.XAxisLabel := 'Freq [Hz]';
-  Chart.YAxisLabel := 'Time [s]';
+  Chart.XAxisLabel := 'Hz';
+  Chart.YAxisLabel := 's';
 
   SetLength(Points, 2);
   Points[0].x := 0;
@@ -277,8 +279,8 @@ begin
   Chart := NewDefaultChart;
   Chart.LegendEnabled := True;
   Chart.Title := 'Waveform (Mono)';
-  Chart.XAxisLabel := 'Time [s]';
-  Chart.YAxisLabel := 'Amplitude';
+  Chart.XAxisLabel := 's';
+  Chart.YAxisLabel := '';
 
   Chart.YMaxF   := +1.0;
   Chart.YMinF   := -1.0;
@@ -308,8 +310,8 @@ begin
   Chart := NewDefaultChart;
   Chart.LegendEnabled := True;
   Chart.Title := 'ShortTerm & Momentary Loudness';
-  Chart.XAxisLabel := 'Time [s]';
-  Chart.YAxisLabel := 'Loudness [dB]';
+  Chart.XAxisLabel := 's';
+  Chart.YAxisLabel := 'dBFS';
 
   Chart.YMaxF   := +1.0;
   Chart.YMinF   := -1.0;
@@ -536,9 +538,11 @@ begin
   result.Scale := 1.0;
 
   result.BackgroundColor := clBlack;
-  result.TitleFontColor  := clGray;
-  result.XAxisFontColor  := clGray;
-  result.YAxisFontColor  := clGray;
+  result.TitleFontColor  := clLtGray;
+  result.XAxisFontColor  := clLtGray;
+  result.YAxisFontColor  := clLtGray;
+  result.XAxisLabelColor := clGray;
+  result.YAxisLabelColor := clGray;
   result.XAxisLineColor  := clYellow;
   result.YAxisLineColor  := clYellow;
 
@@ -553,8 +557,7 @@ begin
   result.XCount := 6;
   result.YCount := 4;
 
-  result.XAxisLabelLen := 0;
-  result.YAxisLabelLen := result.GetXAxisLabelSize('Amplitude [dB]').Width;
+  result.YAxisLabelLength := result.GetXAxisLabelSize('Amplitude').Width;
 end;
 
 // TBlockDrawer
@@ -563,7 +566,7 @@ procedure TBlockDrawer.Draw;
 var
   i, j: longint;
   Rms2, Peak: TDouble;
-  Points: array of TPointF = nil;
+  Points: ArrayOfTPointF = nil;
   Chart: TChart;
   MaxDB, MinDB: double;
 begin
@@ -572,31 +575,19 @@ begin
   // create and configure the chart
   Chart := NewDefaultChart;
   Chart.Title      := 'Energy & peaks (1s blocks)';
-  Chart.XAxisLabel := 'Block num';
-  Chart.YAxisLabel := '';
+  Chart.XAxisLabel := 'Block';
+  Chart.YAxisLabel := 'dBFS';
   Chart.TitleFontColor := clrwhite;
   Chart.XAxisFontColor := clrWhite;
   Chart.YAxisFontColor := clrWhite;
 
-  MinDB := 6 * FTrack.BitsPerSample;
-  MaxDB := 6 * FTrack.BitsPerSample;
-  for i := 0 to FTrack.DRMeter.BlockCount -1 do
-  begin
-    Rms2 := 0;
-    // calculate average rms across channels
-    for j := 0 to FTrack.ChannelCount -1 do
-    begin
-      Rms2 := Rms2 + FTrack.DRMeter.Rms2(j, i);
-    end;
-    Rms2 := Rms2 / FTrack.ChannelCount;
+  MinDB := -6 * FTrack.BitsPerSample;
+  MaxDB :=  0;
 
-    MinDB := Min(MinDB, MaxDB + Max(Decibel(Sqrt(Rms2)), -MaxDB));
-  end;
-
-  Chart.YMinF := MinDB;
-  Chart.YMaxF := MaxDB;
-  Chart.XMinF := 0;
-  Chart.XMaxF := FTrack.DRMeter.BlockCount;
+  Chart.YMinF   := MinDB;
+  Chart.YMaxF   := MaxDB;
+  Chart.YCount  := 4;
+  Chart.YDeltaF := (6 * FTrack.BitsPerSample) div Chart.YCount;
 
   // loop through each block
   SetLength(Points, 4);
@@ -614,9 +605,9 @@ begin
     Points[0].x := (i + 1) - 0.35;
     Points[0].y := MinDB;
     Points[1].x := (i + 1) - 0.35;
-    Points[1].y := MaxDB + Max(Decibel(Sqrt(Rms2)), -MaxDB);
+    Points[1].y := Decibel(Sqrt(Rms2));
     Points[2].x := (i + 1) + 0.35;
-    Points[2].y := MaxDB + Max(Decibel(Sqrt(Rms2)), -MaxDB);
+    Points[2].y := Decibel(Sqrt(Rms2));
     Points[3].x := (i + 1) + 0.35;
     Points[3].y := MinDB;
 
@@ -634,13 +625,13 @@ begin
 
     // draw red block from rms to Peak
     Points[0].x := (i + 1) - 0.35;
-    Points[0].y := MaxDB + Max(Decibel(Sqrt(Rms2)), -MaxDB);
+    Points[0].y := Decibel(Sqrt(Rms2));
     Points[1].x := (i + 1) - 0.35;
-    Points[1].y := MaxDB + Max(Decibel(Peak), -MaxDB);
+    Points[1].y := Decibel(Peak);
     Points[2].x := (i + 1) + 0.35;
-    Points[2].y := MaxDB + Max(Decibel(Peak),-MaxDB);
+    Points[2].y := Decibel(Peak);
     Points[3].x := (i + 1) + 0.35;
-    Points[3].y := MaxDB + Max(Decibel(Sqrt(Rms2)), -MaxDB);
+    Points[3].y := Decibel(Sqrt(Rms2));
 
     Chart.PenColor := clBlack;
     Chart.TextureColor := clrRed;
@@ -663,23 +654,30 @@ var
   index: longint;
   FreqIndex, Amp, Peak: TDouble;
   Factor: single;
-  MaxDB: TDouble;
+  MaxDB, MinDB: TDouble;
 begin
   if (FTrack.ChannelCount = 0) then Exit;
   if (FTrack.Samplecount  = 0) then Exit;
   // create and configure the chart
   Chart := NewDefaultChart;
   Chart.Title      := 'Frequency spectrum';
-  Chart.XAxisLabel := 'Freq [Hz]';
-  Chart.YAxisLabel := 'Amplitude [dB]';
+  Chart.XAxisLabel := 'Hz';
+  Chart.YAxisLabel := 'dBFS';
   Chart.TitleFontColor := clrwhite;
   Chart.XAxisFontColor := clrWhite;
   Chart.YAxisFontColor := clrWhite;
 
+  MinDB := -6 * FTrack.BitsPerSample;
+  MaxDB :=  0;
+
+  Chart.YMinF   := MinDB;
+  Chart.YMaxF   := MaxDB;
+  Chart.YCount  := 4;
+  Chart.YDeltaF := (6 * FTrack.BitsPerSample) div Chart.YCount;
+
   WindowCount := FTrack.Spectrums.WindowCount;
   OutBins     := FTrack.Spectrums.OutBins;
   Factor      := (0.5 * FTrack.Samplerate) / (OutBins - 1);
-  MaxDB       := 6 * FTrack.BitsPerSample;
 
   SetLength(Points, 4);
   for i := 1 to OutBins - 1 do
@@ -694,39 +692,36 @@ begin
       for ch := 0 to FTrack.ChannelCount - 1 do
       begin
         Amp  := Amp + Sqr(FTrack.Spectrums.Channels[ch, Index]);
-        Peak := Max(Peak, FTrack.Spectrums.Channels[ch, Index]);
+        Peak := Max(Peak, Abs(FTrack.Spectrums.Channels[ch, Index]));
       end;
     end;
     Amp := Sqrt(Amp / (WindowCount * FTrack.ChannelCount));
 
-    Amp := (Decibel(Amp) + MaxDB);
-    if Amp < 0 then Amp := 0;
-
-    Peak := (Decibel(Peak) + MaxDB);
-    if Peak < 0 then Peak := 0;
+    Amp  := Max(Decibel(Amp),  MinDB);
+    Peak := Max(Decibel(Peak), MinDB);
 
     Chart.PenColor     := clrYellow;
     Chart.TextureColor := clrYellow;
     Points[0].X := FreqIndex -0.25 * Factor;
-    Points[0].Y := 0;
+    Points[0].Y := MinDB;
     Points[1].X := FreqIndex -0.25 * Factor;
     Points[1].Y := Amp;
     Points[2].X := FreqIndex +0.25 * Factor;
     Points[2].Y := Amp;
     Points[3].X := FreqIndex +0.25 * Factor;
-    Points[3].Y := 0;
+    Points[3].Y := MinDB;
     Chart.AddPolygon(Points, '');
 
     Chart.PenColor     := clrRed;
     Chart.TextureColor := clrRed;
     Points[0].X := FreqIndex -0.25 * Factor;
-    Points[0].Y := Max(Peak - 0.5, 0);
+    Points[0].Y := Peak;
     Points[1].X := FreqIndex -0.25 * Factor;
-    Points[1].Y := Peak;
+    Points[1].Y := Min(Peak + 0.5, 0);
     Points[2].X := FreqIndex +0.25 * Factor;
-    Points[2].Y := Peak;
+    Points[2].Y := Min(Peak + 0.5, 0);
     Points[3].X := FreqIndex +0.25 * Factor;
-    Points[3].Y := Max(Peak - 0.5, 0);
+    Points[3].Y := Peak;
     Chart.AddPolygon(Points, '');
   end;
   // draw chart on screen
@@ -752,9 +747,9 @@ begin
   // create and configure the chart
   Chart := NewDefaultChart;
   Chart.Title := 'Spectrogram';
-  Chart.XAxisLabel := 'Freq [Hz]';
-  Chart.YAxisLabel := 'Time [s]';
-  Chart.TitleFontColor := clrwhite;
+  Chart.XAxisLabel := 'Hz';
+  Chart.YAxisLabel := 's';
+  Chart.TitleFontColor := clrWhite;
   Chart.XAxisFontColor := clrWhite;
   Chart.YAxisFontColor := clrWhite;
 
@@ -830,8 +825,8 @@ begin
     Chart := NewDefaultChart;
     Chart.LegendEnabled := False;
     Chart.Title := Format('Waveform (%s)', [ChannelName(ch, FTrack.ChannelCount)]);
-    Chart.XAxisLabel := 'Time [s]';
-    Chart.YAxisLabel := 'Amplitude';
+    Chart.XAxisLabel := 's';
+    Chart.YAxisLabel := '';
     Chart.TitleFontColor := clrwhite;
     Chart.XAxisFontColor := clrWhite;
     Chart.YAxisFontColor := clrWhite;
@@ -912,8 +907,8 @@ begin
   Chart := NewDefaultChart;
   Chart.LegendEnabled := False;
   Chart.Title := 'ShortTerm & Momentary Loudness';
-  Chart.XAxisLabel := 'Time [s]';
-  Chart.YAxisLabel := 'Loudness [dB]';
+  Chart.XAxisLabel := 's';
+  Chart.YAxisLabel := 'dBFS';
   Chart.TitleFontColor := clrwhite;
   Chart.XAxisFontColor := clrWhite;
   Chart.YAxisFontColor := clrWhite;
