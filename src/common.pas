@@ -55,7 +55,7 @@ function CrestFactor(const APeak, ARms2: TDouble): TDouble; inline;
 procedure QuickSort(var AValues: TDoubleVector; Low, High: longint);
 function Percentile(var AValues: TListOfDouble; P: double): TDouble;
 
-function ChannelName(AChannel, AChannelCount: longint): string;
+function ChannelName(AChannelIndex, AChannelCount: longint): string;
 function GetAppFile(const FileName: string): string;
 
 
@@ -74,22 +74,22 @@ begin
   end;
 end;
 
-function ChannelName(AChannel, AChannelCount: longint): string;
+function ChannelName(AChannelIndex, AChannelCount: longint): string;
 begin
   case AChannelCount of
     1: Result := 'Mono';
-    2: case AChannel of
+    2: case AChannelIndex of
          0: Result := 'Left Channel';
          1: Result := 'Right Channel';
        end;
-    5: case AChannel of
+    5: case AChannelIndex of
          0: Result := 'Left Channel';
          1: Result := 'Right Channel';
          2: Result := 'Center Channel';
          3: Result := 'Left Surround Channel';
          4: Result := 'Right Surround Channel';
        end;
-    6: case AChannel of
+    6: case AChannelIndex of
         0: Result := 'Left Channel';
         1: Result := 'Right Channel';
         2: Result := 'Center Channel';
@@ -142,6 +142,8 @@ var
   Lower, Upper: longint;
   Fraction: double;
 begin
+  if AValues.Count = 0 then Exit(NegInfinity);
+
   AValues.Sort(@Compare);
 
   // Compute the exact index
@@ -255,25 +257,27 @@ const
   Taps = 24;
   HalfTaps = Taps div 2;
 var
-  i, Phase, Phases, PadLen, Tap: longint;
+  i, Phase, Phases, PhaseStride, p, PadLen: longint;
   PadSamples: TDoubleVector;
-  Sum, Sample: TDouble;
+  Sum: TDouble;
 begin
-  Result := NegInfinity;
+  Result := 0;
 
-  // Determine oversampling factor (number of FIR phases)
-  case ASampleRate of
-    44100, 48000: Phases := 4;  // 4x oversampling
-    88200, 96000: Phases := 2;  // 2x oversampling
+  // Oversampling factor (FIR phases), per BS.1770: effective rate must reach
+  // ~192 kHz. 4x below 96 kHz (44100/48000/88200), 2x from 96 kHz up.
+  if ASampleRate < 96000 then
+    Phases := 4
   else
     Phases := 2;
-  end;
+
+  // Phase stride into the 4-phase table: 4x uses phases {0,1,2,3};
+  // 2x must use evenly spaced phases {0,2}, not the adjacent {0,1}.
+  PhaseStride := 4 div Phases;
 
   // Add zero padding at both ends to avoid out-of-bound reads
   PadLen := HalfTaps;
   SetLength(PadSamples, ASampleCount + 2 * PadLen);
 
-  // Copy the selected range of samples (AIndex .. AIndex+ASampleCount-1)
   FillChar(PadSamples[0], PadLen * SizeOf(TDouble), 0);
   Move(ASamples^, PadSamples[PadLen], ASampleCount * SizeOf(TDouble));
   FillChar(PadSamples[PadLen + ASampleCount], PadLen * SizeOf(TDouble), 0);
@@ -283,51 +287,42 @@ begin
   begin
     for Phase := 0 to Phases - 1 do
     begin
-      Sum := 0.0;
-      (*
-      // Loop unrolling: 4 taps per iterazione, 24 taps -> 6 iterazioni
-      Tap := 0;
-      while Tap < Taps do
-      begin
-        Sum := Sum + PadSamples[i + Tap     - HalfTaps] * Coeffs[Phase][Tap    ]
-                   + PadSamples[i + Tap + 1 - HalfTaps] * Coeffs[Phase][Tap + 1]
-                   + PadSamples[i + Tap + 2 - HalfTaps] * Coeffs[Phase][Tap + 2]
-                   + PadSamples[i + Tap + 3 - HalfTaps] * Coeffs[Phase][Tap + 3];
-        Inc(Tap, 4);
-      end;
-      *)
+      p := Phase * PhaseStride;
 
       // Full 24-tap unrolling
       Sum :=
-        PadSamples[i-12] * Coeffs[Phase][ 0] +
-        PadSamples[i-11] * Coeffs[Phase][ 1] +
-        PadSamples[i-10] * Coeffs[Phase][ 2] +
-        PadSamples[i- 9] * Coeffs[Phase][ 3] +
-        PadSamples[i- 8] * Coeffs[Phase][ 4] +
-        PadSamples[i- 7] * Coeffs[Phase][ 5] +
-        PadSamples[i- 6] * Coeffs[Phase][ 6] +
-        PadSamples[i- 5] * Coeffs[Phase][ 7] +
-        PadSamples[i- 4] * Coeffs[Phase][ 8] +
-        PadSamples[i- 3] * Coeffs[Phase][ 9] +
-        PadSamples[i- 2] * Coeffs[Phase][10] +
-        PadSamples[i- 1] * Coeffs[Phase][11] +
-        PadSamples[i   ] * Coeffs[Phase][12] +
-        PadSamples[i+ 1] * Coeffs[Phase][13] +
-        PadSamples[i+ 2] * Coeffs[Phase][14] +
-        PadSamples[i+ 3] * Coeffs[Phase][15] +
-        PadSamples[i+ 4] * Coeffs[Phase][16] +
-        PadSamples[i+ 5] * Coeffs[Phase][17] +
-        PadSamples[i+ 6] * Coeffs[Phase][18] +
-        PadSamples[i+ 7] * Coeffs[Phase][19] +
-        PadSamples[i+ 8] * Coeffs[Phase][20] +
-        PadSamples[i+ 9] * Coeffs[Phase][21] +
-        PadSamples[i+10] * Coeffs[Phase][22] +
-        PadSamples[i+11] * Coeffs[Phase][23];
+        PadSamples[i-12] * Coeffs[p][ 0] +
+        PadSamples[i-11] * Coeffs[p][ 1] +
+        PadSamples[i-10] * Coeffs[p][ 2] +
+        PadSamples[i- 9] * Coeffs[p][ 3] +
+        PadSamples[i- 8] * Coeffs[p][ 4] +
+        PadSamples[i- 7] * Coeffs[p][ 5] +
+        PadSamples[i- 6] * Coeffs[p][ 6] +
+        PadSamples[i- 5] * Coeffs[p][ 7] +
+        PadSamples[i- 4] * Coeffs[p][ 8] +
+        PadSamples[i- 3] * Coeffs[p][ 9] +
+        PadSamples[i- 2] * Coeffs[p][10] +
+        PadSamples[i- 1] * Coeffs[p][11] +
+        PadSamples[i   ] * Coeffs[p][12] +
+        PadSamples[i+ 1] * Coeffs[p][13] +
+        PadSamples[i+ 2] * Coeffs[p][14] +
+        PadSamples[i+ 3] * Coeffs[p][15] +
+        PadSamples[i+ 4] * Coeffs[p][16] +
+        PadSamples[i+ 5] * Coeffs[p][17] +
+        PadSamples[i+ 6] * Coeffs[p][18] +
+        PadSamples[i+ 7] * Coeffs[p][19] +
+        PadSamples[i+ 8] * Coeffs[p][20] +
+        PadSamples[i+ 9] * Coeffs[p][21] +
+        PadSamples[i+10] * Coeffs[p][22] +
+        PadSamples[i+11] * Coeffs[p][23];
 
       if Sum < 0 then Sum := -Sum;
       if Sum > result then result := Sum;
     end;
   end;
+
+  // The true peak can never be below the sample peak (no phase is the identity).
+  Result := Max(Result, Peak(ASamples, ASampleCount));
 end;
 
 function CrestFactor(const APeak, ARms2: TDouble): TDouble;
@@ -339,4 +334,3 @@ begin
 end;
 
 end.
-
