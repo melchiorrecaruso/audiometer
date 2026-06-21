@@ -1,7 +1,7 @@
 {
   Description: Spectrum routines.
 
-  Copyright (C) 2025 Melchiorre Caruso <melchiorrecaruso@gmail.com>
+  Copyright (C) 2026 Melchiorre Caruso <melchiorrecaruso@gmail.com>
 
   This source is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free
@@ -42,6 +42,10 @@ type
     FHopSize: longint;
     FOutBins: longint;
     FTick: TTickMethod;
+    FWindow: TDoubleVector;   // coefficienti di Hann precalcolati
+    FBuff: TCompVector;       // buffer di input FFT riutilizzabile
+    procedure BuildWindow;
+    procedure GetSpectrum(ASamples: PDouble; ASpectrum: PDouble);
     procedure SmoothSpectrogram;
   public
     procedure Init(AWindowSize: longint = DEFAULTWINDOWSIZE;
@@ -65,44 +69,49 @@ implementation
 uses
   Math;
 
-procedure GetSpectrum(ASamples: PDouble; Count: longint; ASpectrum: PDouble);
+procedure TSpectrums.BuildWindow;
 var
   i: longint;
-  Buff: TCompVector = nil;
-  Freq: TCompVector = nil;
-  Window: TDouble;
 begin
-  if Count > 0 then
-  begin
-    SetLength(Buff, Count);
-    for i := 0 to Count -1 do
-    begin
-      Window := 0.5 - 0.5 * cos(2 * pi * i / (Count - 1));
-      Buff[i].x := Window * ASamples^;
-      Buff[i].y := 0;
-      inc(ASamples);
-    end;
-    Freq := FFT(Count, Buff);
-
-    // bin 0 (DC)
-    ASpectrum^ := Abs(Freq[0].x)/Count;
-    Inc(ASpectrum);
-    // bin da 1 a N/2 - 1
-    for i := 1 to (Count div 2) -1 do
-    begin
-      ASpectrum^ := 2*Sqrt(Sqr(Freq[i].x) + Sqr(Freq[i].y))/Count;
-      inc(ASpectrum);
-    end;
-    // bin N/2 (Nyquist), if N is even
-    if (Count mod 2 = 0) then
-    begin
-      ASpectrum^ := Abs(Freq[Count div 2].x)/Count;
-    //Inc(ASpectrum);
-    end;
-  end;
+  SetLength(FWindow, FWindowSize);
+  SetLength(FBuff,   FWindowSize);
+  for i := 0 to FWindowSize - 1 do
+    FWindow[i] := 0.5 - 0.5 * cos(2 * pi * i / (FWindowSize - 1));
 end;
 
-// TSpectrum
+procedure TSpectrums.GetSpectrum(ASamples: PDouble; ASpectrum: PDouble);
+var
+  i, n: longint;
+  Freq: TCompVector;
+  scale, scaleEdge: TDouble;
+begin
+  n := FWindowSize;
+  for i := 0 to n - 1 do
+  begin
+    FBuff[i].x := FWindow[i] * ASamples^;
+    FBuff[i].y := 0;
+    Inc(ASamples);
+  end;
+  Freq := FFT(n, FBuff);
+
+  scaleEdge := 1 / n;
+  scale     := 2 / n;
+
+  // bin 0 (DC)
+  ASpectrum^ := Abs(Freq[0].x) * scaleEdge;
+  Inc(ASpectrum);
+  // bin da 1 a N/2 - 1
+  for i := 1 to (n div 2) - 1 do
+  begin
+    ASpectrum^ := Sqrt(Sqr(Freq[i].x) + Sqr(Freq[i].y)) * scale;
+    Inc(ASpectrum);
+  end;
+  // bin N/2 (Nyquist), se N è pari
+  if (n and 1) = 0 then
+    ASpectrum^ := Abs(Freq[n div 2].x) * scaleEdge;
+end;
+
+// TSpectrums
 
 procedure TSpectrums.Init(AWindowSize: longint = DEFAULTWINDOWSIZE;
   AHopSize: LongInt = DEFAULTHOPSIZE; const ATick: TTickMethod = nil);
@@ -117,6 +126,7 @@ begin
 
   FWindowSize := AWindowSize;
   FHopSize    := AHopSize;
+  BuildWindow;
 end;
 
 procedure TSpectrums.Finalize;
@@ -125,19 +135,27 @@ begin
   FWindowSize  := 0;
   FHopSize     := 0;
   FOutBins     := 0;
+  SetLength(FWindow, 0);
+  SetLength(FBuff, 0);
   SetLength(FChannels, 0, 0);
 end;
 
 function TSpectrums.EstimatedTicks(AChannelCount, ASampleCount, ASampleRate: longint): longint;
 begin
-  result := Max(0, (ASampleCount - FWindowSize) div (FWindowSize - FHopSize) * AChannelCount);
+  if ASampleCount >= FWindowSize then
+    result := ((ASampleCount - FWindowSize) div FHopSize + 1) * AChannelCount
+  else
+    result := 0;
 end;
 
 procedure TSpectrums.Process(const AChannels: TDoubleMatrix; ASampleCount, ASampleRate: longint);
 var
   ch, i: longint;
 begin
-  FWindowCount := (ASampleCount - FWindowSize) div (FWindowSize - FHopSize);
+  if ASampleCount >= FWindowSize then
+    FWindowCount := (ASampleCount - FWindowSize) div FHopSize + 1
+  else
+    FWindowCount := 0;
 
   if FWindowCount > 0 then
   begin
@@ -146,9 +164,9 @@ begin
     SetLength(FChannels, Length(AChannels), FWindowCount * OutBins);
     for ch := Low(AChannels) to High(AChannels) do
     begin
-      for i := 0 to FWindowCount -1 do
+      for i := 0 to FWindowCount - 1 do
       begin
-        GetSpectrum(@AChannels[ch][(i * FHopSize)], FWindowSize,  @FChannels[ch][(i * OutBins)]);
+        GetSpectrum(@AChannels[ch][(i * FHopSize)], @FChannels[ch][(i * OutBins)]);
 
         if Assigned(FTick) then FTick;
       end;
@@ -199,4 +217,3 @@ begin
 end;
 
 end.
-
