@@ -200,7 +200,7 @@ end;
 
 procedure TAudioFrm.FormCreate(Sender: TObject);
 begin
-  PropStorage.IniFileName := GetAppFile('audiometer.ini');
+  PropStorage.IniFileName := GetAppFile('mainfrm.ini');
   PropStorage.Active := True;
   // ---
   Screen := TBGRABitmap.Create;
