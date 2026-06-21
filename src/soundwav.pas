@@ -335,6 +335,7 @@ begin
   FTrack.FByterate := FFmt.bytespersec;
   FTrack.FDuration := 0;
 
+  if Status <> 0 then Exit;
   if FTrack.FSampleRate > 0 then
   begin
     FTrack.FDuration := (FDatachunk.subck2size div FFmt.blockalign) div FTrack.FSampleRate;
@@ -343,6 +344,7 @@ begin
 
   SetLength(FTrack.FChannels, FTrack.FChannelCount, FTrack.FSampleCount);
   ReadChannels(AStream, FTrack.FChannels, FTrack.FSampleCount);
+  if Status <> 0 then Exit;
 
   // Init
   FTrack.FDRMeter .Init(@DoTick);
@@ -376,6 +378,7 @@ begin
   if AStream.Read(Riff, sizeof(Riff)) <> sizeof(Riff) then FStatus := -1;
   if Riff.ckid <> idriff then FStatus := -1;
   if Riff.waveid <> idwave then FStatus := -1;
+  if FStatus <> 0 then Exit;
   Riff.cksize := leton(Riff.cksize);
   {$ifopt D+}
   writeln('riff.ckid          ', Riff.ckid);
@@ -384,6 +387,7 @@ begin
   {$endif}
   if AStream.Read(FFmt, sizeof(FFmt)) <> sizeof(FFmt) then FStatus := -1;
   if FFmt.ckid <> idfmt then FStatus := -1;
+  if FStatus <> 0 then Exit;
 
   FFmt.cksize := leton(FFmt.cksize);
   FFmt.FormatTag := leton(FFmt.FormatTag);
@@ -394,8 +398,12 @@ begin
   FFmt.BitsPerSample := leton(FFmt.BitsPerSample);
 
   if FFmt.Channels = 0 then FStatus := -2;
-  if FFmt.BitsPerSample = 0 then FStatus := -1;
-  if FFmt.BitsPerSample = 32 then FStatus := -1;
+  if FFmt.blockalign = 0 then FStatus := -1;
+  if not (FFmt.BitsPerSample in [8, 16, 24, 32]) then FStatus := -1;
+  // only integer PCM is decoded (also accept WAVE_FORMAT_EXTENSIBLE, used for
+  // multichannel and 24/32-bit PCM); reject float, A-law, mu-law, etc.
+  if (FFmt.FormatTag <> WAVE_FORMAT_PCM) and (FFmt.FormatTag <> WAVE_FORMAT_EXTENSIBLE) then FStatus := -1;
+  if FStatus <> 0 then Exit;
 
   {$ifopt D+}
   writeln('ffmt.subckid       ', FFmt.ckid);
@@ -415,6 +423,10 @@ begin
     FFmtext.cbsize := leton(FFmtext.cbsize);
     FFmtext.validbitspersample := leton(FFmtext.validbitspersample);
     FFmtext.channelmask := leton(FFmtext.channelmask);
+    FFmtext.subcode := leton(FFmtext.subcode);
+    // for WAVE_FORMAT_EXTENSIBLE the actual format is the leading GUID code;
+    // accept integer PCM only, reject float and others.
+    if (FFmt.FormatTag = WAVE_FORMAT_EXTENSIBLE) and (FFmtext.subcode <> WAVE_FORMAT_PCM) then FStatus := -1;
     {$ifopt D+}
     writeln;
     writeln('ffmtext.cbsize             ', FFmtext.cbsize);
@@ -450,75 +462,74 @@ end;
 function TTrackAnalyzer.ReadChannels(AStream: TStream;
   AChannels: TDoubleMatrix; ASampleCount: longint): longint;
 var
-  i, j, k: longint;
-  Sample: array[0..3] of byte;
+  i, j, k, Index, BytesPerSample: longint;
+  DataBytes: longint;
+  Buffer: array of byte;
 begin
   Result := 0;
+
+  BytesPerSample := FFmt.BitsPerSample div 8;
+  DataBytes := ASampleCount * FFmt.Channels * BytesPerSample;
+
+  // Bulk read of the whole data chunk, then de-interleave in memory.
+  SetLength(Buffer, DataBytes);
+  if AStream.Read(Buffer[0], DataBytes) <> DataBytes then FStatus := -1;
+
+  if FStatus <> 0 then Exit;
+
+  Index := 0;
   for i := 0 to ASampleCount - 1 do
   begin
     for j := 0 to FFmt.Channels - 1 do
     begin
-      if FFmt.BitsPerSample = 8 then
-      begin
-        if AStream.Read(Sample[0], 1) <> 1 then FStatus := -1;
-        AChannels[j][i] := pbyte(@Sample[0])^;
-      end
-      else
-      if FFmt.BitsPerSample = 16 then
-      begin
-        if AStream.Read(Sample[0], 2) <> 2 then FStatus := -1;
-        AChannels[j][i] := psmallint(@Sample[0])^;
-      end
-      else
-      if FFmt.BitsPerSample = 24 then
-      begin
-        if AStream.Read(Sample[0], 3) <> 3 then FStatus := -1;
+      case FFmt.BitsPerSample of
+         8:  AChannels[j][i] := pbyte(@Buffer[Index])^;
+        16:  AChannels[j][i] := psmallint(@Buffer[Index])^;
+        24:  begin
+               if Buffer[Index + 2] > 127 then
+                 k := longint($FFFFFFFF)
+               else
+                 k := 0;
 
-        if Sample[2] > 127 then
-          k := longint($FFFFFFFF)
-        else
-          k := 0;
+               k := (k shl 8) or Buffer[Index + 2];
+               k := (k shl 8) or Buffer[Index + 1];
+               k := (k shl 8) or Buffer[Index + 0];
 
-        k := (k shl 8) or Sample[2];
-        k := (k shl 8) or Sample[1];
-        k := (k shl 8) or Sample[0];
-
-        AChannels[j][i] := k;
-      end
-      else
-      if FFmt.BitsPerSample = 32 then
-      begin
-        if AStream.Read(Sample[0], 4) <> 4 then FStatus := -1;
-        AChannels[j][i] := plongint(@Sample[0])^;
+               AChannels[j][i] := k;
+             end;
+        32:  AChannels[j][i] := plongint(@Buffer[Index])^;
       end;
+      Inc(Index, BytesPerSample);
     end;
   end;
+
   PrepareSamplesForAnalysis;
 end;
 
 procedure TTrackAnalyzer.PrepareSamplesForAnalysis;
 var
   i, j: longint;
-  MinValue, MaxValue: TDouble;
-  MeanValue: TDouble;
-  Norm: TDouble;
+  Offset, Norm: TDouble;
 begin
-  Norm := 1 shl (FTrack.FBitsPerSample - 1);
+  Offset := 0;
+  Norm   := 1;
+  // Normalize by the format zero point: 8-bit WAV is unsigned (zero at 128),
+  // 16/24/32-bit are signed (already centered at 0). A content-dependent center
+  // (e.g. the midrange) would shift asymmetric waveforms and corrupt peak/RMS.
+  case FTrack.FBitsPerSample of
+     8: begin Offset := 128;  Norm :=        128.0; end;  // unsigned, zero at 128
+    16: begin Offset := 0;    Norm :=      32768.0; end;  //   signed (2^15)
+    24: begin Offset := 0;    Norm :=    8388608.0; end;  //   signed (2^23)
+    32: begin Offset := 0;    Norm := 2147483648.0; end;  //   signed (2^31)
+  else  FStatus := -1;
+  end;
 
+  if FStatus <> 0 then Exit;
   for i := Low(FTrack.FChannels) to High(FTrack.FChannels) do
   begin
-    MinValue :=  MaxFloat;
-    MaxValue := -MaxFloat;
     for j := Low(FTrack.FChannels[i]) to High(FTrack.FChannels[i]) do
     begin
-      MinValue := Min(MinValue, FTrack.FChannels[i][j]);
-      MaxValue := Max(MaxValue, FTrack.FChannels[i][j]);
-    end;
-
-    MeanValue := (MaxValue + MinValue) / 2;
-    for j := Low(FTrack.FChannels[i]) to High(FTrack.FChannels[i]) do
-    begin
-      FTrack.FChannels[i][j] := (FTrack.FChannels[i][j] - MeanValue) / Norm;
+      FTrack.FChannels[i][j] := (FTrack.FChannels[i][j] - Offset) / Norm;
     end;
   end;
 end;
@@ -623,8 +634,8 @@ begin
 
     S.Add(Splitter);
     S.Add('');
-    S.Add('Number of tracks:  %d', [Count]);
-    if DR >  0 then S.Add('Official DR value: DR%1.0f', [DR]);
+    S.Add(Format('Number of tracks:  %d', [Count]));
+    if DR >  0 then S.Add(Format('Official DR value: DR%1.0f', [DR]));
     if DR <= 0 then S.Add('Official DR value: ---');
 
     S.Add('');
