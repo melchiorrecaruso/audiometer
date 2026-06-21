@@ -1,7 +1,7 @@
 {
   Description: Sound utils routines.
 
-  Copyright (C) 2025 Melchiorre Caruso <melchiorrecaruso@gmail.com>
+  Copyright (C) 2025-2026 Melchiorre Caruso <melchiorrecaruso@gmail.com>
 
   This source is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free
@@ -19,7 +19,7 @@
   MA 02111-1307, USA.
 }
 
-unit soundutils;
+unit SoundUtils;
 
 {$mode objfpc}{$h+}
 {$modeswitch advancedrecords}
@@ -83,7 +83,7 @@ function compare(const value1, value2: double): longint;
 implementation
 
 uses
-  math;
+  Math;
 
 function Decibel(const asample: double): double;
 begin
