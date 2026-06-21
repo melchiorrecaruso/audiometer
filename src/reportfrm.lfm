@@ -1,12 +1,12 @@
 object ReportForm: TReportForm
-  Left = 751
+  Left = 16
   Height = 722
-  Top = 292
+  Top = 169
   Width = 965
   Caption = 'Report'
   ClientHeight = 722
   ClientWidth = 965
-  SessionProperties = 'Left;Width;Top;Height'
+  SessionProperties = 'Height;Left;Top;Width;WindowState'
   LCLVersion = '4.99.0.0'
   OnCreate = FormCreate
   object BorderShape: TShape
