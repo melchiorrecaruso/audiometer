@@ -1,7 +1,7 @@
 {
   Description: Dynamic Range Measurement Routines.
 
-  Copyright (C) 2025 Melchiorre Caruso <melchiorrecaruso@gmail.com>
+  Copyright (C) 2025-2026 Melchiorre Caruso <melchiorrecaruso@gmail.com>
 
   This source is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free
@@ -208,19 +208,17 @@ begin
   if FChannelCount = 0 then Exit;
 
   case ASampleRate of
-     44100: FBlockSize := 3 * ASampleRate + 180;
-     48000: FBlockSize := 3 * ASampleRate;
-     88200: FBlockSize := 3 * ASampleRate + 360;
-     96000: FBlockSize := 3 * ASampleRate;
-    176400: FBlockSize := 3 * ASampleRate + 720;
-    192000: FBlockSize := 3 * ASampleRate;
-    else    FBlockSize := 3 * ASampleRate;
+    44100: FBlockSize := 3 * ASampleRate + 180;
+    else   FBlockSize := 3 * ASampleRate;
   end;
 
   FBlockCount := ASampleCount div FBlockSize;
   TailSize    := ASampleCount mod FBlockSize;
 
-  if FBlockCount = 0 then Exit;
+  if FBlockCount = 0 then
+    FChannelCount := 0;
+
+  if FChannelCount = 0 then Exit;
 
   SetLength(FRms2, FChannelCount, FBlockCount + Ord(TailSize > 0));
   SetLength(FPeak, FChannelCount, FBlockCount + Ord(TailSize > 0));
