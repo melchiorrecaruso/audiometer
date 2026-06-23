@@ -605,9 +605,9 @@ begin
     Points[0].x := (i + 1) - 0.35;
     Points[0].y := MinDB;
     Points[1].x := (i + 1) - 0.35;
-    Points[1].y := Decibel(Sqrt(Rms2));
+    Points[1].y := Max(Decibel(Sqrt(Rms2)), MinDB);
     Points[2].x := (i + 1) + 0.35;
-    Points[2].y := Decibel(Sqrt(Rms2));
+    Points[2].y := Max(Decibel(Sqrt(Rms2)), MinDB);
     Points[3].x := (i + 1) + 0.35;
     Points[3].y := MinDB;
 
@@ -625,13 +625,13 @@ begin
 
     // draw red block from rms to Peak
     Points[0].x := (i + 1) - 0.35;
-    Points[0].y := Decibel(Sqrt(Rms2));
+    Points[0].y := Max(Decibel(Sqrt(Rms2)), MinDB);
     Points[1].x := (i + 1) - 0.35;
-    Points[1].y := Decibel(Peak);
+    Points[1].y := Max(Decibel(Peak), MinDB);
     Points[2].x := (i + 1) + 0.35;
-    Points[2].y := Decibel(Peak);
+    Points[2].y := Max(Decibel(Peak), MinDB);
     Points[3].x := (i + 1) + 0.35;
-    Points[3].y := Decibel(Sqrt(Rms2));
+    Points[3].y := Max(Decibel(Sqrt(Rms2)), MinDB);
 
     Chart.PenColor := clBlack;
     Chart.TextureColor := clrRed;
