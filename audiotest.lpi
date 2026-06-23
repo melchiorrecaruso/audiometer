@@ -40,7 +40,8 @@
         <UnitName Value="AudioTest"/>
         <Loaded Value="True"/>
         <UsageCount Value="21"/>
-        <CursorPos X="65"/>
+        <IsVisibleTab Value="True"/>
+        <CursorPos X="27" Y="24"/>
       </Unit>
       <Unit>
         <Filename Value="src/spectrum.pas"/>
@@ -67,9 +68,8 @@
         <UnitName Value="Loudness"/>
         <Loaded Value="True"/>
         <UsageCount Value="11"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="3"/>
-        <TopLine Value="787"/>
+        <TopLine Value="729"/>
         <CursorPos X="5" Y="820"/>
       </Unit>
       <Unit>
@@ -79,8 +79,8 @@
         <Loaded Value="True"/>
         <UsageCount Value="10"/>
         <EditorIndex Value="4"/>
-        <TopLine Value="294"/>
-        <CursorPos X="5" Y="328"/>
+        <TopLine Value="238"/>
+        <CursorPos Y="368"/>
       </Unit>
     </Units>
   </ProjectOptions>
