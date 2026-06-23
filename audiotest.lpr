@@ -21,7 +21,7 @@ program AudioTest;
 {$mode objfpc}{$h+}
 
 uses
-  {$ifdef unix}cthreads,{$endif}
+  {$ifdef unix} cthreads, {$endif}
   Classes, SysUtils, Math,
   Common, Loudness, DynamicRange, Spectrum, SoundWav;
 
