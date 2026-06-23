@@ -90,6 +90,8 @@ type
     FWeights: TDoubleVector;
     FMomentaryEnergies: TDoubleVector;
     FShortTermEnergies: TDoubleVector;
+    FMaxMomentary: double;
+    FMaxShortTerm: double;
     FIntegratedLoudness: double;
     FLoudnessRange: double;
 
@@ -99,6 +101,7 @@ type
     procedure UpdateBlocks(const AChannels: TDoubleMatrix);
     procedure UpdateMomentaryEnergies;
     procedure UpdateShortTermEnergies;
+    procedure UpdateMaxLoudness(const AkwSamples: TDoubleMatrix);
     procedure UpdateIntegratedLoudness;
     procedure UpdateLoudnessRange;
   public
@@ -120,6 +123,8 @@ type
 
     function MomentaryLoudness(AtTime: longint): double;
     function ShortTermLoudness(AtTime: longint): double;
+    function MaxMomentaryLoudness: double;
+    function MaxShortTermLoudness: double;
     function IntegratedLoudness: double;
     function LoudnessRange: double;
     function PeakToLoudnessRatio: double;
@@ -321,6 +326,8 @@ begin
   FWeights            := nil;
   FMomentaryEnergies  := nil;
   FShortTermEnergies  := nil;
+  FMaxMomentary       := NegInfinity;
+  FMaxShortTerm       := NegInfinity;
   FIntegratedLoudness := NegInfinity;
   FLoudnessRange      := NegInfinity;
   FChannelMetrics     := nil;
@@ -459,6 +466,76 @@ begin
   end;
 end;
 
+procedure TLoudnessMeter.UpdateMaxLoudness(const AkwSamples: TDoubleMatrix);
+const
+  MomentaryMs = 400;
+  ShortTermMs = 3000;
+var
+  ch, p, MomentarySize, ShortTermSize: longint;
+  Square: double;
+  MomentaryEnergy, ShortTermEnergy: double;
+  MaxMomentaryEnergy, MaxShortTermEnergy: double;
+  MomentarySum, ShortTermSum: TDoubleVector;
+begin
+  // Sample-accurate sliding-window maxima for momentary (400 ms) and short-term
+  // (3 s) loudness. Same energy/weight accumulation as UpdateMomentaryEnergies /
+  // UpdateShortTermEnergies, but over the K-weighted sample stream: the maxima
+  // need finer resolution than the 100 ms block grid to meet the EBU peak tests
+  // (3341 cases 10/11/13/14). The running sums are the O(N) equivalent of the
+  // per-block window loop used there; EnergyToLufs is monotonic, so the maximum
+  // energy is tracked and converted to LUFS only once at the end.
+  FMaxMomentary := NegInfinity;
+  FMaxShortTerm := NegInfinity;
+  if (Length(AkwSamples) = 0) or (FSampleCount <= 0) then Exit;
+
+  MomentarySize := (FSampleRate * MomentaryMs) div 1000;
+  ShortTermSize := (FSampleRate * ShortTermMs) div 1000;
+
+  SetLength(MomentarySum, Length(AkwSamples));
+  SetLength(ShortTermSum, Length(AkwSamples));
+  for ch := Low(AkwSamples) to High(AkwSamples) do
+  begin
+    MomentarySum[ch] := 0;
+    ShortTermSum[ch] := 0;
+  end;
+
+  MaxMomentaryEnergy := 0;
+  MaxShortTermEnergy := 0;
+
+  for p := 0 to FSampleCount - 1 do
+  begin
+    for ch := Low(AkwSamples) to High(AkwSamples) do
+    begin
+      Square := Sqr(AkwSamples[ch][p]);
+      MomentarySum[ch] := MomentarySum[ch] + Square;
+      ShortTermSum[ch] := ShortTermSum[ch] + Square;
+      if p >= MomentarySize then
+        MomentarySum[ch] := MomentarySum[ch] - Sqr(AkwSamples[ch][p - MomentarySize]);
+      if p >= ShortTermSize then
+        ShortTermSum[ch] := ShortTermSum[ch] - Sqr(AkwSamples[ch][p - ShortTermSize]);
+    end;
+
+    if p >= MomentarySize - 1 then
+    begin
+      MomentaryEnergy := 0;
+      for ch := Low(AkwSamples) to High(AkwSamples) do
+        MomentaryEnergy := MomentaryEnergy + (MomentarySum[ch] / MomentarySize) * FWeights[ch];
+      if MomentaryEnergy > MaxMomentaryEnergy then MaxMomentaryEnergy := MomentaryEnergy;
+    end;
+
+    if p >= ShortTermSize - 1 then
+    begin
+      ShortTermEnergy := 0;
+      for ch := Low(AkwSamples) to High(AkwSamples) do
+        ShortTermEnergy := ShortTermEnergy + (ShortTermSum[ch] / ShortTermSize) * FWeights[ch];
+      if ShortTermEnergy > MaxShortTermEnergy then MaxShortTermEnergy := ShortTermEnergy;
+    end;
+  end;
+
+  if MaxMomentaryEnergy > 0 then FMaxMomentary := EnergyToLufs(MaxMomentaryEnergy);
+  if MaxShortTermEnergy > 0 then FMaxShortTerm := EnergyToLufs(MaxShortTermEnergy);
+end;
+
 procedure TLoudnessMeter.UpdateIntegratedLoudness;
 const
   AbsoluteGateLufs = -70;
@@ -584,6 +661,16 @@ begin
     result := NegInfinity;
 end;
 
+function TLoudnessMeter.MaxMomentaryLoudness: double;
+begin
+  result := FMaxMomentary;
+end;
+
+function TLoudnessMeter.MaxShortTermLoudness: double;
+begin
+  result := FMaxShortTerm;
+end;
+
 function TLoudnessMeter.IntegratedLoudness: double;
 begin
   result := FIntegratedLoudness;
@@ -631,6 +718,7 @@ begin
   UpdateShortTermEnergies;
   UpdateIntegratedLoudness;
   UpdateLoudnessRange;
+  UpdateMaxLoudness(kwBlocks);
 
   for ch := Low(kwBlocks) to High(kwBlocks) do
     kwBlocks[ch] := nil;
