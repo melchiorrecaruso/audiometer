@@ -317,6 +317,97 @@ begin
   Result := Max(Result, Peak(ASamples, ASampleCount));
 end;
 
+function TruePeak_LIBEBUR128(ASamples: PDouble; ASampleCount, ASampleRate: longint): TDouble;
+// True-peak via the libebur128 interpolator: 49-tap Hann-windowed sinc,
+// 4x oversampling (2x at >= 96 kHz), polyphase split by (tap mod factor).
+const
+  Taps = 49;
+var
+  Factor, Delay, PadLen, f, t, n, j: longint;
+  m, c, s: double;
+  Proto: array[0..Taps-1] of double;
+  Pad: TDoubleVector;
+begin
+  Result := 0;
+  if ASampleCount <= 0 then Exit;
+
+  if ASampleRate < 96000 then Factor := 4 else Factor := 2;
+
+  for j := 0 to Taps - 1 do
+  begin
+    m := j - (Taps - 1) / 2.0;
+    if Abs(m) > 1e-12 then
+      c := Sin(m * Pi / Factor) / (m * Pi / Factor)
+    else
+      c := 1.0;
+    Proto[j] := c * 0.5 * (1.0 - Cos(2.0 * Pi * j / (Taps - 1)));
+  end;
+
+  Delay  := (Taps + Factor - 1) div Factor;
+  PadLen := Delay;
+  SetLength(Pad, ASampleCount + PadLen);
+  FillChar(Pad[0], PadLen * SizeOf(TDouble), 0);
+  Move(ASamples^, Pad[PadLen], ASampleCount * SizeOf(TDouble));
+
+  for n := 0 to ASampleCount - 1 do
+    for f := 0 to Factor - 1 do
+    begin
+      s := 0;
+      for t := 0 to Delay - 1 do
+      begin
+        j := f + Factor * t;
+        if j < Taps then
+          s := s + Proto[j] * Pad[PadLen + n - t];
+      end;
+      if Abs(s) > Result then Result := Abs(s);
+    end;
+
+  Result := Max(Result, Peak(ASamples, ASampleCount));
+end;
+
+function TruePeak_BS1770(ASamples: PDouble; ASampleCount, ASampleRate: longint): TDouble;
+// True-peak via the ITU-R BS.1770 Annex 2 *example* 48-tap, 4-phase filter
+// (coefficients for 48 kHz, taken verbatim from the Recommendation).
+const
+  Taps = 12;
+  Coeffs: array[0..3, 0..Taps-1] of TDouble = (
+  ( 0.0017089843750,  0.0109863281250, -0.0196533203125,  0.0332031250000,
+   -0.0594482421875,  0.1373291015625,  0.9721679687500, -0.1022949218750,
+    0.0476074218750, -0.0266113281250,  0.0148925781250, -0.0083007812500),
+  (-0.0291748046875,  0.0292968750000, -0.0517578125000,  0.0891113281250,
+   -0.1665039062500,  0.4650878906250,  0.7797851562500, -0.2003173828125,
+    0.1015625000000, -0.0582275390625,  0.0330810546875, -0.0189208984375),
+  (-0.0189208984375,  0.0330810546875, -0.0582275390625,  0.1015625000000,
+   -0.2003173828125,  0.7797851562500,  0.4650878906250, -0.1665039062500,
+    0.0891113281250, -0.0517578125000,  0.0292968750000, -0.0291748046875),
+  (-0.0083007812500,  0.0148925781250, -0.0266113281250,  0.0476074218750,
+   -0.1022949218750,  0.9721679687500,  0.1373291015625, -0.0594482421875,
+    0.0332031250000, -0.0196533203125,  0.0109863281250,  0.0017089843750));
+var
+  p, k, n, PadLen: longint;
+  s: double;
+  Pad: TDoubleVector;
+begin
+  Result := 0;
+  if ASampleCount <= 0 then Exit;
+
+  PadLen := Taps;
+  SetLength(Pad, ASampleCount + 2 * PadLen);
+  FillChar(Pad[0], Length(Pad) * SizeOf(TDouble), 0);
+  Move(ASamples^, Pad[PadLen], ASampleCount * SizeOf(TDouble));
+
+  for n := 0 to ASampleCount + PadLen - 1 do
+    for p := 0 to 3 do
+    begin
+      s := 0;
+      for k := 0 to Taps - 1 do
+        s := s + Coeffs[p][k] * Pad[PadLen + n - k];
+      if Abs(s) > Result then Result := Abs(s);
+    end;
+
+  Result := Max(Result, Peak(ASamples, ASampleCount));
+end;
+
 function CrestFactor(const APeak, ARms2: TDouble): TDouble;
 begin
   if ARms2 > 1e-10 then
