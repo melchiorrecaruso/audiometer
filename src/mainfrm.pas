@@ -305,93 +305,24 @@ end;
 
 procedure TAudioFrm.Execute;
 var
-  Buff: array[0..4095] of byte;
-  bit4sample: longint;
-  i: longint;
-  Ini: TIniFile;
-  Mem: TMemoryStream;
   Process: TProcess;
   Track: TTrack;
-  sampfmt: string;
-  codec: string;
+  convok: boolean;
 begin
   if IsNeededKillAnalyzer then Exit;
   if TrackIndex >= TrackList.Count then Exit;
   if TrackIndex < 0 then Exit;
 
   Track := TrackList[TrackIndex];
+  convok := True;
   try
     if ExtractFileExt(Track.Filename) <> '.wav' then
     begin
       TempFile := IncludeTrailingBackSlash(GetTempDir(False)) + 'audiometer-tmp.wav';
 
-      // get file properties
-      Process := TProcess.Create(nil);
-      try
-        Process.Parameters.Clear;
-        Process.CurrentDirectory := ExtractFileDir(Track.Filename);
-        Process.Executable := 'ffprobe';
-        Process.Parameters.Add('-show_streams');
-        Process.Parameters.Add('-hide_banner');
-        Process.Parameters.Add('-print_format');
-        Process.Parameters.Add('ini');
-        Process.Parameters.Add(ExtractFileName(Track.Filename));
-        Process.Options := [poNoConsole, poUsePipes];
-        Process.Execute;
-
-        Mem := TMemoryStream.Create;
-        while (Process.Running) or
-              (Process.Output.NumBytesAvailable > 0) or
-              (Process.stderr.NumBytesAvailable > 0) do
-        begin
-          while Process.Output.NumBytesAvailable > 0 do
-            Mem.write(Buff, Process.Output.read(Buff, sizeof(Buff)));
-          while Process.stderr.NumBytesAvailable > 0 do
-            Process.stderr.read(Buff, sizeof(Buff));
-        end;
-        Mem.Seek(0, sofrombeginning);
-
-        Ini := TIniFile.Create(Mem, [ifostripcomments, ifostripinvalid]);
-
-        sampfmt := '';
-        bit4sample := 0;
-        i := 0;
-        while Ini.SectionExists('streams.stream.' + inttostr(i)) do
-        begin
-          if Ini.ReadString('streams.stream.' + inttostr(i), 'codec_type', '') = 'audio' then
-          begin
-            bit4sample := Ini.ReadInteger('streams.stream.' + inttostr(i), 'bits_per_raw_sample', bit4sample);
-            sampfmt    := Ini.ReadString ('streams.stream.' + inttostr(i), 'sample_fmt', sampfmt);
-            Break;
-          end;
-          inc(i);
-        end;
-        Ini.Destroy;
-        Mem.Destroy;
-      except
-      end;
-      Process.Destroy;
-
-      sampfmt := LowerCase(Trim(sampfmt));
-      if (Length(sampfmt) > 0) and (sampfmt[Length(sampfmt)] = 'p') then
-        sampfmt := Copy(sampfmt, 1, Length(sampfmt) - 1);   // fltp->flt, s32p->s32, ...
-
-      codec := 'pcm_f32le'; // default: lossless per i decode float, niente dither/clip
-      if (sampfmt = 'u8') or (sampfmt = 's16') then
-        codec := 'pcm_s16le'
-      else
-        if sampfmt = 's32' then
-        begin
-          if bit4sample = 24 then
-            codec := 'pcm_s24le'   // 24-bit in container s32
-          else
-            codec := 'pcm_s32le'; // 32-bit intero vero
-        end else
-          if sampfmt = 'dbl' then
-            codec := 'pcm_f64le';
-      // 'flt' e qualsiasi formato non riconosciuto -> pcm_f32le (default)
-
-      // decode to .AudioAnalyzer
+      // Decode to a 64-bit float WAV: a double holds any integer (<=32 bit) or
+      // float source exactly, so the capture is bit-perfect without probing.
+      convok := False;
       Process := TProcess.Create(nil);
       try
         Process.Parameters.Clear;
@@ -405,10 +336,11 @@ begin
         Process.Parameters.Add('0:a:0');
         Process.Parameters.Add('-bitexact');
         Process.Parameters.Add('-c:a');
-        Process.Parameters.Add(codec);
+        Process.Parameters.Add('pcm_f64le');
         Process.Parameters.Add(TempFile);
         Process.Options := [poNoConsole, poWaitOnExit];
         Process.Execute;
+        convok := (Process.ExitStatus = 0);
       except
       end;
       Process.Destroy;
@@ -416,7 +348,10 @@ begin
     end else
       TempFile := Track.Filename;
 
-    Stream := TFileStream.Create(TempFile, fmOpenRead or fmShareExclusive);
+    if convok then
+      Stream := TFileStream.Create(TempFile, fmOpenRead or fmShareExclusive)
+    else
+      Stream := nil;
   except
     Stream := nil;
   end;
@@ -431,7 +366,10 @@ begin
     AudioAnalyzer.Start;
   end else
   begin
-    MessageDlg('AudioMeter', Format('Error to open file "%s"', [TempFile]), mtError, [mbOk], '');
+    if not convok then
+      MessageDlg('AudioMeter', Format('Error converting file "%s" (ffmpeg failed)', [Track.Filename]), mtError, [mbOk], '')
+    else
+      MessageDlg('AudioMeter', Format('Error to open file "%s"', [TempFile]), mtError, [mbOk], '');
     Track := nil;
   end;
 end;
