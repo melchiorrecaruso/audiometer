@@ -312,6 +312,8 @@ var
   Mem: TMemoryStream;
   Process: TProcess;
   Track: TTrack;
+  sampfmt: string;
+  codec: string;
 begin
   if IsNeededKillAnalyzer then Exit;
   if TrackIndex >= TrackList.Count then Exit;
@@ -351,13 +353,16 @@ begin
 
         Ini := TIniFile.Create(Mem, [ifostripcomments, ifostripinvalid]);
 
-        i := 0;
+        sampfmt := '';
         bit4sample := 0;
+        i := 0;
         while Ini.SectionExists('streams.stream.' + inttostr(i)) do
         begin
           if Ini.ReadString('streams.stream.' + inttostr(i), 'codec_type', '') = 'audio' then
           begin
-            bit4sample := Ini.ReadInteger('streams.stream.' + inttostr(i), 'bits_per_raw_sample',  bit4sample);
+            bit4sample := Ini.ReadInteger('streams.stream.' + inttostr(i), 'bits_per_raw_sample', bit4sample);
+            sampfmt    := Ini.ReadString ('streams.stream.' + inttostr(i), 'sample_fmt', sampfmt);
+            Break;
           end;
           inc(i);
         end;
@@ -366,6 +371,25 @@ begin
       except
       end;
       Process.Destroy;
+
+      sampfmt := LowerCase(Trim(sampfmt));
+      if (Length(sampfmt) > 0) and (sampfmt[Length(sampfmt)] = 'p') then
+        sampfmt := Copy(sampfmt, 1, Length(sampfmt) - 1);   // fltp->flt, s32p->s32, ...
+
+      codec := 'pcm_f32le'; // default: lossless per i decode float, niente dither/clip
+      if (sampfmt = 'u8') or (sampfmt = 's16') then
+        codec := 'pcm_s16le'
+      else
+        if sampfmt = 's32' then
+        begin
+          if bit4sample = 24 then
+            codec := 'pcm_s24le'   // 24-bit in container s32
+          else
+            codec := 'pcm_s32le'; // 32-bit intero vero
+        end else
+          if sampfmt = 'dbl' then
+            codec := 'pcm_f64le';
+      // 'flt' e qualsiasi formato non riconosciuto -> pcm_f32le (default)
 
       // decode to .AudioAnalyzer
       Process := TProcess.Create(nil);
@@ -377,19 +401,11 @@ begin
         Process.Parameters.Add('-hide_banner');
         Process.Parameters.Add('-i');
         Process.Parameters.Add(ExtractFileName(Track.Filename));
-
-        if bit4sample = 24 then
-        begin
-          Process.Parameters.Add('-c:a');
-          Process.Parameters.Add('pcm_s24le');
-        end;
-
-        if bit4sample = 32 then
-        begin
-          Process.Parameters.Add('-c:a');
-          Process.Parameters.Add('pcm_s32le');
-        end;
-
+        Process.Parameters.Add('-map');
+        Process.Parameters.Add('0:a:0');
+        Process.Parameters.Add('-bitexact');
+        Process.Parameters.Add('-c:a');
+        Process.Parameters.Add(codec);
         Process.Parameters.Add(TempFile);
         Process.Options := [poNoConsole, poWaitOnExit];
         Process.Execute;
