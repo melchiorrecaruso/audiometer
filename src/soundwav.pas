@@ -129,7 +129,9 @@ type
   private
     FFmt: TFmtchunk;
     FFmtext: TFmtchunkext;
+    FFactchunk: TFactchunk;
     FDatachunk: TDatachunk;
+    FFormat: word;        // effective sample format (PCM or IEEE_FLOAT), GUID-resolved
     //---
     FTrack: TTrack;
     //---
@@ -146,7 +148,6 @@ type
     procedure ReadStream(AStream: TStream);
     function ReadChannels(AStream: TStream;
       AChannels: TDoubleMatrix; ASampleCount: longint): longint;
-    procedure PrepareSamplesForAnalysis;
   public
     constructor Create(ATrack: TTrack; AStream: TStream; AFFTOn: boolean);
     destructor Destroy; override;
@@ -372,11 +373,14 @@ end;
 
 procedure TTrackAnalyzer.ReadHeader(AStream: tstream);
 var
-  Marker: array[0..3] of char;
   Riff: TRiffHeader;
+  ckid: array[0..3] of char;
+  cksize: longword;
+  BodyStart: int64;
+  FmtFound, DataFound: boolean;
 begin
   if AStream.Read(Riff, sizeof(Riff)) <> sizeof(Riff) then FStatus := -1;
-  if Riff.ckid <> idriff then FStatus := -1;
+  if Riff.ckid  <> idriff then FStatus := -1;
   if Riff.waveid <> idwave then FStatus := -1;
   if FStatus <> 0 then Exit;
   Riff.cksize := leton(Riff.cksize);
@@ -385,74 +389,104 @@ begin
   writeln('riff.cksize        ', Riff.cksize);
   writeln('riff.format        ', Riff.waveid);
   {$endif}
-  if AStream.Read(FFmt, sizeof(FFmt)) <> sizeof(FFmt) then FStatus := -1;
-  if FFmt.ckid <> idfmt then FStatus := -1;
+
+  FFactchunk.samplelength := 0;
+  FmtFound  := False;
+  DataFound := False;
+  // Walk the RIFF chunk list. Each chunk is ckID(4) + ckSize(4) + body[ckSize],
+  // padded to an even length. Unknown chunks (LIST, fact, bext, cue, ...) are
+  // skipped by their declared size: this is the robust, spec-compliant way and
+  // replaces the old byte-by-byte scan that could false-match "data" inside a
+  // metadata chunk and ignored the chunk boundaries entirely.
+  while (FStatus = 0) and (not DataFound) do
+  begin
+    if AStream.Read(ckid, sizeof(ckid)) <> sizeof(ckid) then Break;   // clean EOF
+    if AStream.Read(cksize, sizeof(cksize)) <> sizeof(cksize) then FStatus := -1;
+    if FStatus <> 0 then Break;
+    cksize    := leton(cksize);
+    BodyStart := AStream.Position;
+
+    if ckid = idfmt then
+    begin
+      // mandatory 16-byte body (FormatTag..BitsPerSample); valid for cksize 16/18/40
+      if AStream.Read(FFmt.FormatTag, 16) <> 16 then FStatus := -1;
+      if FStatus = 0 then
+      begin
+        FFmt.ckid          := idfmt;
+        FFmt.cksize        := cksize;
+        FFmt.FormatTag     := leton(FFmt.FormatTag);
+        FFmt.Channels      := leton(FFmt.Channels);
+        FFmt.samplespersec := leton(FFmt.samplespersec);
+        FFmt.bytespersec   := leton(FFmt.bytespersec);
+        FFmt.blockalign    := leton(FFmt.blockalign);
+        FFmt.BitsPerSample := leton(FFmt.BitsPerSample);
+        // full GUID extension is present only with the 40-byte fmt layout
+        if cksize >= 40 then
+        begin
+          if AStream.Read(FFmtext, sizeof(FFmtext)) <> sizeof(FFmtext) then FStatus := -1;
+          if FStatus = 0 then
+          begin
+            FFmtext.cbsize             := leton(FFmtext.cbsize);
+            FFmtext.validbitspersample := leton(FFmtext.validbitspersample);
+            FFmtext.channelmask        := leton(FFmtext.channelmask);
+            FFmtext.subcode            := leton(FFmtext.subcode);
+          end;
+        end;
+        FmtFound := True;
+      end;
+    end
+    else if ckid = iffact then
+    begin
+      // optional; carries the per-channel sample count (kept for diagnostics)
+      if AStream.Read(FFactchunk.samplelength, sizeof(FFactchunk.samplelength)) <> sizeof(FFactchunk.samplelength) then FStatus := -1;
+      if FStatus = 0 then FFactchunk.samplelength := leton(FFactchunk.samplelength);
+    end
+    else if ckid = iddata then
+    begin
+      FDatachunk.subck2id   := iddata;
+      FDatachunk.subck2size := cksize;
+      DataFound := True;
+      Break;   // leave the stream positioned at the first audio byte for ReadChannels
+    end;
+
+    // jump to the next chunk header: body length plus the pad byte if odd
+    if (FStatus = 0) and (not DataFound) then
+      AStream.Position := BodyStart + cksize + (cksize and 1);
+  end;
+
   if FStatus <> 0 then Exit;
+  if not FmtFound  then begin FStatus := -1; Exit; end;
+  if not DataFound then begin FStatus := -1; Exit; end;
 
-  FFmt.cksize := leton(FFmt.cksize);
-  FFmt.FormatTag := leton(FFmt.FormatTag);
-  FFmt.Channels := leton(FFmt.Channels);
-  FFmt.samplespersec := leton(FFmt.samplespersec);
-  FFmt.bytespersec := leton(FFmt.bytespersec);
-  FFmt.blockalign := leton(FFmt.blockalign);
-  FFmt.BitsPerSample := leton(FFmt.BitsPerSample);
+  // Resolve the effective format. For WAVE_FORMAT_EXTENSIBLE the real format is
+  // the leading code of the GUID (FFmtext.subcode), not FormatTag.
+  if FFmt.FormatTag = WAVE_FORMAT_EXTENSIBLE then
+    FFormat := FFmtext.subcode
+  else
+    FFormat := FFmt.FormatTag;
 
-  if FFmt.Channels = 0 then FStatus := -2;
+  if FFmt.Channels  = 0 then FStatus := -2;
   if FFmt.blockalign = 0 then FStatus := -1;
-  if not (FFmt.BitsPerSample in [8, 16, 24, 32]) then FStatus := -1;
-  // only integer PCM is decoded (also accept WAVE_FORMAT_EXTENSIBLE, used for
-  // multichannel and 24/32-bit PCM); reject float, A-law, mu-law, etc.
-  if (FFmt.FormatTag <> WAVE_FORMAT_PCM) and (FFmt.FormatTag <> WAVE_FORMAT_EXTENSIBLE) then FStatus := -1;
+  // Accept integer PCM and IEEE float; reject A-law, mu-law, ADPCM and the rest.
+  case FFormat of
+    WAVE_FORMAT_PCM:        if not (FFmt.BitsPerSample in [8, 16, 24, 32]) then FStatus := -1;
+    WAVE_FORMAT_IEEE_FLOAT: if not (FFmt.BitsPerSample in [32, 64])        then FStatus := -1;
+  else
+    FStatus := -1;
+  end;
   if FStatus <> 0 then Exit;
 
   {$ifopt D+}
   writeln('ffmt.subckid       ', FFmt.ckid);
   writeln('ffmt.subcksize     ', FFmt.cksize);
   writeln('ffmt.formattag     ', FFmt.FormatTag);
+  writeln('ffmt.effformat     ', FFormat);
   writeln('ffmt.channels      ', FFmt.Channels);
   writeln('ffmt.samplerate    ', FFmt.samplespersec);
   writeln('ffmt.byterate      ', FFmt.bytespersec);
   writeln('ffmt.blockalign    ', FFmt.blockalign);
   writeln('ffmt.bitspersample ', FFmt.BitsPerSample);
-  {$endif}
-
-  if FFmt.cksize = 40 then
-  begin
-    if AStream.Read(FFmtext, sizeof(FFmtext)) <> sizeof(FFmtext) then FStatus := -1;
-
-    FFmtext.cbsize := leton(FFmtext.cbsize);
-    FFmtext.validbitspersample := leton(FFmtext.validbitspersample);
-    FFmtext.channelmask := leton(FFmtext.channelmask);
-    FFmtext.subcode := leton(FFmtext.subcode);
-    // for WAVE_FORMAT_EXTENSIBLE the actual format is the leading GUID code;
-    // accept integer PCM only, reject float and others.
-    if (FFmt.FormatTag = WAVE_FORMAT_EXTENSIBLE) and (FFmtext.subcode <> WAVE_FORMAT_PCM) then FStatus := -1;
-    {$ifopt D+}
-    writeln;
-    writeln('ffmtext.cbsize             ', FFmtext.cbsize);
-    writeln('ffmtext.validbitspersample ', FFmtext.validbitspersample);
-    writeln('ffmtext.channelmask        ', FFmtext.channelmask);
-    writeln;
-    {$endif}
-  end;
-
-  // search data section by scanning
-  FillChar(Marker, sizeof(Marker), ' ');
-  while AStream.Read(Marker[3], 1) = 1 do
-  begin
-    if Marker = iddata then
-    begin
-      FDatachunk.subck2id := iddata;
-      AStream.Read(FDatachunk.subck2size,
-        sizeof(FDatachunk.subck2size));
-      break;
-    end;
-    move(Marker[1], Marker[0], sizeof(Marker) - 1);
-  end;
-
-  if FDatachunk.subck2id <> iddata then FStatus := -1;
-  FDatachunk.subck2size := leton(FDatachunk.subck2size);
-  {$ifopt D+}
+  writeln('fact.samplelength  ', FFactchunk.samplelength);
   writeln('data.subck2id      ', FDatachunk.subck2id);
   writeln('data.subck2size    ', FDatachunk.subck2size);
   {$endif}
@@ -465,6 +499,7 @@ var
   i, j, k, Index, BytesPerSample: longint;
   DataBytes: longint;
   Buffer: array of byte;
+  InvNorm: TDouble;
 begin
   Result := 0;
 
@@ -477,60 +512,85 @@ begin
 
   if FStatus <> 0 then Exit;
 
+  // Dispatch once on the (format, bit depth) pair, then run a single, type-
+  // specialized pass that de-interleaves AND normalizes in one go (no second
+  // sweep over the matrix). The integer paths multiply by 1/full-scale: that
+  // scale is a power of two, so its reciprocal is exactly representable and the
+  // product is bit-identical to the division -- only without the divide.
   Index := 0;
-  for i := 0 to ASampleCount - 1 do
-  begin
-    for j := 0 to FFmt.Channels - 1 do
-    begin
+  case FFormat of
+    WAVE_FORMAT_PCM:
       case FFmt.BitsPerSample of
-         8:  AChannels[j][i] := pbyte(@Buffer[Index])^;
-        16:  AChannels[j][i] := psmallint(@Buffer[Index])^;
-        24:  begin
-               if Buffer[Index + 2] > 127 then
-                 k := longint($FFFFFFFF)
-               else
-                 k := 0;
+        8:
+          begin
+            InvNorm := 1.0 / 128.0;          // exact (2^-7); unsigned, zero at 128
+            for i := 0 to ASampleCount - 1 do
+              for j := 0 to FFmt.Channels - 1 do
+              begin
+                AChannels[j][i] := (pbyte(@Buffer[Index])^ - 128.0) * InvNorm;
+                Inc(Index, 1);
+              end;
+          end;
+        16:
+          begin
+            InvNorm := 1.0 / 32768.0;        // exact (2^-15)
+            for i := 0 to ASampleCount - 1 do
+              for j := 0 to FFmt.Channels - 1 do
+              begin
+                AChannels[j][i] := psmallint(@Buffer[Index])^ * InvNorm;
+                Inc(Index, 2);
+              end;
+          end;
+        24:
+          begin
+            InvNorm := 1.0 / 8388608.0;      // exact (2^-23)
+            for i := 0 to ASampleCount - 1 do
+              for j := 0 to FFmt.Channels - 1 do
+              begin
+                if Buffer[Index + 2] > 127 then
+                  k := longint($FFFFFFFF)
+                else
+                  k := 0;
 
-               k := (k shl 8) or Buffer[Index + 2];
-               k := (k shl 8) or Buffer[Index + 1];
-               k := (k shl 8) or Buffer[Index + 0];
+                k := (k shl 8) or Buffer[Index + 2];
+                k := (k shl 8) or Buffer[Index + 1];
+                k := (k shl 8) or Buffer[Index + 0];
 
-               AChannels[j][i] := k;
-             end;
-        32:  AChannels[j][i] := plongint(@Buffer[Index])^;
+                AChannels[j][i] := k * InvNorm;
+                Inc(Index, 3);
+              end;
+          end;
+        32:
+          begin
+            InvNorm := 1.0 / 2147483648.0;   // exact (2^-31)
+            for i := 0 to ASampleCount - 1 do
+              for j := 0 to FFmt.Channels - 1 do
+              begin
+                AChannels[j][i] := plongint(@Buffer[Index])^ * InvNorm;
+                Inc(Index, 4);
+              end;
+          end;
       end;
-      Inc(Index, BytesPerSample);
-    end;
-  end;
-
-  PrepareSamplesForAnalysis;
-end;
-
-procedure TTrackAnalyzer.PrepareSamplesForAnalysis;
-var
-  i, j: longint;
-  Offset, Norm: TDouble;
-begin
-  Offset := 0;
-  Norm   := 1;
-  // Normalize by the format zero point: 8-bit WAV is unsigned (zero at 128),
-  // 16/24/32-bit are signed (already centered at 0). A content-dependent center
-  // (e.g. the midrange) would shift asymmetric waveforms and corrupt peak/RMS.
-  case FTrack.FBitsPerSample of
-     8: begin Offset := 128;  Norm :=        128.0; end;  // unsigned, zero at 128
-    16: begin Offset := 0;    Norm :=      32768.0; end;  //   signed (2^15)
-    24: begin Offset := 0;    Norm :=    8388608.0; end;  //   signed (2^23)
-    32: begin Offset := 0;    Norm := 2147483648.0; end;  //   signed (2^31)
-  else  FStatus := -1;
-  end;
-
-  if FStatus <> 0 then Exit;
-  for i := Low(FTrack.FChannels) to High(FTrack.FChannels) do
-  begin
-    for j := Low(FTrack.FChannels[i]) to High(FTrack.FChannels[i]) do
-    begin
-      FTrack.FChannels[i][j] := (FTrack.FChannels[i][j] - Offset) / Norm;
-    end;
+    WAVE_FORMAT_IEEE_FLOAT:
+      // Raw little-endian IEEE samples, already in [-1, +1] (overs may exceed it
+      // and are kept on purpose for true-peak). Widening single -> double and
+      // reading double are both exact on an LE host, so no scaling is applied.
+      case FFmt.BitsPerSample of
+        32:
+          for i := 0 to ASampleCount - 1 do
+            for j := 0 to FFmt.Channels - 1 do
+            begin
+              AChannels[j][i] := psingle(@Buffer[Index])^;
+              Inc(Index, 4);
+            end;
+        64:
+          for i := 0 to ASampleCount - 1 do
+            for j := 0 to FFmt.Channels - 1 do
+            begin
+              AChannels[j][i] := pdouble(@Buffer[Index])^;
+              Inc(Index, 8);
+            end;
+      end;
   end;
 end;
 
