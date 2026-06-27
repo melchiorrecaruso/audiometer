@@ -134,6 +134,7 @@ type
 
     procedure Execute;
     procedure ClearTrackList;
+    procedure ClearData;
     procedure Clear;
 
     procedure OnStartAnalyzer;
@@ -438,6 +439,16 @@ end;
 
 procedure TAudioFrm.Clear;
 begin
+  TrackFileName.Font.Color := clwhite;
+  TrackFileName.Caption := 'Audio';
+
+  ClearData;
+
+  IsNeededUpdateScreens := True;
+end;
+
+procedure TAudioFrm.ClearData;
+begin
   pcm   .Font.Color := clGray;
   bit8  .Font.Color := clGray;
   bit16 .Font.Color := clGray;
@@ -487,11 +498,6 @@ begin
   RangeLoudnessValue      .Caption := '-';
   PeakToLoudnessRatioValue.Caption := '-';
   DRValue                 .Caption := '--';
-
-  TrackFileName.Font.Color := clwhite;
-  TrackFileName.Caption := 'Audio';
-
-  IsNeededUpdateScreens := True;
 end;
 
 procedure TAudioFrm.ClearTrackList;
@@ -743,6 +749,7 @@ end;
 
 procedure TAudioFrm.RedrawScreen(ATrack: TTrack);
 begin
+  ClearData;
   if Assigned(ATrack) then
   begin
     TrackFileName.Font.Color := clWhite;
@@ -764,8 +771,8 @@ begin
     kHz176.Font.Color := clGray; if ATrack.Samplerate    = 176400 then kHz176.Font.Color := clWhite;
     kHz192.Font.Color := clGray; if ATrack.Samplerate    = 192000 then kHz192.Font.Color := clWhite;
 
-    Mono  .Font.Color := clGray; if ATrack.ChannelCount  = 1      then Mono  .Font.Color := clWhite;
-    Stereo.Font.Color := clGray; if ATrack.ChannelCount  = 2      then Stereo.Font.Color := clWhite;
+    Mono  .Font.Color := clGray; if ATrack.ChannelCount  = 1 then Mono  .Font.Color := clWhite;
+    Stereo.Font.Color := clGray; if ATrack.ChannelCount  = 2 then Stereo.Font.Color := clWhite;
 
     TruePeakLabel.Font.Color := clWhite;
     if ATrack.ChannelCount > 0 then if Decibel(ATrack.Loudness.TruePeak(0)) <= 0.0 then TPLLeftValue .Font.Color := clLime;
@@ -785,7 +792,7 @@ begin
 
     LoudnessFSLabel.Font.Color := clWhite;
     if ATrack.ChannelCount > 0 then IntegratedLoudnessValue .Font.Color := clWhite;
-    if ATrack.ChannelCount > 1 then RangeLoudnessValue      .Font.Color := clWhite;
+    if ATrack.ChannelCount > 0 then RangeLoudnessValue      .Font.Color := clWhite;
     if ATrack.ChannelCount > 0 then PeakToLoudnessRatioValue.Font.Color := clWhite;
 
     if ATrack.ChannelCount > 0 then plleftvalue .Caption := Format('%0.2f', [ATrack.Loudness.Peak(0)]);
