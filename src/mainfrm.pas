@@ -30,7 +30,7 @@ uses
   stdctrls, extctrls, comctrls, IniPropStorage, XMLPropStorage, Menus,
   bufstream, soundwav, bclistbox, process, inifiles, bgrabitmap,
   bgrabitmaptypes, bgravirtualscreen, BCFluentProgressRing, drawers, Common,
-  BCTypes, LCLType;
+  BCTypes, LCLType, BaseGraphics;
 
 type
   { TAudioFrm }
@@ -217,6 +217,8 @@ begin
   ProgressRing.Visible := True;
   // inizialize main form
   Color := clBlack;
+  // ---
+  InitFont('DejaVu Sans', ExtractFilePath(ParamStr(0)) + ('DejaVuSans.ttf'));
   // Initialize
   Clear;
 end;
