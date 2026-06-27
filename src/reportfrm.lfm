@@ -77,12 +77,12 @@ object ReportForm: TReportForm
     AnchorSideTop.Control = Memo
     AnchorSideRight.Control = Memo
     AnchorSideRight.Side = asrBottom
-    Left = 890
+    Left = 882
     Height = 48
     Top = 11
     Width = 48
     Anchors = [akTop, akRight]
-    BorderSpacing.Right = 16
+    BorderSpacing.Right = 24
     BevelOuter = bvNone
     ClientHeight = 48
     ClientWidth = 48
