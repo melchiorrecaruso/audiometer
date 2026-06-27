@@ -765,28 +765,29 @@ begin
   WindowCount := FTrack.Spectrums.WindowCount;
   OutBins     := FTrack.Spectrums.OutBins;
 
-  XFactor := (OutBins      - 1) / (Bit.Width  - 1);
-  YFactor := (WindowCount  - 1) / (Bit.Height - 1);
-
-  MaxDB := 6 * FTrack.BitsPerSample;
-
-  // loop over output bitmap pixels
-  for Y := 0 to Bit.Height -1 do
+  if (Bit.Width  > 2) and
+     (Bit.Height > 2) then
   begin
-    TimeIndex  := Trunc(Y * YFactor);
+    XFactor := (OutBins      - 1) / (Bit.Width  - 1);
+    YFactor := (WindowCount  - 1) / (Bit.Height - 1);
 
-    for X := 0 to Bit.Width -1 do
+    MaxDB := 6 * FTrack.BitsPerSample;
+    // loop over output bitmap pixels
+    for Y := 0 to Bit.Height -1 do
     begin
-      FreqIndex  :=  Trunc(X * XFactor);
-
-      // compute fft bin index for this pixel
-      Amp := 0;
-      for ch := 0 to FTrack.ChannelCount -1 do
+      TimeIndex  := Trunc(Y * YFactor);
+      for X := 0 to Bit.Width -1 do
       begin
-        Amp := Max(Amp, FTrack.Spectrums.Channels[ch, TimeIndex * OutBins + FreqIndex]);
+        FreqIndex  :=  Trunc(X * XFactor);
+        // compute fft bin index for this pixel
+        Amp := 0;
+        for ch := 0 to FTrack.ChannelCount -1 do
+        begin
+          Amp := Max(Amp, FTrack.Spectrums.Channels[ch, TimeIndex * OutBins + FreqIndex]);
+        end;
+        // map amplitude to color and set pixel
+        Bit.SetPixel(X, Bit.Height - 1 - Y, GetColor((Decibel(Amp) + MaxDB) / MaxDB));
       end;
-      // map amplitude to color and set pixel
-      Bit.SetPixel(X, Bit.Height - 1 - Y, GetColor((Decibel(Amp) + MaxDB) / MaxDB));
     end;
   end;
   FScreen.PutImage(
