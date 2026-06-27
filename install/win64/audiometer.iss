@@ -36,6 +36,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
+Source: "DejaVuSans.ttf";    DestDir: "{app}"; Flags: ignoreversion
 Source: "audiometerdbg.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "audiometer.exe";    DestDir: "{app}"; Flags: ignoreversion
 Source: "ffprobe.exe";       DestDir: "{app}"; Flags: ignoreversion
