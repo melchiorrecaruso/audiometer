@@ -201,6 +201,10 @@ end;
 
 procedure TAudioFrm.FormCreate(Sender: TObject);
 begin
+  DefaultFontName := 'DejaVu Sans';
+  DefaultFontFileName := ExtractFilePath(ParamStr(0)) + 'fonts/DejaVuSans/DejaVuSans.ttf';
+  DoDirSeparators(DefaultFontFileName);
+  // ---
   PropStorage.IniFileName := GetAppFile('mainfrm.ini');
   PropStorage.Active := True;
   // ---
@@ -217,8 +221,6 @@ begin
   ProgressRing.Visible := True;
   // inizialize main form
   Color := clBlack;
-  // ---
-  InitFont('DejaVu Sans', ExtractFilePath(ParamStr(0)) + ('DejaVuSans.ttf'));
   // Initialize
   Clear;
 end;
