@@ -1,7 +1,7 @@
 {
   Description: Report Form.
 
-  Copyright (C) 2025 Melchiorre Caruso <melchiorrecaruso@gmail.com>
+  Copyright (C) 2025-2026 Melchiorre Caruso <melchiorrecaruso@gmail.com>
 
   This source is free software; you can redistribute it and/or modify it under
   the terms of the GNU General Public License as published by the Free
@@ -63,7 +63,7 @@ uses
 
 procedure TReportForm.FormCreate(Sender: TObject);
 begin
-  PropStorage.IniFileName := GetAppFile('audiometer.ini');
+  PropStorage.IniFileName := GetAppFile('reportfrm.ini');
   PropStorage.Active := True;
   //
   Color := clBlack;
