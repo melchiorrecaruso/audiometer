@@ -294,11 +294,11 @@ begin
   writeln;
   writeln('DYNAMIC RANGE:');
   writeln('Track.DR:         ', FTrack.DRMeter.DR                  :2:2);
-  for ch := 0 to FTrack.FChannelCount -1 do
+  for ch := 0 to FTrack.DRMeter.ChannelCount -1 do
   begin
     writeln(ChannelName(ch, FTrack.FChannelCount),'.Rms         ', Decibel(FTrack.DRMeter.Rms (ch)):2:2);
     writeln(ChannelName(ch, FTrack.FChannelCount),'.Peak        ', Decibel(FTrack.DRMeter.Peak(ch)):2:2);
-    writeln(ChannelName(ch, FTrack.FChannelCount),'.DR          ', FTrack.DRMeter.DR(ch):2:2);
+    writeln(ChannelName(ch, FTrack.FChannelCount),'.DR          ',         FTrack.DRMeter.DR  (ch) :2:2);
   end;
   writeln;
   {$endif}
