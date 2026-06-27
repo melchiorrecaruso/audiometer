@@ -661,7 +661,7 @@ var
   Track: TTrack;
 begin
   S.Clear;
-  S.Add('AudioMeter 0.5.4 - Dynamic Range Meter');
+  S.Add('AudioMeter 0.6.0 - Dynamic Range Meter');
   S.Add(Splitter);
   S.Add(Format('Log date : %s', [DateTimeToStr(now)]));
   S.Add(Splitter);
