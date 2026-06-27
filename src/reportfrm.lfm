@@ -1,7 +1,7 @@
 object ReportForm: TReportForm
-  Left = 16
+  Left = 40
   Height = 722
-  Top = 169
+  Top = 194
   Width = 965
   Caption = 'Report'
   ClientHeight = 722
@@ -67,6 +67,7 @@ object ReportForm: TReportForm
     Font.Name = 'Liberation Mono'
     ParentFont = False
     ReadOnly = True
+    ScrollBars = ssAutoBoth
     TabOrder = 0
     TabStop = False
     WantReturns = False
@@ -76,17 +77,21 @@ object ReportForm: TReportForm
     AnchorSideTop.Control = Memo
     AnchorSideRight.Control = Memo
     AnchorSideRight.Side = asrBottom
-    Left = 906
+    Left = 890
     Height = 48
     Top = 11
     Width = 48
     Anchors = [akTop, akRight]
-    AutoSize = True
+    BorderSpacing.Right = 16
     BevelOuter = bvNone
     ClientHeight = 48
     ClientWidth = 48
     TabOrder = 1
     object SaveBtn: TSpeedButton
+      AnchorSideLeft.Control = BtnPanel
+      AnchorSideLeft.Side = asrCenter
+      AnchorSideTop.Control = BtnPanel
+      AnchorSideRight.Side = asrBottom
       Left = 0
       Height = 48
       Top = 0
