@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
   <ProjectOptions>
-    <Version Value="12"/>
+    <Version Value="13"/>
     <General>
       <Flags>
         <SaveClosedFiles Value="False"/>
@@ -141,12 +141,10 @@
     <Units>
       <Unit>
         <Filename Value="audiometer.lpr"/>
-        <IsPartOfProject Value="True"/>
         <UnitName Value="AudioMeter"/>
       </Unit>
       <Unit>
         <Filename Value="src/mainfrm.pas"/>
-        <IsPartOfProject Value="True"/>
         <ComponentName Value="AudioFrm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
@@ -154,37 +152,30 @@
       </Unit>
       <Unit>
         <Filename Value="src/soundwav.pas"/>
-        <IsPartOfProject Value="True"/>
         <UnitName Value="SoundWav"/>
       </Unit>
       <Unit>
         <Filename Value="src/drawers.pas"/>
-        <IsPartOfProject Value="True"/>
         <UnitName Value="Drawers"/>
       </Unit>
       <Unit>
         <Filename Value="src/loudness.pas"/>
-        <IsPartOfProject Value="True"/>
         <UnitName Value="Loudness"/>
       </Unit>
       <Unit>
         <Filename Value="src/dynamicrange.pas"/>
-        <IsPartOfProject Value="True"/>
         <UnitName Value="DynamicRange"/>
       </Unit>
       <Unit>
         <Filename Value="src/common.pas"/>
-        <IsPartOfProject Value="True"/>
         <UnitName Value="Common"/>
       </Unit>
       <Unit>
         <Filename Value="src/spectrum.pas"/>
-        <IsPartOfProject Value="True"/>
         <UnitName Value="Spectrum"/>
       </Unit>
       <Unit>
         <Filename Value="src/reportfrm.pas"/>
-        <IsPartOfProject Value="True"/>
         <ComponentName Value="ReportForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
