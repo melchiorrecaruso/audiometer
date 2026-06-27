@@ -53,7 +53,6 @@ function TruePeak(ASamples: PDouble; ASampleCount, ASampleRate: longint): TDoubl
 function CrestFactor(const APeak, ARms2: TDouble): TDouble; inline;
 
 procedure QuickSort(var AValues: TDoubleVector; Low, High: longint);
-function Percentile(var AValues: TListOfDouble; P: double): TDouble;
 
 function ChannelName(AChannelIndex, AChannelCount: longint): string;
 function GetAppFile(const FileName: string): string;
@@ -129,37 +128,6 @@ begin
     QuickSort(AValues, Low, j);
   if i < High then
     QuickSort(AValues, i, High);
-end;
-
-function Compare(const AValue1, AValue2: double): longint;
-begin
-  result := Sign(AValue1 - AValue2);
-end;
-
-function  Percentile(var AValues: TListOfDouble; P: double): TDouble;
-var
-  index: double;
-  Lower, Upper: longint;
-  Fraction: double;
-begin
-  if AValues.Count = 0 then Exit(NegInfinity);
-
-  AValues.Sort(@Compare);
-
-  // Compute the exact index
-  index := P * (AValues.Count - 1);
-  Lower := Floor(index);
-  Upper := Ceil(index);
-  Fraction := index - Lower;
-
-  if Upper >= AValues.Count then
-    Upper := AValues.Count - 1;
-
-  // Linear interpolation
-  if Lower = Upper then
-    result := AValues[Lower]
-  else
-    result := AValues[Lower] + Fraction * (AValues[Upper] - AValues[Lower]);
 end;
 
 function Decibel(const AAmplitude: TDouble): TDouble;
