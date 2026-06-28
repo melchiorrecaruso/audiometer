@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "AudioMeter"
-#define MyAppVersion "0.5.4"
+#define MyAppVersion "0.6.0"
 #define MyAppPublisher "Melchiorre Caruso"
 #define MyAppURL "https://github.com/melchiorrecaruso/audiometer"
 #define MyAppExeName "audiometer.exe"
@@ -36,14 +36,15 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "DejaVuSans.ttf";    DestDir: "{app}"; Flags: ignoreversion
-Source: "audiometerdbg.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "audiometer.exe";    DestDir: "{app}"; Flags: ignoreversion
-Source: "ffprobe.exe";       DestDir: "{app}"; Flags: ignoreversion
-Source: "ffmpeg.exe";        DestDir: "{app}"; Flags: ignoreversion
-Source: "ffplay.exe";        DestDir: "{app}"; Flags: ignoreversion
-Source: "LICENSE";           DestDir: "{app}"; Flags: ignoreversion
-Source: "README";            DestDir: "{app}"; Flags: ignoreversion
+
+Source: fonts\*;             DestDir: "{app}\fonts"; Flags: recursesubdirs
+Source: "audiometerdbg.exe"; DestDir: "{app}";       Flags: ignoreversion
+Source: "audiometer.exe";    DestDir: "{app}";       Flags: ignoreversion
+Source: "ffprobe.exe";       DestDir: "{app}";       Flags: ignoreversion
+Source: "ffmpeg.exe";        DestDir: "{app}";       Flags: ignoreversion
+Source: "ffplay.exe";        DestDir: "{app}";       Flags: ignoreversion
+Source: "LICENSE";           DestDir: "{app}";       Flags: ignoreversion
+Source: "README";            DestDir: "{app}";       Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
