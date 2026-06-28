@@ -1,2 +1,4 @@
 build/**
 install/output/**
+install/portable-linux64/bin/**
+install/portable-win64/bin/**
