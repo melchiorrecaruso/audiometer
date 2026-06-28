@@ -120,9 +120,6 @@
         <PackageName Value="BGRABitmapPack"/>
       </Item>
       <Item>
-        <PackageName Value="SpringLib"/>
-      </Item>
-      <Item>
         <PackageName Value="playwavepackage"/>
       </Item>
       <Item>
