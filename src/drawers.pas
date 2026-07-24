@@ -88,7 +88,14 @@ type
   end;
 
 const
-  {$IFDEF UNIX}
+  {$IFDEF LCLgtk}  {$DEFINE RGBAPIXEL} {$ENDIF}
+  {$IFDEF LCLgtk2} {$DEFINE RGBAPIXEL} {$ENDIF}
+  {$IFDEF LCLgtk3} {$UNDEF  RGBAPIXEL} {$ENDIF}
+  {$IFDEF LCLQt}   {$UNDEF  RGBAPIXEL} {$ENDIF}
+  {$IFDEF LCLQt5}  {$UNDEF  RGBAPIXEL} {$ENDIF}
+  {$IFDEF LCLQt6}  {$UNDEF  RGBAPIXEL} {$ENDIF}
+
+  {$IFDEF RGBAPIXEL}
   {** Channels if ordered RGBA ordered }
   clrBlack  : TBGRAPixel = (red: $00; green: $00; blue: $00; alpha: 255);
   clrBlue   : TBGRAPixel = (red: $20; green: $4A; blue: $87; alpha: 255);
@@ -121,7 +128,8 @@ uses
 
 function GetColor(AFactor: double): TBGRAPixel;
 const
-  {$IFDEF UNIX}
+  {$IFDEF RGBAPIXEL}
+  {** Channels if ordered RGBA ordered }
   BaseColors: array[0..5] of TBGRAPixel =
     ((red: $00; green: $00; blue: $00; alpha: 255),  // $000000
      (red: $20; green: $4A; blue: $87; alpha: 255),  // $874A20
@@ -130,6 +138,7 @@ const
      (red: $FC; green: $E9; blue: $4F; alpha: 255),  // $4FE9FC
      (red: $FF; green: $FF; blue: $FF; alpha: 255)); // $FFFFFF
   {$ELSE}
+  {** Channels if ordered BGRA ordered }
   BaseColors: array[0..5] of TBGRAPixel =
     ((blue: $00; green: $00; red: $00; alpha: 255),  // $000000
      (blue: $87; green: $4A; red: $20; alpha: 255),  // $874A20
