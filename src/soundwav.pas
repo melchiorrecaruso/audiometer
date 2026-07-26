@@ -43,24 +43,22 @@ type
   end;
 
   TFmtchunk = packed record
-    ckid: array [0..3] of char;  // should be "fmt "
-    cksize: longword;              // subchunk1size: 16, 18 or 40
-    FormatTag: word;
-    // pcm = 1 (linear quantization), values > 1 indicate a compressed format
-    Channels: word;                  // mono = 1, stereo = 2, etc
-    samplespersec: longword;              // 8000, 44100, etc
-    bytespersec: longword;
-    // = samplerate * numchannels * bitspersample/8
-    blockalign: word;                  // = numchannels * bitspersample/8
-    BitsPerSample: word;                  // examples: 8 bits, 16 bits, etc
+    ckid: array [0..3] of char;          // should be "fmt "
+    cksize: longword;                    // subchunk1size: 16, 18 or 40
+    FormatTag: word;                     // pcm = 1 (linear quantization), values > 1 indicate a compressed format
+    Channels: word;                      // mono = 1, stereo = 2, etc
+    samplespersec: longword;             // 8000, 44100, etc
+    bytespersec: longword;               // = samplerate * numchannels * bitspersample/8
+    blockalign: word;                    // = numchannels * bitspersample/8
+    BitsPerSample: word;                 // examples: 8 bits, 16 bits, etc
   end;
 
   TFmtchunkext = packed record
-    cbsize: word;                  // size of the extension (0 or 22)
-    validbitspersample: word;                  // number of valid bits
-    channelmask: longword;              // speaker position mask
-    subcode: word;                  // GUID data format code
-    subformat: array [0..13] of byte; // GUID
+    cbsize: word;                        // size of the extension (0 or 22)
+    validbitspersample: word;            // number of valid bits
+    channelmask: longword;               // speaker position mask
+    subcode: word;                       // GUID data format code
+    subformat: array [0..13] of byte;    // GUID
   end;
 
   TFactchunk = packed record
