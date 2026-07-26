@@ -45,7 +45,6 @@
       </Unit>
       <Unit>
         <Filename Value="src/spectrum.pas"/>
-        <IsPartOfProject Value="False"/>
         <UnitName Value="Spectrum"/>
         <Loaded Value="True"/>
         <UsageCount Value="11"/>
@@ -55,7 +54,6 @@
       </Unit>
       <Unit>
         <Filename Value="src/soundwav.pas"/>
-        <IsPartOfProject Value="False"/>
         <UnitName Value="SoundWav"/>
         <Loaded Value="True"/>
         <UsageCount Value="11"/>
@@ -64,17 +62,15 @@
       </Unit>
       <Unit>
         <Filename Value="src/loudness.pas"/>
-        <IsPartOfProject Value="False"/>
         <UnitName Value="Loudness"/>
         <Loaded Value="True"/>
         <UsageCount Value="11"/>
         <EditorIndex Value="3"/>
         <TopLine Value="729"/>
-        <CursorPos X="5" Y="820"/>
+        <CursorPos X="5" Y="805"/>
       </Unit>
       <Unit>
         <Filename Value="src/common.pas"/>
-        <IsPartOfProject Value="False"/>
         <UnitName Value="Common"/>
         <Loaded Value="True"/>
         <UsageCount Value="10"/>

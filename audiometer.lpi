@@ -11,7 +11,6 @@
       <SessionStorage Value="None"/>
       <Title Value="AudioMeter"/>
       <Scaled Value="True"/>
-      <ResourceType Value="res"/>
       <UseXPManifest Value="True"/>
       <XPManifest>
         <DpiAware Value="True"/>
@@ -19,8 +18,9 @@
       <Icon Value="0"/>
     </General>
     <VersionInfo>
-      <MinorVersionNr Value="4"/>
-      <StringTable FileDescription="AudioMeter" LegalCopyright="Melchiorre Caruso" ProductName="AudioMeter" ProductVersion="0.4"/>
+      <UseVersionInfo Value="True"/>
+      <MinorVersionNr Value="6"/>
+      <StringTable FileDescription="AudioMeter" LegalCopyright="Melchiorre Caruso" ProductName="AudioMeter"/>
     </VersionInfo>
     <BuildModes>
       <Item Name="Debug" Default="True"/>
@@ -117,6 +117,9 @@
     </RunParams>
     <RequiredPackages>
       <Item>
+        <PackageName Value="LCLBase"/>
+      </Item>
+      <Item>
         <PackageName Value="BGRABitmapPack"/>
       </Item>
       <Item>
@@ -138,10 +141,12 @@
     <Units>
       <Unit>
         <Filename Value="audiometer.lpr"/>
+        <IsPartOfProject Value="True"/>
         <UnitName Value="AudioMeter"/>
       </Unit>
       <Unit>
         <Filename Value="src/mainfrm.pas"/>
+        <IsPartOfProject Value="True"/>
         <ComponentName Value="AudioFrm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
@@ -149,34 +154,56 @@
       </Unit>
       <Unit>
         <Filename Value="src/soundwav.pas"/>
+        <IsPartOfProject Value="True"/>
         <UnitName Value="SoundWav"/>
       </Unit>
       <Unit>
         <Filename Value="src/drawers.pas"/>
+        <IsPartOfProject Value="True"/>
         <UnitName Value="Drawers"/>
       </Unit>
       <Unit>
         <Filename Value="src/loudness.pas"/>
+        <IsPartOfProject Value="True"/>
         <UnitName Value="Loudness"/>
       </Unit>
       <Unit>
         <Filename Value="src/dynamicrange.pas"/>
+        <IsPartOfProject Value="True"/>
         <UnitName Value="DynamicRange"/>
       </Unit>
       <Unit>
         <Filename Value="src/common.pas"/>
+        <IsPartOfProject Value="True"/>
         <UnitName Value="Common"/>
       </Unit>
       <Unit>
         <Filename Value="src/spectrum.pas"/>
+        <IsPartOfProject Value="True"/>
         <UnitName Value="Spectrum"/>
       </Unit>
       <Unit>
         <Filename Value="src/reportfrm.pas"/>
+        <IsPartOfProject Value="True"/>
         <ComponentName Value="ReportForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
         <UnitName Value="ReportFrm"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/basegraphics.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="BaseGraphics"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/soundutils.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="SoundUtils"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/basefrm.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="BaseFrm"/>
       </Unit>
     </Units>
   </ProjectOptions>
@@ -216,6 +243,11 @@
         <DebugInfoType Value="dsDwarf3"/>
         <UseHeaptrc Value="True"/>
       </Debugging>
+      <Options>
+        <Win32>
+          <GraphicApplication Value="True"/>
+        </Win32>
+      </Options>
     </Linking>
   </CompilerOptions>
 </CONFIG>
