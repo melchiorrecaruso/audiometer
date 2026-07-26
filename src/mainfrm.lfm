@@ -1,7 +1,7 @@
 object AudioFrm: TAudioFrm
-  Left = 76
+  Left = 85
   Height = 905
-  Top = 133
+  Top = 188
   Width = 1087
   Caption = 'AudioMeter 0.6.2 - Dynamic Range Meter'
   ClientHeight = 905
@@ -43,14 +43,14 @@ object AudioFrm: TAudioFrm
     AnchorSideTop.Control = TopShape
     AnchorSideTop.Side = asrBottom
     Left = 12
-    Height = 187
+    Height = 182
     Top = 67
     Width = 136
     AutoSize = True
     BorderSpacing.Left = 12
     BorderSpacing.Top = 8
     BevelOuter = bvNone
-    ClientHeight = 187
+    ClientHeight = 182
     ClientWidth = 136
     Color = clBlack
     ParentBackground = False
@@ -70,27 +70,29 @@ object AudioFrm: TAudioFrm
     end
     object bevel2: TBevel
       AnchorSideLeft.Control = bevel1
+      AnchorSideTop.Control = LeftBitPanel
       AnchorSideTop.Side = asrBottom
       AnchorSideRight.Control = bevel1
       AnchorSideRight.Side = asrBottom
       Left = 0
       Height = 1
-      Top = 71
+      Top = 69
       Width = 136
       Anchors = [akTop, akLeft, akRight]
-      BorderSpacing.Top = 5
+      BorderSpacing.Top = 4
     end
     object Bevel3: TBevel
       AnchorSideLeft.Control = bevel1
+      AnchorSideTop.Control = LeftHzPanel
       AnchorSideTop.Side = asrBottom
       AnchorSideRight.Control = bevel1
       AnchorSideRight.Side = asrBottom
       Left = 0
       Height = 1
-      Top = 142
+      Top = 138
       Width = 136
       Anchors = [akTop, akLeft, akRight]
-      BorderSpacing.Top = 5
+      BorderSpacing.Top = 4
     end
     object PCM: TLabel
       AnchorSideLeft.Control = DetailsPanel
@@ -109,11 +111,11 @@ object AudioFrm: TAudioFrm
       AnchorSideTop.Control = bevel2
       Left = 4
       Height = 61
-      Top = 76
+      Top = 73
       Width = 55
       AutoSize = True
       BorderSpacing.Left = 4
-      BorderSpacing.Top = 5
+      BorderSpacing.Top = 4
       BevelOuter = bvNone
       ClientHeight = 61
       ClientWidth = 55
@@ -186,11 +188,11 @@ object AudioFrm: TAudioFrm
       AnchorSideRight.Side = asrBottom
       Left = 69
       Height = 61
-      Top = 76
+      Top = 73
       Width = 63
       AutoSize = True
       BorderSpacing.Left = 10
-      BorderSpacing.Top = 5
+      BorderSpacing.Top = 4
       BorderSpacing.Right = 4
       BevelOuter = bvNone
       ClientHeight = 61
@@ -259,12 +261,12 @@ object AudioFrm: TAudioFrm
       AnchorSideRight.Side = asrBottom
       Left = 21
       Height = 40
-      Top = 26
+      Top = 25
       Width = 38
       Anchors = [akTop, akRight]
       AutoSize = True
       BorderSpacing.Left = 4
-      BorderSpacing.Top = 5
+      BorderSpacing.Top = 4
       BevelOuter = bvNone
       ClientHeight = 40
       ClientWidth = 38
@@ -316,11 +318,11 @@ object AudioFrm: TAudioFrm
       AnchorSideRight.Side = asrBottom
       Left = 94
       Height = 40
-      Top = 26
+      Top = 25
       Width = 38
       Anchors = [akTop, akRight]
       AutoSize = True
-      BorderSpacing.Top = 5
+      BorderSpacing.Top = 4
       BevelOuter = bvNone
       ClientHeight = 40
       ClientWidth = 38
@@ -372,11 +374,11 @@ object AudioFrm: TAudioFrm
       AnchorSideRight.Side = asrBottom
       Left = 16
       Height = 40
-      Top = 147
+      Top = 142
       Width = 43
       Anchors = [akTop, akRight]
       AutoSize = True
-      BorderSpacing.Top = 5
+      BorderSpacing.Top = 4
       BevelOuter = bvNone
       ClientHeight = 40
       ClientWidth = 43
@@ -423,7 +425,7 @@ object AudioFrm: TAudioFrm
       AnchorSideRight.Side = asrBottom
       Left = 120
       Height = 19
-      Top = 147
+      Top = 143
       Width = 12
       Anchors = [akTop, akRight]
       AutoSize = True
@@ -460,7 +462,7 @@ object AudioFrm: TAudioFrm
     AnchorSideBottom.Control = DetailsPanel
     AnchorSideBottom.Side = asrBottom
     Left = 479
-    Height = 181
+    Height = 176
     Top = 73
     Width = 204
     Anchors = [akTop, akLeft, akBottom]
@@ -468,7 +470,7 @@ object AudioFrm: TAudioFrm
     BorderSpacing.Left = 24
     BorderSpacing.Top = 6
     BevelOuter = bvNone
-    ClientHeight = 181
+    ClientHeight = 176
     ClientWidth = 204
     ParentBackground = False
     TabOrder = 1
@@ -525,19 +527,19 @@ object AudioFrm: TAudioFrm
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
     Left = 0
-    Height = 632
-    Top = 273
+    Height = 637
+    Top = 268
     Width = 1087
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Top = 10
     BevelOuter = bvNone
-    ClientHeight = 632
+    ClientHeight = 637
     ClientWidth = 1087
     ParentBackground = False
     TabOrder = 2
     object VirtualScreen: TBGRAVirtualScreen
       Left = 0
-      Height = 632
+      Height = 637
       Top = 0
       Width = 1087
       OnRedraw = RedrawVirtualScreen
@@ -1141,7 +1143,7 @@ object AudioFrm: TAudioFrm
     AnchorSideRight.Side = asrBottom
     Left = 4
     Height = 1
-    Top = 262
+    Top = 257
     Width = 1079
     Anchors = [akTop, akLeft, akRight]
     BorderSpacing.Left = 4
