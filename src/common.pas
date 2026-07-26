@@ -57,7 +57,7 @@ procedure QuickSort(var AValues: TDoubleVector; Low, High: longint);
 function ChannelName(AChannelIndex, AChannelCount: longint): string;
 function ChannelLayoutName(Channels: longint; ChannelMask: longword): string;
 
-function GetAppFile(const FileName: string): string;
+function GetAppConfigFile(const FileName: string): string;
 
 
 implementation
@@ -65,7 +65,7 @@ implementation
 uses
   Math;
 
-function GetAppFile(const FileName: string): string;
+function GetAppConfigFile(const FileName: string): string;
 begin
   Result := ExtractFilePath(ParamStr(0)) + FileName;
   if not FileExists(Result) then
