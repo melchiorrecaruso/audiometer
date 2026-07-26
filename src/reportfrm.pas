@@ -27,15 +27,14 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, Buttons, StdCtrls,
-  ExtCtrls, IniPropStorage;
+  ExtCtrls, BaseFrm;
 
 type
 
   { TReportForm }
 
-  TReportForm = class(TForm)
+  TReportForm = class(TBaseForm)
     BtnPanel: TPanel;
-    PropStorage: TIniPropStorage;
     Memo: TMemo;
     SaveDialog: TSaveDialog;
     BorderShape: TShape;
@@ -43,8 +42,6 @@ type
     SaveBtn: TSpeedButton;
     procedure FormCreate(Sender: TObject);
     procedure SaveBtnClick(Sender: TObject);
-  private
-
   public
 
   end;
@@ -63,9 +60,6 @@ uses
 
 procedure TReportForm.FormCreate(Sender: TObject);
 begin
-  PropStorage.IniFileName := GetAppFile('reportfrm.ini');
-  PropStorage.Active := True;
-  //
   Color := clBlack;
   {$ifdef UNIX}
   Memo.Font.Name := 'Liberation Mono';
