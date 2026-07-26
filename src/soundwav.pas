@@ -662,7 +662,7 @@ var
   Track: TTrack;
 begin
   S.Clear;
-  S.Add('AudioMeter 0.6.0 - Dynamic Range Meter');
+  S.Add('AudioMeter 0.6.2 - Dynamic Range Meter');
   S.Add(Splitter);
   S.Add(Format('Log date : %s', [DateTimeToStr(now)]));
   S.Add(Splitter);
@@ -691,7 +691,7 @@ begin
 
       DR := DR + Track.DRMeter.DR;
     end;
-    DR := Trunc(DR / Count);
+    DR := SimpleRoundTo(DR / Count, 0);
 
     S.Add(Splitter);
     S.Add('');
