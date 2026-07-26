@@ -90,6 +90,7 @@ type
     FSampleRate: longword;
     FSampleCount: longint;
     FChannelCount: longint;
+    FChannelMask: longword;
     FChannels: TDoubleMatrix;
     FBitsPerSample: longint;
     FByterate: longint;
@@ -111,6 +112,7 @@ type
     property SampleCount: longint read FSampleCount;
     property SampleRate: longword read FSampleRate;
     property ChannelCount: longint read FChannelCount;
+    property ChannelMask: longword read FChannelMask;
     property Channels: TDoubleMatrix read FChannels;
     property BitsPerSample: longint read FBitsPerSample;
     property Byterate: longint read FByterate;
@@ -330,6 +332,7 @@ begin
   FTrack.FSampleRate := FFmt.samplespersec;
   FTrack.FBitsPerSample := FFmt.BitsPerSample;
   FTrack.FChannelCount := FFmt.Channels;
+  FTrack.FChannelMask := FFmtext.channelmask;
   FTrack.FSampleRate := FFmt.samplespersec;
   FTrack.FByterate := FFmt.bytespersec;
   FTrack.FDuration := 0;
