@@ -24,15 +24,19 @@ program AudioMeter;
 {$mode objfpc}{$H+}
 
 uses
-  CMem, {$IFDEF UNIX} CThreads, {$ENDIF} Interfaces, Forms, MainFrm, Drawers,
-  Loudness, DynamicRange, Common, Spectrum, ReportFrm;
+  CMem,
+  {$IFDEF UNIX} cthreads, {$ENDIF}
+  {$IFDEF HASAMIGA} athreads, {$ENDIF} Interfaces, Forms, MainFrm, ReportFrm;
 
 {$R *.res}
 
 begin
   RequireDerivedFormResource:=True;
-  Application.Title:='AudioMeter';
   Application.Scaled:=True;
+  Application.Title:='AudioMeter';
+  {$PUSH}{$WARN 5044 OFF}
+  Application.MainFormOnTaskbar:=True;
+  {$POP}
   Application.Initialize;
   Application.CreateForm(TAudioFrm, AudioFrm);
   Application.CreateForm(TReportForm, ReportForm);
