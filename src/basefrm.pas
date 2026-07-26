@@ -61,6 +61,9 @@ type
 
 implementation
 
+uses
+  Common;
+
 const
   KeyPPI    = 'PPI';
   KeyLeft   = 'Left';
@@ -234,7 +237,7 @@ begin
   DefaultMonitor := dmDesktop;
   FLastWindowState := wsNormal;
 
-  FConfigFile := GetAppConfigFile(False);
+  FConfigFile := GetAppConfigFile('config.ini');
   ForceDirectories(ExtractFilePath(FConfigFile));
 
   inherited DoCreate;
