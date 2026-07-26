@@ -55,6 +55,8 @@ function CrestFactor(const APeak, ARms2: TDouble): TDouble; inline;
 procedure QuickSort(var AValues: TDoubleVector; Low, High: longint);
 
 function ChannelName(AChannelIndex, AChannelCount: longint): string;
+function ChannelLayoutName(Channels: longint; ChannelMask: longword): string;
+
 function GetAppFile(const FileName: string): string;
 
 
@@ -97,6 +99,25 @@ begin
         5: Result := 'Right Surround Channel';
        end;
   else Result := '';
+  end;
+end;
+
+function ChannelLayoutName(Channels: longint; ChannelMask: longword): string;
+var
+  HasLFE: boolean;
+begin
+  HasLFE := (ChannelMask and $8) <> 0;
+  case Channels of
+    1: Result := 'Mono';
+    2: Result := 'Stereo';
+    3: if HasLFE then Result := '2.1' else Result := '3.0';
+    4: Result := 'Quad';
+    5: if HasLFE then Result := '4.1' else Result := '5.0';
+    6: if HasLFE or (ChannelMask = 0) then Result := '5.1' else Result := '6.0';
+    7: Result := '6.1';
+    8: if HasLFE or (ChannelMask = 0) then Result := '7.1' else Result := '8.0';
+  else
+    Result := IntToStr(Channels) + ' channels';
   end;
 end;
 
