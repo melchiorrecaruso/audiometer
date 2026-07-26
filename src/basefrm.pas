@@ -26,7 +26,7 @@ unit BaseFrm;
 interface
 
 uses
-  Classes, SysUtils, Types, Forms, Controls, IniFiles, IniPropStorage;
+  Classes, SysUtils, Types, Forms, Controls, IniFiles;
 
 type
 
@@ -34,10 +34,10 @@ type
 
   TBaseForm = class(TForm)
   private
-    FStorage: TIniPropStorage;
     FConfigFile: string;
     FGeometryRestored: Boolean;
     FSavedPPI: Integer;
+    FLastWindowState: TWindowState;
     function CurrentPPI: Integer;
     function ScalePPI(AValue, AFromPPI, AToPPI: Integer): Integer;
     procedure ClampToDesktop;
@@ -47,9 +47,16 @@ type
     procedure DoCreate; override;
     procedure DoShow; override;
     procedure DoDestroy; override;
+    procedure Resize; override;
     function SectionName: string; virtual;
   public
-    property Storage: TIniPropStorage read FStorage;
+    function ReadSetting(const AKey, ADefault: string): string; overload;
+    function ReadSetting(const AKey: string; ADefault: Integer): Integer; overload;
+    function ReadSetting(const AKey: string; ADefault: Boolean): Boolean; overload;
+    procedure WriteSetting(const AKey, AValue: string); overload;
+    procedure WriteSetting(const AKey: string; AValue: Integer); overload;
+    procedure WriteSetting(const AKey: string; AValue: Boolean); overload;
+    property ConfigFile: string read FConfigFile;
   end;
 
 implementation
@@ -91,6 +98,51 @@ begin
     Result := Round(Int64(AValue) * AToPPI / AFromPPI);
 end;
 
+function TBaseForm.ReadSetting(const AKey, ADefault: string): string;
+var
+  Ini: TIniFile;
+begin
+  Ini := TIniFile.Create(FConfigFile);
+  try
+    Result := Ini.ReadString(SectionName, AKey, ADefault);
+  finally
+    Ini.Free;
+  end;
+end;
+
+function TBaseForm.ReadSetting(const AKey: string; ADefault: Integer): Integer;
+begin
+  Result := StrToIntDef(ReadSetting(AKey, IntToStr(ADefault)), ADefault);
+end;
+
+function TBaseForm.ReadSetting(const AKey: string; ADefault: Boolean): Boolean;
+begin
+  Result := ReadSetting(AKey, Ord(ADefault)) <> 0;
+end;
+
+procedure TBaseForm.WriteSetting(const AKey, AValue: string);
+var
+  Ini: TIniFile;
+begin
+  Ini := TIniFile.Create(FConfigFile);
+  try
+    Ini.WriteString(SectionName, AKey, AValue);
+    Ini.UpdateFile;
+  finally
+    Ini.Free;
+  end;
+end;
+
+procedure TBaseForm.WriteSetting(const AKey: string; AValue: Integer);
+begin
+  WriteSetting(AKey, IntToStr(AValue));
+end;
+
+procedure TBaseForm.WriteSetting(const AKey: string; AValue: Boolean);
+begin
+  WriteSetting(AKey, Ord(AValue));
+end;
+
 procedure TBaseForm.ClampToDesktop;
 var
   R: TRect;
@@ -99,10 +151,10 @@ begin
   M := Screen.MonitorFromRect(BoundsRect);
   if M = nil then
     M := Screen.PrimaryMonitor;
-
-  if M = nil then Exit;
-
+  if M = nil then
+    Exit;
   R := M.WorkareaRect;
+
   if Width > R.Right - R.Left then
     Width := R.Right - R.Left;
   if Height > R.Bottom - R.Top then
@@ -125,14 +177,14 @@ var
 begin
   NewPPI := CurrentPPI;
   FSavedPPI := NewPPI;
+  FLastWindowState := wsNormal;
 
   Ini := TIniFile.Create(FConfigFile);
   try
     W := Ini.ReadInteger(SectionName, KeyWidth, 0);
     H := Ini.ReadInteger(SectionName, KeyHeight, 0);
-
-    if (W <= 0) or (H <= 0) then Exit;
-
+    if (W <= 0) or (H <= 0) then
+      Exit;
     OldPPI := Ini.ReadInteger(SectionName, KeyPPI, NewPPI);
     L := Ini.ReadInteger(SectionName, KeyLeft, Left);
     T := Ini.ReadInteger(SectionName, KeyTop, Top);
@@ -150,7 +202,8 @@ procedure TBaseForm.SaveGeometry;
 var
   Ini: TIniFile;
 begin
-  if not FGeometryRestored then Exit;
+  if not FGeometryRestored then
+    Exit;
 
   Ini := TIniFile.Create(FConfigFile);
   try
@@ -168,20 +221,21 @@ begin
   end;
 end;
 
+procedure TBaseForm.Resize;
+begin
+  inherited Resize;
+  if FGeometryRestored and (WindowState in [wsNormal, wsMaximized]) then
+    FLastWindowState := WindowState;
+end;
+
 procedure TBaseForm.DoCreate;
 begin
   Position := poDesigned;
   DefaultMonitor := dmDesktop;
+  FLastWindowState := wsNormal;
 
   FConfigFile := GetAppConfigFile(False);
   ForceDirectories(ExtractFilePath(FConfigFile));
-
-  FStorage := TIniPropStorage.Create(Self);
-  FStorage.IniFileName := FConfigFile;
-  FStorage.IniSection := SectionName;
-
-  if SessionProperties <> '' then
-    FStorage.Restore;
 
   inherited DoCreate;
 end;
@@ -199,10 +253,6 @@ end;
 procedure TBaseForm.DoDestroy;
 begin
   Application.RemoveAsyncCalls(Self);
-
-  if (FStorage <> nil) and (SessionProperties <> '') then
-    FStorage.Save;
-
   SaveGeometry;
   inherited DoDestroy;
 end;
