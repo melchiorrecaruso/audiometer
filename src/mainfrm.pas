@@ -27,26 +27,44 @@ interface
 
 uses
   Classes, sysutils, uPlaySound, forms, controls, graphics, dialogs, Buttons,
-  stdctrls, extctrls, comctrls, IniPropStorage, XMLPropStorage, Menus,
+  stdctrls, extctrls, comctrls, Menus,
   bufstream, soundwav, bclistbox, process, inifiles, bgrabitmap,
   bgrabitmaptypes, bgravirtualscreen, BCFluentProgressRing, drawers, Common,
-  BCTypes, LCLType, BaseGraphics;
+  LCLType, Interfaces, BaseGraphics, BaseFrm;
 
 type
   { TAudioFrm }
 
-  TAudioFrm = class(TForm)
+  TAudioFrm = class(TBaseForm)
+    bit16: TLabel;
+    bit24: TLabel;
+    bit32: TLabel;
+    bit8: TLabel;
     DynamicRangeItem: TMenuItem;
+    khz176: TLabel;
+    khz192: TLabel;
+    khz44: TLabel;
+    khz48: TLabel;
+    khz88: TLabel;
+    khz96: TLabel;
+    LeftBitPanel: TPanel;
+    LeftHzPanel: TPanel;
+    Mono: TLabel;
+    LeftChannelsPanel: TPanel;
+    RigthChannelsPanel: TPanel;
     PlayTimer: TIdleTimer;
     LoudnessItem: TMenuItem;
     MenuItem1: TMenuItem;
+    RightBitPanel: TPanel;
+    RightHzPanel: TPanel;
     SeparatorItem: TMenuItem;
     ShowAlltem: TMenuItem;
+    Stereo: TLabel;
+    Other: TLabel;
     WaveFormItem: TMenuItem;
     FreqSpectrumItem: TMenuItem;
     SpectrogramItem: TMenuItem;
     Popup: TPopupMenu;
-    PropStorage: TIniPropStorage;
     ProgressPanel: TPanel;
     Bevel4: TBevel;
     Bevel5: TBevel;
@@ -100,24 +118,10 @@ type
     bevel1: tbevel;
     bevel2: tbevel;
     Bevel3: tbevel;
-    bit16: tlabel;
-    bit24: tlabel;
-    bit8: tlabel;
     DRLabel: TStaticText;
     DRValue: TStaticText;
-    kHz176: tlabel;
-    kHz192: tlabel;
-    kHz44: tlabel;
-    kHz48: tlabel;
-    kHz88: tlabel;
-    kHz96: tlabel;
     DetailsPanel: tpanel;
-    bitspanel: tpanel;
-    lefthzpanel: tpanel;
-    Mono: tlabel;
     DRPanel: tpanel;
-    righthzpanel: tpanel;
-    Stereo: tlabel;
     TrackFileName: tlabel;
     DirDialog: tselectdirectorydialog;
     FileDialog: TOpenDialog;
@@ -177,6 +181,9 @@ type
 
     IsNeededUpdateScreens: boolean;
     IsNeededKillAnalyzer:  boolean;
+
+    procedure ReadSetting; overload;
+    procedure WriteSetting;  overload;
   public
   end;
 
@@ -205,9 +212,6 @@ begin
   DefaultFontFileName := ExtractFilePath(ParamStr(0)) + 'fonts/DejaVuSans/DejaVuSans.ttf';
   DoDirSeparators(DefaultFontFileName);
   // ---
-  PropStorage.IniFileName := GetAppFile('mainfrm.ini');
-  PropStorage.Active := True;
-  // ---
   Screen := TBGRABitmap.Create;
   IsNeededUpdateScreens := False;
   IsNeededKillAnalyzer  := False;
@@ -222,11 +226,13 @@ begin
   // inizialize main form
   Color := clBlack;
   // Initialize
+  ReadSetting;
   Clear;
 end;
 
 procedure TAudioFrm.FormDestroy(Sender: TObject);
 begin
+  WriteSetting;
   PlayTimer.Enabled := False;
   FreeAndNil(Screen);
   TrackList.Destroy;
@@ -244,6 +250,24 @@ begin
   begin
     TrackFileName.Caption := CutOff(TrackFileName.Caption);
   end;
+end;
+
+procedure TAudioFrm.ReadSetting;
+begin
+  DynamicRangeItem.Checked := ReadSetting(DynamicRangeItem.Name, True);
+  FreqSpectrumItem.Checked := ReadSetting(FreqSpectrumItem.Name, True);
+  LoudnessItem    .Checked := ReadSetting(LoudnessItem    .Name, False);
+  SpectrogramItem .Checked := ReadSetting(SpectrogramItem .Name, True);
+  WaveformItem    .Checked := ReadSetting(WaveformItem    .Name, True);
+end;
+
+procedure TAudioFrm.WriteSetting;
+begin
+  WriteSetting(DynamicRangeItem.Name, DynamicRangeItem.Checked);
+  WriteSetting(FreqSpectrumItem.Name, FreqSpectrumItem.Checked);
+  WriteSetting(LoudnessItem    .Name, LoudnessItem    .Checked);
+  WriteSetting(SpectrogramItem .Name, SpectrogramItem .Checked);
+  WriteSetting(WaveformItem    .Name, WaveformItem    .Checked);
 end;
 
 // Track analyzer events
@@ -379,24 +403,22 @@ begin
 
       sampfmt := LowerCase(Trim(sampfmt));
       if (Length(sampfmt) > 0) and (sampfmt[Length(sampfmt)] = 'p') then
-        sampfmt := Copy(sampfmt, 1, Length(sampfmt) - 1);   // fltp->flt, s32p->s32, ...
+        sampfmt := Copy(sampfmt, 1, Length(sampfmt) - 1);
 
-      codec := 'pcm_f32le'; // default: lossless per i decode float, niente dither/clip
+      codec := 'pcm_f32le';
       if (sampfmt = 'u8') or (sampfmt = 's16') then
         codec := 'pcm_s16le'
       else
         if sampfmt = 's32' then
         begin
           if bit4sample = 24 then
-            codec := 'pcm_s24le'   // 24-bit in container s32
+            codec := 'pcm_s24le'
           else
-            codec := 'pcm_s32le'; // 32-bit intero vero
+            codec := 'pcm_s32le';
         end else
           if sampfmt = 'dbl' then
             codec := 'pcm_f64le';
-      // 'flt' e qualsiasi formato non riconosciuto -> pcm_f32le (default)
 
-      // decode to .AudioAnalyzer
       Process := TProcess.Create(nil);
       try
         Process.Parameters.Clear;
@@ -457,6 +479,7 @@ begin
   bit8  .Font.Color := clGray;
   bit16 .Font.Color := clGray;
   bit24 .Font.Color := clGray;
+  bit32 .Font.Color := clGray;
   kHz44 .Font.Color := clGray;
   kHz48 .Font.Color := clGray;
   kHz88 .Font.Color := clGray;
@@ -465,6 +488,7 @@ begin
   kHz192.Font.Color := clGray;
   Mono  .Font.Color := clGray;
   Stereo.Font.Color := clGray;
+  Other .Font.Color := clGray;
 
   TruePeakLabel  .Font.Color := clGray;
   TPLLeftValue   .Font.Color := clGray;
@@ -767,6 +791,7 @@ begin
     bit8  .Font.Color := clGray; if ATrack.Bitspersample = 8      then bit8  .Font.Color := clWhite;
     bit16 .Font.Color := clGray; if ATrack.Bitspersample = 16     then bit16 .Font.Color := clWhite;
     bit24 .Font.Color := clGray; if ATrack.Bitspersample = 24     then bit24 .Font.Color := clWhite;
+    bit32 .Font.Color := clGray; if ATrack.Bitspersample = 32     then bit32 .Font.Color := clWhite;
 
     kHz44 .Font.Color := clGray; if ATrack.Samplerate    = 44100  then kHz44 .Font.Color := clWhite;
     kHz48 .Font.Color := clGray; if ATrack.Samplerate    = 48000  then kHz48 .Font.Color := clWhite;
@@ -777,6 +802,15 @@ begin
 
     Mono  .Font.Color := clGray; if ATrack.ChannelCount  = 1 then Mono  .Font.Color := clWhite;
     Stereo.Font.Color := clGray; if ATrack.ChannelCount  = 2 then Stereo.Font.Color := clWhite;
+    Other .Font.Color := clGray;
+
+    Other.Caption := '---';
+    if ATrack.ChannelCount > 2 then
+    begin
+      Other.Font.Color := clWhite;
+      Other.Caption    := ChannelLayoutName(ATrack.ChannelCount, ATrack.ChannelMask);
+    end;
+
 
     TruePeakLabel.Font.Color := clWhite;
     if ATrack.ChannelCount > 0 then if Decibel(ATrack.Loudness.TruePeak(0)) <= 0.0 then TPLLeftValue .Font.Color := clLime;
