@@ -1,12 +1,11 @@
 object ReportForm: TReportForm
-  Left = 40
+  Left = 47
   Height = 722
-  Top = 194
+  Top = 146
   Width = 965
   Caption = 'Report'
   ClientHeight = 722
   ClientWidth = 965
-  SessionProperties = 'Height;Left;Top;Width;WindowState'
   LCLVersion = '4.99.0.0'
   OnCreate = FormCreate
   object BorderShape: TShape
@@ -234,12 +233,6 @@ object ReportForm: TReportForm
   end
   object SaveDialog: TSaveDialog
     Left = 48
-    Top = 640
-  end
-  object PropStorage: TIniPropStorage
-    StoredValues = <>
-    Active = False
-    Left = 160
     Top = 640
   end
 end
