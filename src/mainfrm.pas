@@ -27,10 +27,9 @@ interface
 
 uses
   Classes, sysutils, uPlaySound, forms, controls, graphics, dialogs, Buttons,
-  stdctrls, extctrls, comctrls, Menus,
-  bufstream, soundwav, bclistbox, process, inifiles, bgrabitmap,
-  bgrabitmaptypes, bgravirtualscreen, BCFluentProgressRing, drawers, Common,
-  LCLType, Interfaces, BaseGraphics, BaseFrm;
+  stdctrls, extctrls, comctrls, Menus, bufstream, soundwav, bclistbox, process,
+  inifiles, bgrabitmap, bgrabitmaptypes, bgravirtualscreen, BCFluentProgressRing,
+  drawers, Common, LCLType, Interfaces, BaseGraphics, BaseFrm;
 
 type
   { TAudioFrm }
