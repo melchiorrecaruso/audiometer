@@ -59,7 +59,6 @@ type
     SeparatorItem: TMenuItem;
     ShowAlltem: TMenuItem;
     Stereo: TLabel;
-    Other: TLabel;
     WaveFormItem: TMenuItem;
     FreqSpectrumItem: TMenuItem;
     SpectrogramItem: TMenuItem;
@@ -487,7 +486,7 @@ begin
   kHz192.Font.Color := clGray;
   Mono  .Font.Color := clGray;
   Stereo.Font.Color := clGray;
-  Other .Font.Color := clGray;
+  Stereo .Font.Color := clGray;
 
   TruePeakLabel  .Font.Color := clGray;
   TPLLeftValue   .Font.Color := clGray;
@@ -801,15 +800,13 @@ begin
 
     Mono  .Font.Color := clGray; if ATrack.ChannelCount  = 1 then Mono  .Font.Color := clWhite;
     Stereo.Font.Color := clGray; if ATrack.ChannelCount  = 2 then Stereo.Font.Color := clWhite;
-    Other .Font.Color := clGray;
 
-    Other.Caption := '---';
+    Stereo.Caption := 'Stereo';
     if ATrack.ChannelCount > 2 then
     begin
-      Other.Font.Color := clWhite;
-      Other.Caption    := ChannelLayoutName(ATrack.ChannelCount, ATrack.ChannelMask);
+      Stereo.Font.Color := clWhite;
+      Stereo.Caption    := ChannelLayoutName(ATrack.ChannelCount, ATrack.ChannelMask);
     end;
-
 
     TruePeakLabel.Font.Color := clWhite;
     if ATrack.ChannelCount > 0 then if Decibel(ATrack.Loudness.TruePeak(0)) <= 0.0 then TPLLeftValue .Font.Color := clLime;
