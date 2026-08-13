@@ -28,7 +28,7 @@ interface
 uses
   Classes, sysutils, uPlaySound, forms, controls, graphics, dialogs, Buttons,
   stdctrls, extctrls, comctrls, Menus, bufstream, soundwav, bclistbox, process,
-  inifiles, bgrabitmap, bgrabitmaptypes, bgravirtualscreen, BCFluentProgressRing,
+  bgrabitmap, bgrabitmaptypes, bgravirtualscreen, BCFluentProgressRing,
   drawers, Common, LCLType, Interfaces, BaseGraphics, BaseFrm;
 
 type
@@ -154,6 +154,12 @@ type
     procedure PlayTimerStopTimer(Sender: TObject);
     procedure PlayTimerTimer(Sender: TObject);
     procedure ReportBtnClick(Sender: TObject);
+    procedure ScreenMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure ScreenMouseMove(Sender: TObject; Shift: TShiftState;
+      X, Y: Integer);
+    procedure ScreenMouseUp(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
     procedure ScreenTimerTimer(Sender: TObject);
     procedure ShowAlltemClick(Sender: TObject);
     procedure StopBtnClick(Sender: TObject);
@@ -169,17 +175,39 @@ type
     TrackList: TTrackList;
     TrackFile: string;
     TempFile:  string;
+    SessionTempFile: string;
+    TempWaveError: string;
+    TempWaveReady: boolean;
+    FFmpegExecutable: string;
+    FFprobeExecutable: string;
 
     LastIndex: longint;
     LastWidth: longint;
     LastHeight: longint;
     LastMode: TScreenDrawerModes;
 
+    PanX: longint;
+    PanY: longint;
+    PanStartX: longint;
+    PanStartY: longint;
+    PanStartOffsetX: longint;
+    PanStartOffsetY: longint;
+    IsPanning: boolean;
+    MaxRenderWidth: longint;
+    MaxRenderHeight: longint;
+
     PlayStart: TDateTime;
 
     IsNeededUpdateScreens: boolean;
     IsNeededKillAnalyzer:  boolean;
 
+    procedure CalculateBackingSize(out AWidth, AHeight: longint);
+    procedure ClampPan;
+    procedure ClearTemporaryWave;
+    procedure InitializeTemporaryWave;
+    procedure LocateFFmpegTools;
+    function ExtractWave(const AInputFile: string): boolean;
+    procedure UpdatePanCursor;
     procedure ReadSetting; overload;
     procedure WriteSetting;  overload;
   public
@@ -193,13 +221,122 @@ implementation
 {$R *.lfm}
 
 uses
-  DateUtils, Math, FileUtil, ReportFrm, SoundUtils;
+  DateUtils, Math, FileUtil, LazFileUtils, ReportFrm, SoundUtils;
+
+const
+  MAX_RENDER_WIDTH_KEY = 'MaxRenderWidth';
+  MAX_RENDER_HEIGHT_KEY = 'MaxRenderHeight';
 
 function CutOff(const S: string): string;
 begin
   Result := S;
   SetLength(Result, Max(0, Length(Result) - 4));
   Result := Result + '...';
+end;
+
+function StreamToString(AStream: TStream): string;
+begin
+  Result := '';
+  SetLength(Result, AStream.Size);
+  AStream.Position := 0;
+  if AStream.Size > 0 then
+    AStream.ReadBuffer(Result[1], AStream.Size);
+end;
+
+function RunProcess(const AExecutable: string; AParameters: TStrings;
+  out AOutput, AError: string): boolean;
+var
+  Buff: array[0..4095] of byte;
+  Count: longint;
+  OutputStream, ErrorStream: TMemoryStream;
+  Process: TProcess;
+begin
+  Result := False;
+  AOutput := '';
+  AError := '';
+  Process := TProcess.Create(nil);
+  OutputStream := TMemoryStream.Create;
+  ErrorStream := TMemoryStream.Create;
+  try
+    Process.Executable := AExecutable;
+    Process.Parameters.Assign(AParameters);
+    Process.Options := [poNoConsole, poUsePipes];
+    try
+      Process.Execute;
+      while Process.Running or (Process.Output.NumBytesAvailable > 0) or
+            (Process.Stderr.NumBytesAvailable > 0) do
+      begin
+        while Process.Output.NumBytesAvailable > 0 do
+        begin
+          Count := Process.Output.Read(Buff, SizeOf(Buff));
+          if Count > 0 then OutputStream.WriteBuffer(Buff, Count);
+        end;
+        while Process.Stderr.NumBytesAvailable > 0 do
+        begin
+          Count := Process.Stderr.Read(Buff, SizeOf(Buff));
+          if Count > 0 then ErrorStream.WriteBuffer(Buff, Count);
+        end;
+        if Process.Running and (Process.Output.NumBytesAvailable = 0) and
+           (Process.Stderr.NumBytesAvailable = 0) then
+          Sleep(1);
+      end;
+      Result := Process.ExitStatus = 0;
+    except
+      on E: Exception do AError := E.Message;
+    end;
+    AOutput := StreamToString(OutputStream);
+    if AError = '' then AError := Trim(StreamToString(ErrorStream));
+  finally
+    ErrorStream.Free;
+    OutputStream.Free;
+    Process.Free;
+  end;
+end;
+
+function ProbeAudio(const AExecutable, AFilename: string;
+  out ASampleFormat: string; out ABitsPerSample, ASampleRate, AChannels: longint;
+  out AError: string): boolean;
+var
+  Output: string;
+  Parameters, Values: TStringList;
+begin
+  ASampleFormat := '';
+  ABitsPerSample := 0;
+  ASampleRate := 0;
+  AChannels := 0;
+  Parameters := TStringList.Create;
+  Values := TStringList.Create;
+  try
+    Parameters.Add('-v');
+    Parameters.Add('error');
+    Parameters.Add('-select_streams');
+    Parameters.Add('a:0');
+    Parameters.Add('-show_entries');
+    Parameters.Add('stream=sample_fmt,bits_per_sample,bits_per_raw_sample,sample_rate,channels');
+    Parameters.Add('-of');
+    Parameters.Add('default=noprint_wrappers=1:nokey=0');
+    Parameters.Add(AFilename);
+    Result := RunProcess(AExecutable, Parameters, Output, AError);
+    if not Result then
+    begin
+      if AError = '' then AError := 'ffprobe failed without an error message.';
+      Exit;
+    end;
+
+    Values.Text := Output;
+    ASampleFormat := LowerCase(Trim(Values.Values['sample_fmt']));
+    ABitsPerSample := StrToIntDef(Values.Values['bits_per_raw_sample'], 0);
+    if ABitsPerSample <= 0 then
+      ABitsPerSample := StrToIntDef(Values.Values['bits_per_sample'], 0);
+    ASampleRate := StrToIntDef(Values.Values['sample_rate'], 0);
+    AChannels := StrToIntDef(Values.Values['channels'], 0);
+    Result := (ASampleFormat <> '') and (ASampleRate > 0) and (AChannels > 0);
+    if not Result then
+      AError := 'ffprobe did not return complete properties for the first audio stream.';
+  finally
+    Values.Free;
+    Parameters.Free;
+  end;
 end;
 
 { TAudioFrm }
@@ -209,15 +346,23 @@ begin
   DefaultFontName := 'DejaVu Sans';
   DefaultFontFileName := ExtractFilePath(ParamStr(0)) + 'fonts/DejaVuSans/DejaVuSans.ttf';
   DoDirSeparators(DefaultFontFileName);
+  InitializeChartFont;
   // ---
   Screen := TBGRABitmap.Create;
   IsNeededUpdateScreens := False;
   IsNeededKillAnalyzer  := False;
+  PanX := 0;
+  PanY := 0;
+  IsPanning := False;
+  MaxRenderWidth := 0;
+  MaxRenderHeight := 0;
   // ---
   LastMode   := [];
   LastIndex  := -1;
   TrackIndex := -1;
   TrackList  := TTrackList.create;
+  TempFile := '';
+  InitializeTemporaryWave;
   // Initialize progress bar
   ProgressRing.Value := 0;
   ProgressRing.Visible := True;
@@ -226,12 +371,15 @@ begin
   // Initialize
   ReadSetting;
   Clear;
+  LocateFFmpegTools;
 end;
 
 procedure TAudioFrm.FormDestroy(Sender: TObject);
 begin
   WriteSetting;
   PlayTimer.Enabled := False;
+  PlaySound.StopSound;
+  ClearTemporaryWave;
   FreeAndNil(Screen);
   TrackList.Destroy;
 end;
@@ -243,7 +391,19 @@ begin
 end;
 
 procedure TAudioFrm.FormResize(Sender: TObject);
+var
+  BackingWidth, BackingHeight: longint;
 begin
+  CalculateBackingSize(BackingWidth, BackingHeight);
+  if Assigned(Screen) and
+     ((BackingWidth > Screen.Width) or
+      (BackingHeight > Screen.Height)) then
+    IsNeededUpdateScreens := True;
+  ClampPan;
+  UpdatePanCursor;
+  if Assigned(VirtualScreen) then
+    VirtualScreen.RedrawBitmap;
+
   while (ProgressPanel.Left + ProgressPanel.Width) > (PlayBtn.Left) do
   begin
     TrackFileName.Caption := CutOff(TrackFileName.Caption);
@@ -257,6 +417,8 @@ begin
   LoudnessItem    .Checked := ReadSetting(LoudnessItem    .Name, False);
   SpectrogramItem .Checked := ReadSetting(SpectrogramItem .Name, True);
   WaveformItem    .Checked := ReadSetting(WaveformItem    .Name, True);
+  MaxRenderWidth  := Max(0, ReadSetting(MAX_RENDER_WIDTH_KEY, 0));
+  MaxRenderHeight := Max(0, ReadSetting(MAX_RENDER_HEIGHT_KEY, 0));
 end;
 
 procedure TAudioFrm.WriteSetting;
@@ -266,6 +428,8 @@ begin
   WriteSetting(LoudnessItem    .Name, LoudnessItem    .Checked);
   WriteSetting(SpectrogramItem .Name, SpectrogramItem .Checked);
   WriteSetting(WaveformItem    .Name, WaveformItem    .Checked);
+  WriteSetting(MAX_RENDER_WIDTH_KEY, MaxRenderWidth);
+  WriteSetting(MAX_RENDER_HEIGHT_KEY, MaxRenderHeight);
 end;
 
 // Track analyzer events
@@ -290,6 +454,7 @@ begin
   Track := TrackList[TrackIndex];
   if AudioAnalyzer.Status <> 0 then
   begin
+    TempWaveReady := False;
     TrackIndex := TrackList.Count;
     TrackFileName.Font.Color := clrRed;
     case AudioAnalyzer.Status of
@@ -314,136 +479,258 @@ end;
 // chart drawer events
 
 procedure TAudioFrm.OnStartDrawer;
+var
+  BackingWidth, BackingHeight: longint;
 begin
-  Screen.SetSize(VirtualScreen.Width, VirtualScreen.Height);
+  // Keep the largest chart area reached by the form. Smaller windows display
+  // the same backing bitmap through the pan viewport.
+  CalculateBackingSize(BackingWidth, BackingHeight);
+  Screen.SetSize(BackingWidth, BackingHeight);
 end;
 
 procedure TAudioFrm.OnStopDrawer;
 begin
-  if IsNeededUpdateScreens = False then
+  if Assigned(ScreenDrawer) then
   begin
-    RedrawScreen(ScreenDrawer.Track);
+    VirtualScreen.Hint := ScreenDrawer.ErrorMessage;
+    VirtualScreen.ShowHint := ScreenDrawer.ErrorMessage <> '';
+    if ScreenDrawer.Successful and (IsNeededUpdateScreens = False) then
+      RedrawScreen(ScreenDrawer.Track);
   end;
   ScreenDrawer := nil;
+  ClampPan;
+  UpdatePanCursor;
   VirtualScreen.RedrawBitmap;
+  if (AudioAnalyzer = nil) and not IsNeededUpdateScreens and
+     not IsNeededKillAnalyzer then
+    EnableButtons;
 end;
 
 //
 
+procedure TAudioFrm.ClearTemporaryWave;
+begin
+  if (SessionTempFile <> '') and FileExistsUTF8(SessionTempFile) then
+    DeleteFileUTF8(SessionTempFile);
+  TempFile := '';
+  TempWaveError := '';
+  TempWaveReady := False;
+end;
+
+procedure TAudioFrm.InitializeTemporaryWave;
+var
+  SessionGuid: TGUID;
+  SessionName: string;
+begin
+  SessionTempFile := '';
+  TempWaveError := '';
+  TempWaveReady := False;
+  if CreateGUID(SessionGuid) <> 0 then
+  begin
+    TempWaveError := 'Unable to generate the temporary WAV name.';
+    MessageDlg('AudioMeter',
+      'Warning: unable to generate the temporary WAV name. Files that require conversion cannot be analyzed.',
+      mtWarning, [mbOk], '');
+    Exit;
+  end;
+  SessionName := IncludeTrailingPathDelimiter(GetTempDir(False)) +
+    'audiometer_' + Copy(GUIDToString(SessionGuid), 2, 36);
+  SessionTempFile := SessionName + '.wav';
+end;
+
+procedure TAudioFrm.LocateFFmpegTools;
+var
+  Missing: string;
+begin
+  {$IFDEF MSWINDOWS}
+  FFmpegExecutable := ExtractFilePath(ParamStr(0)) + 'ffmpeg.exe';
+  FFprobeExecutable := ExtractFilePath(ParamStr(0)) + 'ffprobe.exe';
+  if not FileExistsUTF8(FFmpegExecutable) then FFmpegExecutable := '';
+  if not FileExistsUTF8(FFprobeExecutable) then FFprobeExecutable := '';
+  {$ELSE}
+  FFmpegExecutable := FindDefaultExecutablePath('ffmpeg');
+  FFprobeExecutable := FindDefaultExecutablePath('ffprobe');
+  {$ENDIF}
+
+  Missing := '';
+  if FFmpegExecutable = '' then Missing := 'ffmpeg';
+  if FFprobeExecutable = '' then
+  begin
+    if Missing <> '' then Missing := Missing + ' and ';
+    Missing := Missing + 'ffprobe';
+  end;
+  if Missing <> '' then
+  begin
+    {$IFDEF MSWINDOWS}
+    MessageDlg('AudioMeter', Format(
+      'Warning: required audio tools not found next to the AudioMeter executable: %s.' + LineEnding +
+      'Files that require conversion cannot be analyzed until the missing tools are installed.',
+      [Missing]), mtWarning, [mbOk], '');
+    {$ELSE}
+    MessageDlg('AudioMeter', Format(
+      'Warning: required audio tools not found in the system PATH: %s.' + LineEnding +
+      'Files that require conversion cannot be analyzed until the missing tools are installed.',
+      [Missing]), mtWarning, [mbOk], '');
+    {$ENDIF}
+  end;
+end;
+
+function TAudioFrm.ExtractWave(const AInputFile: string): boolean;
+var
+  Codec, ErrorOutput, ExpectedFormat, Output: string;
+  InputBits, InputChannels, InputRate: longint;
+  OutputBits, OutputChannels, OutputRate: longint;
+  InputFormat, OutputFormat: string;
+  Parameters: TStringList;
+begin
+  Result := False;
+  TempWaveReady := False;
+  TempWaveError := '';
+  TempFile := SessionTempFile;
+  PlayBtn.Enabled := False;
+  StopBtn.Enabled := False;
+  if (FFmpegExecutable = '') or not FileExistsUTF8(FFmpegExecutable) then
+  begin
+    TempWaveError := 'ffmpeg is not available. The audio file was not converted.';
+    Exit;
+  end;
+  if (FFprobeExecutable = '') or not FileExistsUTF8(FFprobeExecutable) then
+  begin
+    TempWaveError := 'ffprobe is not available. The audio file was not converted.';
+    Exit;
+  end;
+  if SessionTempFile = '' then
+  begin
+    TempWaveError := 'The temporary WAV name is not available for this application session.';
+    Exit;
+  end;
+
+  if not ProbeAudio(FFprobeExecutable, AInputFile, InputFormat, InputBits,
+    InputRate, InputChannels, TempWaveError) then Exit;
+  if (Length(InputFormat) > 0) and
+     (InputFormat[Length(InputFormat)] = 'p') then
+    Delete(InputFormat, Length(InputFormat), 1);
+
+  if InputFormat = 'u8' then
+    Codec := 'pcm_u8'
+  else if InputFormat = 's16' then
+    Codec := 'pcm_s16le'
+  else if InputFormat = 's32' then
+  begin
+    if InputBits = 24 then Codec := 'pcm_s24le'
+                      else Codec := 'pcm_s32le';
+  end
+  else if InputFormat = 'flt' then
+    Codec := 'pcm_f32le'
+  else if InputFormat = 'dbl' then
+    Codec := 'pcm_f64le'
+  else
+  begin
+    TempWaveError := Format(
+      'The decoded sample format "%s" is not supported without a possible loss of precision.',
+      [InputFormat]);
+    Exit;
+  end;
+
+  // The GUID and WAV path are created once for the application session.
+  // ffmpeg overwrites this file; TempWaveReady is the authority that prevents
+  // an incomplete output from being analyzed or played after an error.
+
+  Parameters := TStringList.Create;
+  try
+    Parameters.Add('-nostdin');
+    Parameters.Add('-v');
+    Parameters.Add('error');
+    Parameters.Add('-xerror');
+    Parameters.Add('-y');
+    // Apply bit-exact mode to the decoder as well as to the WAV encoder/muxer.
+    Parameters.Add('-bitexact');
+    Parameters.Add('-i');
+    Parameters.Add(AInputFile);
+    Parameters.Add('-map');
+    Parameters.Add('0:a:0');
+    Parameters.Add('-c:a');
+    Parameters.Add(Codec);
+    Parameters.Add('-bitexact');
+    Parameters.Add('-f');
+    Parameters.Add('wav');
+    Parameters.Add(TempFile);
+    if not RunProcess(FFmpegExecutable, Parameters, Output, ErrorOutput) then
+    begin
+      if ErrorOutput = '' then ErrorOutput := 'ffmpeg failed without an error message.';
+      TempWaveError := 'Unable to create the analysis WAV:' + LineEnding + ErrorOutput;
+      Exit;
+    end;
+  finally
+    Parameters.Free;
+  end;
+
+  if not ProbeAudio(FFprobeExecutable, TempFile, OutputFormat, OutputBits,
+    OutputRate, OutputChannels, TempWaveError) then
+  begin
+    TempWaveError := 'The WAV created by ffmpeg is invalid:' + LineEnding + TempWaveError;
+    Exit;
+  end;
+  if (Length(OutputFormat) > 0) and
+     (OutputFormat[Length(OutputFormat)] = 'p') then
+    Delete(OutputFormat, Length(OutputFormat), 1);
+  if Codec = 'pcm_u8' then ExpectedFormat := 'u8'
+  else if Codec = 'pcm_s16le' then ExpectedFormat := 's16'
+  else if (Codec = 'pcm_s24le') or (Codec = 'pcm_s32le') then ExpectedFormat := 's32'
+  else if Codec = 'pcm_f32le' then ExpectedFormat := 'flt'
+  else ExpectedFormat := 'dbl';
+  if (OutputFormat <> ExpectedFormat) or
+     ((Codec = 'pcm_s24le') and (OutputBits > 0) and (OutputBits <> 24)) then
+  begin
+    TempWaveError := Format(
+      'The WAV created by ffmpeg has an unexpected sample format (%s, %d bit).',
+      [OutputFormat, OutputBits]);
+    Exit;
+  end;
+  if (OutputRate <> InputRate) or (OutputChannels <> InputChannels) then
+  begin
+    TempWaveError := Format(
+      'The WAV created by ffmpeg changed the audio layout (%d Hz/%d channels to %d Hz/%d channels).',
+      [InputRate, InputChannels, OutputRate, OutputChannels]);
+    Exit;
+  end;
+  TempWaveReady := True;
+  Result := True;
+end;
+
 procedure TAudioFrm.Execute;
 var
-  Buff: array[0..4095] of byte;
-  bit4sample: longint;
-  i: longint;
-  Ini: TIniFile;
-  Mem: TMemoryStream;
-  Process: TProcess;
   Track: TTrack;
-  sampfmt: string;
-  codec: string;
 begin
   if IsNeededKillAnalyzer then Exit;
   if TrackIndex >= TrackList.Count then Exit;
   if TrackIndex < 0 then Exit;
 
   Track := TrackList[TrackIndex];
+  TempWaveReady := False;
+  TempWaveError := '';
+  PlayBtn.Enabled := False;
+  StopBtn.Enabled := False;
   try
-    if ExtractFileExt(Track.Filename) <> '.wav' then
+    if not SameText(ExtractFileExt(Track.Filename), '.wav') then
     begin
-      TempFile := IncludeTrailingBackSlash(GetTempDir(False)) + 'audiometer-tmp.wav';
-
-      // get file properties
-      Process := TProcess.Create(nil);
-      try
-        Process.Parameters.Clear;
-        Process.CurrentDirectory := ExtractFileDir(Track.Filename);
-        Process.Executable := 'ffprobe';
-        Process.Parameters.Add('-show_streams');
-        Process.Parameters.Add('-hide_banner');
-        Process.Parameters.Add('-print_format');
-        Process.Parameters.Add('ini');
-        Process.Parameters.Add(ExtractFileName(Track.Filename));
-        Process.Options := [poNoConsole, poUsePipes];
-        Process.Execute;
-
-        Mem := TMemoryStream.Create;
-        while (Process.Running) or
-              (Process.Output.NumBytesAvailable > 0) or
-              (Process.stderr.NumBytesAvailable > 0) do
-        begin
-          while Process.Output.NumBytesAvailable > 0 do
-            Mem.write(Buff, Process.Output.read(Buff, sizeof(Buff)));
-          while Process.stderr.NumBytesAvailable > 0 do
-            Process.stderr.read(Buff, sizeof(Buff));
-        end;
-        Mem.Seek(0, sofrombeginning);
-
-        Ini := TIniFile.Create(Mem, [ifostripcomments, ifostripinvalid]);
-
-        sampfmt := '';
-        bit4sample := 0;
-        i := 0;
-        while Ini.SectionExists('streams.stream.' + inttostr(i)) do
-        begin
-          if Ini.ReadString('streams.stream.' + inttostr(i), 'codec_type', '') = 'audio' then
-          begin
-            bit4sample := Ini.ReadInteger('streams.stream.' + inttostr(i), 'bits_per_raw_sample', bit4sample);
-            sampfmt    := Ini.ReadString ('streams.stream.' + inttostr(i), 'sample_fmt', sampfmt);
-            Break;
-          end;
-          inc(i);
-        end;
-        Ini.Destroy;
-        Mem.Destroy;
-      except
+      if not ExtractWave(Track.Filename) then
+      begin
+        TrackFileName.Font.Color := clrRed;
+        TrackFileName.Caption := Format('Unable to decode "%s".', [Track.Filename]);
+        MessageDlg('AudioMeter', TempWaveError, mtError, [mbOk], '');
+        Exit;
       end;
-      Process.Destroy;
-
-      sampfmt := LowerCase(Trim(sampfmt));
-      if (Length(sampfmt) > 0) and (sampfmt[Length(sampfmt)] = 'p') then
-        sampfmt := Copy(sampfmt, 1, Length(sampfmt) - 1);
-
-      codec := 'pcm_f32le';
-      if (sampfmt = 'u8') or (sampfmt = 's16') then
-        codec := 'pcm_s16le'
-      else
-        if sampfmt = 's32' then
-        begin
-          if bit4sample = 24 then
-            codec := 'pcm_s24le'
-          else
-            codec := 'pcm_s32le';
-        end else
-          if sampfmt = 'dbl' then
-            codec := 'pcm_f64le';
-
-      Process := TProcess.Create(nil);
-      try
-        Process.Parameters.Clear;
-        Process.CurrentDirectory := ExtractFileDir(Track.Filename);
-        Process.Executable := 'ffmpeg';
-        Process.Parameters.Add('-y');
-        Process.Parameters.Add('-hide_banner');
-        Process.Parameters.Add('-i');
-        Process.Parameters.Add(ExtractFileName(Track.Filename));
-        Process.Parameters.Add('-map');
-        Process.Parameters.Add('0:a:0');
-        Process.Parameters.Add('-bitexact');
-        Process.Parameters.Add('-c:a');
-        Process.Parameters.Add(codec);
-        Process.Parameters.Add(TempFile);
-        Process.Options := [poNoConsole, poWaitOnExit];
-        Process.Execute;
-      except
-      end;
-      Process.Destroy;
-
     end else
+    begin
       TempFile := Track.Filename;
+      TempWaveReady := True;
+    end;
 
     Stream := TFileStream.Create(TempFile, fmOpenRead or fmShareExclusive);
   except
     Stream := nil;
+    TempWaveReady := False;
   end;
 
   if Assigned(Stream) then
@@ -528,6 +815,16 @@ end;
 
 procedure TAudioFrm.ClearTrackList;
 begin
+  // Do not expose the report from the previous selection while the newly
+  // opened file/folder is being decoded and analyzed. Button state is left
+  // unchanged; TrackList.Save will populate the memo when analysis completes.
+  if Assigned(ReportForm) and Assigned(ReportForm.Memo) then
+    ReportForm.Memo.Clear;
+  TempFile := '';
+  TempWaveError := '';
+  TempWaveReady := False;
+  PlayBtn.Enabled := False;
+  StopBtn.Enabled := False;
   LastIndex  := -1;
   TrackIndex := -1;
   TrackList.Clear;
@@ -604,7 +901,7 @@ procedure TAudioFrm.PlayBtnClick(Sender: TObject);
 begin
   PlaySound.StopSound;
   PlayTimer.Enabled := False;
-  if FileExists(TempFile) then
+  if TempWaveReady and FileExistsUTF8(TempFile) then
   begin
     PlaySound.PlayStyle := psaSync;
     PlaySound.SoundFile := TempFile;
@@ -653,6 +950,7 @@ end;
 
 procedure TAudioFrm.StopBtnClick(Sender: TObject);
 begin
+  if not TempWaveReady then Exit;
   PlayTimer.Enabled := False;
   PlaySound.StopSound;
 end;
@@ -695,8 +993,8 @@ end;
 
 procedure TAudioFrm.EnableButtons;
 begin
-  PlayBtn      .Enabled := True;
-  StopBtn      .Enabled := True;
+  PlayBtn      .Enabled := TempWaveReady and FileExistsUTF8(TempFile);
+  StopBtn      .Enabled := TempWaveReady and FileExistsUTF8(TempFile);
   OpenFileBtn  .Enabled := True;
   OpenFolderBtn.Enabled := True;
   ReportBtn    .Enabled := True;
@@ -706,25 +1004,90 @@ begin
   Popup.AutoPopup := True;
 end;
 
+procedure TAudioFrm.CalculateBackingSize(out AWidth, AHeight: longint);
+begin
+  if Assigned(VirtualScreen) then
+  begin
+    MaxRenderWidth := Max(MaxRenderWidth, VirtualScreen.Width);
+    MaxRenderHeight := Max(MaxRenderHeight, VirtualScreen.Height);
+  end;
+  AWidth := Max(1, MaxRenderWidth);
+  AHeight := Max(1, MaxRenderHeight);
+end;
+
+procedure TAudioFrm.ClampPan;
+begin
+  if not Assigned(Screen) or not Assigned(VirtualScreen) then Exit;
+  PanX := EnsureRange(PanX, 0, Max(0, Screen.Width - VirtualScreen.Width));
+  PanY := EnsureRange(PanY, 0, Max(0, Screen.Height - VirtualScreen.Height));
+end;
+
+procedure TAudioFrm.UpdatePanCursor;
+begin
+  if not Assigned(Screen) or not Assigned(VirtualScreen) then Exit;
+  if (Screen.Width > VirtualScreen.Width) or
+     (Screen.Height > VirtualScreen.Height) then
+    VirtualScreen.Cursor := crSizeAll
+  else
+    VirtualScreen.Cursor := crDefault;
+end;
+
+procedure TAudioFrm.ScreenMouseDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+begin
+  if (Button <> mbLeft) or not Assigned(Screen) then Exit;
+  if (Screen.Width <= VirtualScreen.Width) and
+     (Screen.Height <= VirtualScreen.Height) then Exit;
+
+  IsPanning := True;
+  PanStartX := X;
+  PanStartY := Y;
+  PanStartOffsetX := PanX;
+  PanStartOffsetY := PanY;
+  SetCaptureControl(VirtualScreen);
+end;
+
+procedure TAudioFrm.ScreenMouseMove(Sender: TObject; Shift: TShiftState;
+  X, Y: Integer);
+begin
+  if not IsPanning then Exit;
+
+  // Move the image as if it were grabbed directly with the mouse.
+  PanX := PanStartOffsetX - (X - PanStartX);
+  PanY := PanStartOffsetY - (Y - PanStartY);
+  ClampPan;
+  VirtualScreen.RedrawBitmap;
+end;
+
+procedure TAudioFrm.ScreenMouseUp(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+begin
+  if Button <> mbLeft then Exit;
+  IsPanning := False;
+  SetCaptureControl(nil);
+end;
+
 procedure TAudioFrm.ScreenTimerTimer(Sender: TObject);
 var
   i, Index: longint;
+  BackingWidth, BackingHeight: longint;
   Track: TTrack;
   Mode: TScreenDrawerModes;
 begin
   if ScreenDrawer <> nil then Exit;
 
-  if LastWidth <> Width then
+  if (LastWidth <> VirtualScreen.Width) or
+     (LastHeight <> VirtualScreen.Height) then
   begin
-    LastWidth := Width;
-    IsNeededUpdateScreens := True;
-    Exit;
-  end;
-
-  if LastHeight <> Height then
-  begin
-    LastHeight := Height;
-    IsNeededUpdateScreens := True;
+    LastWidth  := VirtualScreen.Width;
+    LastHeight := VirtualScreen.Height;
+    CalculateBackingSize(BackingWidth, BackingHeight);
+    if (BackingWidth > Screen.Width) or
+       (BackingHeight > Screen.Height) then
+      IsNeededUpdateScreens := True;
+    ClampPan;
+    UpdatePanCursor;
+    VirtualScreen.RedrawBitmap;
     Exit;
   end;
 
@@ -769,6 +1132,9 @@ begin
     ScreenDrawer.OnStart := @OnStartDrawer;
     ScreenDrawer.OnStop  := @OnStopDrawer;
     ScreenDrawer.Mode    := Mode;
+    // TrackList owns the track used by the renderer. Prevent commands that
+    // can clear the list until the background renderer releases that pointer.
+    DisableButtons;
     ScreenDrawer.Start;
   end;
 end;
@@ -871,9 +1237,15 @@ end;
 
 procedure TAudioFrm.RedrawVirtualScreen(Sender: TObject; Bitmap: TBGRABitmap);
 begin
-  if ScreenDrawer = nil then
+  if (ScreenDrawer = nil) and Assigned(Screen) and
+     (Screen.Width > 0) and (Screen.Height > 0) and
+     (Bitmap.Width > 0) and (Bitmap.Height > 0) then
   begin
-    Bitmap.PutImage(0, 0, Screen, dmSet);
+    ClampPan;
+    Bitmap.Fill(BGRA(0, 0, 0, 255));
+    // Negative coordinates select the visible 1:1 viewport.  PutImage clips
+    // the rest, so no scaling or text deformation takes place.
+    Bitmap.PutImage(-PanX, -PanY, Screen, dmSet);
   end;
 end;
 
