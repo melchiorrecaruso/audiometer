@@ -31,6 +31,7 @@ uses
 type
   TScreenDrawerMode  = (smDynamicRange, smWaveForm, smFreqSpectrum, smSpectrogram, smLoudness);
   TScreenDrawerModes = set of TScreenDrawerMode;
+  TCustomDrawer = class;
 
   TScreenDrawer = class(TThread)
   private
@@ -39,15 +40,18 @@ type
     FOnStop: TThreadMethod;
     FScreen: TBGRABitmap;
     FTrack: TTrack;
+    FErrorMessage: string;
+    FSuccessful: boolean;
   public
     constructor Create(ATrack: TTrack; AScreen: TBGRABitmap);
     destructor Destroy; override;
     procedure Execute; override;
-  public
     property Mode: TScreenDrawerModes read FModes write FModes;
     property OnStart: TThreadMethod read FOnStart write FOnStart;
     property OnStop: TThreadMethod read FOnStop write FOnStop;
     property Track: TTrack read FTrack;
+    property ErrorMessage: string read FErrorMessage;
+    property Successful: boolean read FSuccessful;
   end;
 
   TCustomDrawer = class(TThread)
@@ -60,6 +64,7 @@ type
     constructor Create(ATrack: TTrack; AScreen: TBGRABitmap);
     destructor Destroy; override;
     procedure Execute; override;
+    procedure RaiseIfFailed;
   end;
 
   TBlockDrawer = class(TCustomDrawer)
@@ -124,7 +129,7 @@ var
 implementation
 
 uses
-  Math, DateUtils, SoundUtils;
+  Math, SoundUtils;
 
 function GetColor(AFactor: double): TBGRAPixel;
 const
@@ -372,12 +377,22 @@ var
   Bit: TBGRABitmap;
   OffSet: longint;
 begin
-  if Assigned(FOnStart) then
-    Synchronize(FOnStart);
+  BlockDrawer := nil;
+  LoudnessDrawer := nil;
+  SpectrumDrawer := nil;
+  SpectrogramDrawer := nil;
+  WaveDrawer := nil;
+  Bit := nil;
+  FSuccessful := False;
+  FErrorMessage := '';
+  try
+    try
+      if Assigned(FOnStart) then
+        Synchronize(FOnStart);
 
-  FScreen.FillTransparent;
-  if (FScreen.Width > 0) and (FScreen.Height > 0) and (FModes <> []) then
-  begin
+      FScreen.FillTransparent;
+      if (FScreen.Width > 0) and (FScreen.Height > 0) and (FModes <> []) then
+      begin
 
     if Assigned(FTrack) and (FTrack.ChannelCount > 0) then
     begin
@@ -396,11 +411,11 @@ begin
         BlockDrawer := TBlockDrawer.Create(FTrack, Bit);
         BlockDrawer.Start;
         BlockDrawer.WaitFor;
-        BlockDrawer.Destroy;
-
+        BlockDrawer.RaiseIfFailed;
         FScreen.PutImage(0, OffSet, Bit, dmSet);
         Inc(OffSet, Bit.Height);
-        Bit.Destroy;
+        FreeAndNil(BlockDrawer);
+        FreeAndNil(Bit);
       end;
 
       if smLoudness in FModes then
@@ -409,11 +424,11 @@ begin
         LoudnessDrawer := TLoudnessDrawer.Create(FTrack, Bit);
         LoudnessDrawer.Start;
         LoudnessDrawer.WaitFor;
-        LoudnessDrawer.Destroy;
-
+        LoudnessDrawer.RaiseIfFailed;
         FScreen.PutImage(0, OffSet, Bit, dmSet);
         Inc(OffSet, Bit.Height);
-        Bit.Destroy;
+        FreeAndNil(LoudnessDrawer);
+        FreeAndNil(Bit);
       end;
 
       if smWaveForm in FModes then
@@ -422,11 +437,11 @@ begin
         WaveDrawer := TWaveDrawer.Create(FTrack, Bit);
         WaveDrawer.Start;
         WaveDrawer.WaitFor;
-        WaveDrawer.Destroy;
-
+        WaveDrawer.RaiseIfFailed;
         FScreen.PutImage(0, OffSet, Bit, dmSet);
         Inc(OffSet, Bit.Height);
-        Bit.Destroy;
+        FreeAndNil(WaveDrawer);
+        FreeAndNil(Bit);
       end;
 
       if smFreqSpectrum in FModes then
@@ -435,11 +450,11 @@ begin
         SpectrumDrawer := TSpectrumDrawer.Create(FTrack, Bit);
         SpectrumDrawer.Start;
         SpectrumDrawer.WaitFor;
-        SpectrumDrawer.Destroy;
-
+        SpectrumDrawer.RaiseIfFailed;
         FScreen.PutImage(0, OffSet, Bit, dmSet);
         Inc(OffSet, Bit.Height);
-        Bit.Destroy;
+        FreeAndNil(SpectrumDrawer);
+        FreeAndNil(Bit);
       end;
 
       if smSpectrogram in FModes then
@@ -448,11 +463,11 @@ begin
        SpectrogramDrawer := TSpectrogramDrawer.Create(FTrack, Bit);
        SpectrogramDrawer.Start;
        SpectrogramDrawer.WaitFor;
-       SpectrogramDrawer.Destroy;
-
+       SpectrogramDrawer.RaiseIfFailed;
        FScreen.PutImage(0, OffSet, Bit, dmSet);
        Inc(OffSet, Bit.Height);
-       Bit.Destroy;
+       FreeAndNil(SpectrogramDrawer);
+       FreeAndNil(Bit);
      end;
 
     end else
@@ -502,12 +517,25 @@ begin
         FScreen.PutImage(0, OffSet, Bit, dmSet);
         Inc(OffSet, Bit.Height);
       end;
-      Bit.Destroy;
+      FreeAndNil(Bit);
     end;
-  end;
+      end;
 
-  if Assigned(FOnStop) then
-    Synchronize(FOnStop);
+      FSuccessful := True;
+    except
+      on E: Exception do
+        FErrorMessage := Format('%s: %s', [E.ClassName, E.Message]);
+    end;
+  finally
+    FreeAndNil(BlockDrawer);
+    FreeAndNil(LoudnessDrawer);
+    FreeAndNil(SpectrumDrawer);
+    FreeAndNil(SpectrogramDrawer);
+    FreeAndNil(WaveDrawer);
+    FreeAndNil(Bit);
+    if Assigned(FOnStop) then
+      Synchronize(FOnStop);
+  end;
 end;
 
 // TDrawer
@@ -517,7 +545,9 @@ begin
   FTrack  := ATrack;
   FScreen := AScreen;
   FreeOnTerminate := False;
-  inherited Create(False);
+  // TScreenDrawer explicitly starts each worker and then waits for it.  Keep
+  // the worker suspended here so it is started exactly once.
+  inherited Create(True);
 end;
 
 destructor TCustomDrawer.Destroy;
@@ -528,6 +558,16 @@ end;
 procedure TCustomDrawer.Execute;
 begin
   if Assigned(FTrack) then Draw;
+end;
+
+procedure TCustomDrawer.RaiseIfFailed;
+begin
+  if not Assigned(FatalException) then Exit;
+  if FatalException is Exception then
+    raise Exception.CreateFmt('%s: %s',
+      [FatalException.ClassName, Exception(FatalException).Message])
+  else
+    raise Exception.Create(FatalException.ClassName);
 end;
 
 function TCustomDrawer.NewDefaultChart: TChart;
@@ -573,9 +613,10 @@ end;
 
 procedure TBlockDrawer.Draw;
 var
-  i, j: longint;
+  i, j, X0, X1, YBase, YRms, YPeak: longint;
   Rms2, Peak: TDouble;
-  Points: ArrayOfTPointF = nil;
+  RmsValues: TDoubleVector = nil;
+  PeakValues: TDoubleVector = nil;
   Chart: TChart;
   MaxDB, MinDB: double;
 begin
@@ -599,7 +640,8 @@ begin
   Chart.YDeltaF := (6 * FTrack.BitsPerSample) div Chart.YCount;
 
   // loop through each block
-  SetLength(Points, 4);
+  SetLength(RmsValues, FTrack.DRMeter.BlockCount);
+  SetLength(PeakValues, FTrack.DRMeter.BlockCount);
   for i := 0 to FTrack.DRMeter.BlockCount -1 do
   begin
     Rms2 := 0;
@@ -610,19 +652,7 @@ begin
     end;
     Rms2 := Rms2 / FTrack.ChannelCount;
 
-    // draw yellow block for rms level
-    Points[0].x := (i + 1) - 0.35;
-    Points[0].y := MinDB;
-    Points[1].x := (i + 1) - 0.35;
-    Points[1].y := Max(Decibel(Sqrt(Rms2)), MinDB);
-    Points[2].x := (i + 1) + 0.35;
-    Points[2].y := Max(Decibel(Sqrt(Rms2)), MinDB);
-    Points[3].x := (i + 1) + 0.35;
-    Points[3].y := MinDB;
-
-    Chart.PenColor := clBlack;
-    Chart.TextureColor := clrYellow;
-    Chart.AddPolygon(Points, '');
+    RmsValues[i] := Max(Decibel(Sqrt(Rms2)), MinDB);
 
     Peak := 0;
     // calculate average Peak across channels
@@ -632,22 +662,32 @@ begin
     end;
     Peak := Peak / FTrack.ChannelCount;
 
-    // draw red block from rms to Peak
-    Points[0].x := (i + 1) - 0.35;
-    Points[0].y := Max(Decibel(Sqrt(Rms2)), MinDB);
-    Points[1].x := (i + 1) - 0.35;
-    Points[1].y := Max(Decibel(Peak), MinDB);
-    Points[2].x := (i + 1) + 0.35;
-    Points[2].y := Max(Decibel(Peak), MinDB);
-    Points[3].x := (i + 1) + 0.35;
-    Points[3].y := Max(Decibel(Sqrt(Rms2)), MinDB);
-
-    Chart.PenColor := clBlack;
-    Chart.TextureColor := clrRed;
-    Chart.AddPolygon(Points, '');
+    PeakValues[i] := Max(Decibel(Peak), MinDB);
+  end;
+  if Length(RmsValues) > 0 then
+  begin
+    // NewDefaultChart already fixes XMinF at zero. The original polygons
+    // determined only the upper horizontal bound.
+    Chart.XMaxF := Length(RmsValues) + 0.35;
+    Chart.AddPixel(0, MinDB, clBlack);
   end;
   // draw Chart on screen
   Chart.Draw(FScreen, FScreen.Width, FScreen.Height, True);
+
+  // Domain-specific bars are rasterized here so TChart remains generic.
+  YBase := Round(Chart.DataToCanvasY(MinDB));
+  for i := 0 to High(RmsValues) do
+  begin
+    X0 := Round(Chart.DataToCanvasX((i + 1) - 0.35));
+    X1 := Round(Chart.DataToCanvasX((i + 1) + 0.35));
+    if X1 <= X0 then X1 := X0 + 1;
+    YRms := Round(Chart.DataToCanvasY(RmsValues[i]));
+    FScreen.FillRect(X0, Min(YRms, YBase), X1, Max(YRms, YBase) + 1,
+      clrYellow);
+    YPeak := Round(Chart.DataToCanvasY(PeakValues[i]));
+    FScreen.FillRect(X0, Min(YPEak, YRms), X1, Max(YPEak, YRms) + 1,
+      clrRed);
+  end;
   Chart.Destroy;
 end;
 
@@ -656,12 +696,11 @@ end;
 procedure TSpectrumDrawer.Draw;
 var
   Chart: TChart;
-  ch, i, j: longint;
-  WindowCount: longint;
+  i, X0, X1, YAmp, YBase, YPeak0, YPeak1: longint;
   OutBins: longint;
-  Points: array of TPointF = nil;
-  index: longint;
-  FreqIndex, Amp, Peak: TDouble;
+  Amplitudes: TDoubleVector = nil;
+  Peaks: TDoubleVector = nil;
+  Amp, Peak, FreqIndex: TDouble;
   Factor: single;
   MaxDB, MinDB: TDouble;
 begin
@@ -684,57 +723,49 @@ begin
   Chart.YCount  := 4;
   Chart.YDeltaF := (6 * FTrack.BitsPerSample) div Chart.YCount;
 
-  WindowCount := FTrack.Spectrums.WindowCount;
   OutBins     := FTrack.Spectrums.OutBins;
-  Factor      := (0.5 * FTrack.Samplerate) / (OutBins - 1);
+  if OutBins > 1 then
+    Factor := (0.5 * FTrack.Samplerate) / (OutBins - 1)
+  else
+    Factor := 1;
 
-  SetLength(Points, 4);
+  SetLength(Amplitudes, Max(0, OutBins - 1));
+  SetLength(Peaks, Max(0, OutBins - 1));
   for i := 1 to OutBins - 1 do
   begin
-    FreqIndex := i * Factor;
+    Amp  := FTrack.Spectrums.SpectrumRms(i);
+    Peak := FTrack.Spectrums.SpectrumPeak(i);
 
-    Amp  := 0;
-    Peak := 0;
-    for j := 0 to WindowCount - 1 do
-    begin
-      Index := j * OutBins + i;
-      for ch := 0 to FTrack.ChannelCount - 1 do
-      begin
-        Amp  := Amp + Sqr(FTrack.Spectrums.Channels[ch, Index]);
-        Peak := Max(Peak, Abs(FTrack.Spectrums.Channels[ch, Index]));
-      end;
-    end;
-    Amp := Sqrt(Amp / (WindowCount * FTrack.ChannelCount));
-
-    Amp  := Max(Decibel(Amp),  MinDB);
-    Peak := Max(Decibel(Peak), MinDB);
-
-    Chart.PenColor     := clrYellow;
-    Chart.TextureColor := clrYellow;
-    Points[0].X := FreqIndex -0.25 * Factor;
-    Points[0].Y := MinDB;
-    Points[1].X := FreqIndex -0.25 * Factor;
-    Points[1].Y := Amp;
-    Points[2].X := FreqIndex +0.25 * Factor;
-    Points[2].Y := Amp;
-    Points[3].X := FreqIndex +0.25 * Factor;
-    Points[3].Y := MinDB;
-    Chart.AddPolygon(Points, '');
-
-    Chart.PenColor     := clrRed;
-    Chart.TextureColor := clrRed;
-    Points[0].X := FreqIndex -0.25 * Factor;
-    Points[0].Y := Peak;
-    Points[1].X := FreqIndex -0.25 * Factor;
-    Points[1].Y := Min(Peak + 0.5, 0);
-    Points[2].X := FreqIndex +0.25 * Factor;
-    Points[2].Y := Min(Peak + 0.5, 0);
-    Points[3].X := FreqIndex +0.25 * Factor;
-    Points[3].Y := Peak;
-    Chart.AddPolygon(Points, '');
+    Amplitudes[i - 1] := Max(Decibel(Amp), MinDB);
+    Peaks[i - 1] := Max(Decibel(Peak), MinDB);
+  end;
+  if Length(Amplitudes) > 0 then
+  begin
+    // XMinF remains the zero fixed by NewDefaultChart, as in the polygon
+    // implementation. Only the last bar supplied the automatic upper bound.
+    FreqIndex := Length(Amplitudes) * Factor;
+    Chart.XMaxF := FreqIndex + 0.25 * Factor;
+    Chart.AddPixel(0, MinDB, clBlack);
   end;
   // draw chart on screen
   Chart.Draw(FScreen, FScreen.Width, FScreen.Height, True);
+
+  // Domain-specific spectrum bars are kept out of the generic chart unit.
+  YBase := Round(Chart.DataToCanvasY(MinDB));
+  for i := 0 to High(Amplitudes) do
+  begin
+    FreqIndex := (i + 1) * Factor;
+    X0 := Round(Chart.DataToCanvasX(FreqIndex - 0.25 * Factor));
+    X1 := Round(Chart.DataToCanvasX(FreqIndex + 0.25 * Factor));
+    if X1 <= X0 then X1 := X0 + 1;
+    YAmp := Round(Chart.DataToCanvasY(Amplitudes[i]));
+    FScreen.FillRect(X0, Min(YAmp, YBase), X1, Max(YAmp, YBase) + 1,
+      clrYellow);
+    YPeak0 := Round(Chart.DataToCanvasY(Peaks[i]));
+    YPeak1 := Round(Chart.DataToCanvasY(Min(Peaks[i] + 0.5, 0)));
+    FScreen.FillRect(X0, Min(YPEak0, YPeak1), X1,
+      Max(YPEak0, YPeak1) + 1, clrRed);
+  end;
   Chart.Destroy;
 end;
 
@@ -810,11 +841,11 @@ end;
 
 procedure TWaveDrawer.Draw;
 var
-  ch, i, x, SampleIndex: longint;
-  WindowxSize, WindowySize: longint;
+  ch, x: longint;
+  WindowySize: longint;
   WindowxCount, WindowyCount: longint;
   zMax, zMin: double;
-  P1, P2: tpointf;
+  DataX, PixelX, PixelYMin, PixelYMax: double;
   Bit: array of TBGRABitmap = nil;
   Chart: TChart;
   OffSet: longint;
@@ -828,6 +859,7 @@ begin
 
   WindowxCount := FScreen.Width;       // horizontal resolution (pixels)
   WindowyCount := FTrack.ChannelCount; // one row per channel
+  FTrack.PrepareWaveformCache(WindowxCount);
 
   // loop through each channel
   for ch := Low(Bit) to High(Bit) do
@@ -848,44 +880,46 @@ begin
     Chart.PenColor     := clrRed;
     Chart.TextureColor := clrBlack;
 
-    // calculate number of samples per horizontal pixel
-    WindowxSize := FTrack.SampleCount div WindowxCount;
     // calculate vertical size per channel section
     WindowySize := FScreen.Height div WindowyCount;
 
     // prepare per-channel bitmap
     Bit[ch].SetSize(FScreen.width, WindowySize);
-    // loop through horizontal pixels (time segments)
-    for x := 0 to WindowxCount - 1 do
-    begin
-      zMin :=  infinity;
-      zMax := -infinity;
-
-      // find min and max sample values in this time segment
-      for i := 0 to WindowxSize -1 do
-      begin
-        SampleIndex := x * WindowxSize + i;
-
-        zMin := Min(zMin, FTrack.Channels[ch, SampleIndex]);
-        zMax := Max(zMax, FTrack.Channels[ch, SampleIndex]);
-      end;
-
-      // create a vertical line for waveform range at this segment
-      P1.x := x / (WindowxCount -1) * FTrack.Duration;
-      P1.y := zMin;
-      P2.x := x / (WindowxCount -1) * FTrack.Duration;
-      P2.y := zMax;
-
-      Chart.AddPolyline([P1, P2], False, '');
-      // dotick;
-    end;
     // set visible bounds for Chart
     Chart.YMaxF := +1.0;
     Chart.YMinF := -1.0;
     Chart.XMinF := 0;
     Chart.XMaxF := Max(1, FTrack.Duration);
+    // Keep CalculateDataArea active while the actual waveform is rendered
+    // directly after Chart.Draw.
+    Chart.AddPixel(0, -1, clrBlack);
+    Chart.AddPixel(Max(1, FTrack.Duration), 1, clrBlack);
     // draw Chart on bitmap
     Chart.Draw(Bit[ch], Bit[ch].Width, Bit[ch].Height);
+
+    // Draw the cached envelope directly on the chart bitmap.  The chart is
+    // used only for axes and labels; no per-column chart items are allocated
+    // or traversed by TChart.DrawItems.
+    for x := 0 to WindowxCount - 1 do
+    begin
+      zMin := FTrack.WaveformMin(ch, x);
+      zMax := FTrack.WaveformMax(ch, x);
+      DataX := x / Max(1, WindowxCount - 1) * FTrack.Duration;
+
+      PixelX := Chart.DataToCanvasX(DataX);
+      PixelYMin := Chart.DataToCanvasY(zMin);
+      PixelYMax := Chart.DataToCanvasY(zMax);
+
+      // The envelope is one vertical segment per output column.  Integer,
+      // pixel-aligned fills avoid the much more expensive antialias pipeline
+      // without changing the effective one-pixel geometry.
+      Bit[ch].FillRect(
+        Round(PixelX),
+        Round(Min(PixelYMin, PixelYMax)),
+        Round(PixelX) + 1,
+        Round(Max(PixelYMin, PixelYMax)) + 1,
+        clrRed);
+    end;
     Chart.Destroy;
   end;
 
