@@ -525,6 +525,9 @@ object AudioFrm: TAudioFrm
       Height = 850
       Top = 0
       Width = 1359
+      OnMouseDown = ScreenMouseDown
+      OnMouseMove = ScreenMouseMove
+      OnMouseUp = ScreenMouseUp
       OnRedraw = RedrawVirtualScreen
       Align = alClient
       Alignment = taLeftJustify
