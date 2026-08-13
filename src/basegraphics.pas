@@ -28,7 +28,8 @@ interface
 
 uses
   BGRABitmap, BGRABitmapTypes, BGRAFreeType, BGRATextFX, BGRACanvas2D,
-  Classes, DateUtils, Graphics, SysUtils, EasyLazFreeType, LazFreeTypeFontCollection;
+  Classes, DateUtils, Graphics, SysUtils, EasyLazFreeType,
+  LazFreeTypeFontCollection;
 
 type
   TDrawingArea = record
@@ -264,6 +265,8 @@ type
     procedure Clear;
 
     function GetDrawingRect: TRect;
+    function DataToCanvasX(const AX: single): single;
+    function DataToCanvasY(const AY: single): single;
   public
     function GetXAxisLabelSize(const ALabel: string): TSize;
     function GetYAxisLabelSize(const ALabel: string): TSize;
@@ -522,6 +525,7 @@ type
   end;
 
 procedure DrawLogo(ABitmap: TBGRABitmap; aWidth, aHeight: longint);
+procedure InitializeChartFont;
 
 const
   DefaultSpacer = 16;
@@ -536,8 +540,20 @@ uses Math, SyncObjs;
 
 var
   ChartTextLock: TCriticalSection;
+  ChartFontInitialized: boolean = False;
 
 // Initialize
+
+procedure InitializeChartFont;
+begin
+  if ChartFontInitialized then Exit;
+  if (DefaultFontName = '') or not FileExists(DefaultFontFileName) then Exit;
+
+  // FontCollection is shared by all FreeType renderers.  Register the font
+  // once, from the main thread, before any chart worker is started.
+  FontCollection.AddFile(DefaultFontFileName);
+  ChartFontInitialized := True;
+end;
 
 // Common routines
 
@@ -719,11 +735,8 @@ constructor TChart.Create;
 begin
   inherited Create;
   FBit := TBGRABitmap.Create;
-  if (DefaultFontName <> '') and FileExists(DefaultFontFileName) then
-  begin
-    FontCollection.AddFile(DefaultFontFileName);
+  if ChartFontInitialized then
     FBit.FontRenderer := TBGRAFreeTypeFontRenderer.Create;
-  end;
   FItems := TList.Create;
   Clear;
 end;
@@ -1477,6 +1490,16 @@ begin
 
   FBit.DrawPolyLineAntialias(T, AItem.FPenColor, AItem.FPenWidth * FScale, BGRA(255, 255, 255, 0));
   T := nil;
+end;
+
+function TChart.DataToCanvasX(const AX: single): single;
+begin
+  Result := XToCanvas(PxFromAreaFToArea(AX));
+end;
+
+function TChart.DataToCanvasY(const AY: single): single;
+begin
+  Result := YToCanvas(PyFromAreaFToArea(AY));
 end;
 
 procedure TChart.DrawDotLabel(AItem: TChartDotLabelItem);
