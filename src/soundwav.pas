@@ -95,6 +95,10 @@ type
     FBitsPerSample: longint;
     FByterate: longint;
     FDuration: longint;
+    // Cached min/max waveform envelope for the requested render width.
+    FWaveCacheWidth: longint;
+    FWaveMin: TDoubleMatrix;
+    FWaveMax: TDoubleMatrix;
     // Spectrum
     FSpectrums: TSpectrums;
     // Loudness
@@ -105,6 +109,9 @@ type
     constructor Create(const AFilename: string);
     destructor Destroy; override;
     procedure ClearChannels;
+    procedure PrepareWaveformCache(AWidth: longint);
+    function WaveformMin(AChannel, AX: longint): double;
+    function WaveformMax(AChannel, AX: longint): double;
   public
     property Filename: string read FFilename;
     property Album: string read FAlbum;
@@ -237,6 +244,7 @@ begin
   FSampleRate    := 0;
   FBitsPerSample := 0;
   FByterate      := 0;
+  FWaveCacheWidth := 0;
 end;
 
 destructor TTrack.Destroy;
@@ -251,7 +259,82 @@ end;
 procedure TTrack.ClearChannels;
 begin
   SetLength(FChannels, 0, 0);
-  FSpectrums.Finalize
+  FWaveCacheWidth := 0;
+  SetLength(FWaveMin, 0, 0);
+  SetLength(FWaveMax, 0, 0);
+  FSpectrums.Finalize;
+end;
+
+procedure TTrack.PrepareWaveformCache(AWidth: longint);
+var
+  ch, i, X: longint;
+  FirstSample, WindowSize: longint;
+  ZMin, ZMax: double;
+begin
+  if (AWidth <= 0) or (FSampleCount <= 0) or
+     (Length(FChannels) = 0) then
+  begin
+    FWaveCacheWidth := 0;
+    SetLength(FWaveMin, 0, 0);
+    SetLength(FWaveMax, 0, 0);
+    Exit;
+  end;
+
+  if (FWaveCacheWidth = AWidth) and
+     (Length(FWaveMin) = Length(FChannels)) then Exit;
+
+  SetLength(FWaveMin, Length(FChannels), AWidth);
+  SetLength(FWaveMax, Length(FChannels), AWidth);
+  WindowSize := FSampleCount div AWidth;
+
+  for ch := Low(FChannels) to High(FChannels) do
+    for X := 0 to AWidth - 1 do
+    begin
+      ZMin := Infinity;
+      ZMax := -Infinity;
+      if WindowSize > 0 then
+      begin
+        FirstSample := X * WindowSize;
+        // Preserve the original drawer's fixed-size windows exactly. Any
+        // remainder at the end of the track is intentionally not redistributed.
+        for i := 0 to WindowSize - 1 do
+        begin
+          ZMin := Min(ZMin, FChannels[ch][FirstSample + i]);
+          ZMax := Max(ZMax, FChannels[ch][FirstSample + i]);
+        end;
+      end else
+      begin
+        // A very short clip (or an unusually wide configured backing bitmap)
+        // has fewer samples than columns. The old loop produced infinities in
+        // this case; repeat the nearest sample to keep coordinates finite.
+        FirstSample := longint(Int64(X) * FSampleCount div AWidth);
+        FirstSample := EnsureRange(FirstSample, 0, FSampleCount - 1);
+        ZMin := FChannels[ch][FirstSample];
+        ZMax := ZMin;
+      end;
+      FWaveMin[ch][X] := ZMin;
+      FWaveMax[ch][X] := ZMax;
+    end;
+
+  FWaveCacheWidth := AWidth;
+end;
+
+function TTrack.WaveformMin(AChannel, AX: longint): double;
+begin
+  if (AChannel >= 0) and (AChannel < Length(FWaveMin)) and
+     (AX >= 0) and (AX < Length(FWaveMin[AChannel])) then
+    Result := FWaveMin[AChannel][AX]
+  else
+    Result := 0;
+end;
+
+function TTrack.WaveformMax(AChannel, AX: longint): double;
+begin
+  if (AChannel >= 0) and (AChannel < Length(FWaveMax)) and
+     (AX >= 0) and (AX < Length(FWaveMax[AChannel])) then
+    Result := FWaveMax[AChannel][AX]
+  else
+    Result := 0;
 end;
 
 // TTrackAnalyzer
