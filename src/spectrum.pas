@@ -47,7 +47,10 @@ type
     FFreq: TCompVector;       // reusable FFT output buffer
     FScale: TDouble;          // magnitude scale for interior bins (2/N)
     FScaleEdge: TDouble;      // magnitude scale for DC and Nyquist (1/N)
+    FSpectrumRms: TDoubleVector;  // aggregate across all windows/channels
+    FSpectrumPeak: TDoubleVector;
     procedure BuildWindow;
+    procedure BuildSpectrumSummary;
     function  ComputeWindowCount(ASampleCount: longint): longint;
     procedure GetSpectrum(ASamples: PDouble; ASpectrum: PDouble);
     procedure GetSpectrumPair(ASamplesA, ASamplesB: PDouble;
@@ -60,6 +63,8 @@ type
 
     function EstimatedTicks(AChannelCount, ASampleCount: longint): longint;
     procedure Process(const AChannels: TDoubleMatrix; ASampleCount: longint);
+    function SpectrumRms(ABin: longint): double;
+    function SpectrumPeak(ABin: longint): double;
 
     property WindowSize: longint read FWindowSize;
     property WindowCount: longint read FWindowCount;
@@ -210,6 +215,52 @@ begin
   SetLength(FBuff, 0);
   SetLength(FFreq, 0);
   SetLength(FChannels, 0, 0);
+  SetLength(FSpectrumRms, 0);
+  SetLength(FSpectrumPeak, 0);
+end;
+
+procedure TSpectrums.BuildSpectrumSummary;
+var
+  ch, i, BinIndex: longint;
+  Amp, Peak: double;
+begin
+  SetLength(FSpectrumRms, FOutBins);
+  SetLength(FSpectrumPeak, FOutBins);
+  if (FOutBins = 0) or (FWindowCount = 0) or
+     (Length(FChannels) = 0) then Exit;
+
+  for BinIndex := 0 to FOutBins - 1 do
+  begin
+    Amp := 0;
+    Peak := 0;
+    for i := 0 to FWindowCount - 1 do
+      for ch := Low(FChannels) to High(FChannels) do
+      begin
+        Amp := Amp + Sqr(FChannels[ch][i * FOutBins + BinIndex]);
+        Peak := Max(Peak,
+          Abs(FChannels[ch][i * FOutBins + BinIndex]));
+      end;
+
+    FSpectrumRms[BinIndex] := Sqrt(
+      Amp / (FWindowCount * Length(FChannels)));
+    FSpectrumPeak[BinIndex] := Peak;
+  end;
+end;
+
+function TSpectrums.SpectrumRms(ABin: longint): double;
+begin
+  if (ABin >= 0) and (ABin < Length(FSpectrumRms)) then
+    Result := FSpectrumRms[ABin]
+  else
+    Result := 0;
+end;
+
+function TSpectrums.SpectrumPeak(ABin: longint): double;
+begin
+  if (ABin >= 0) and (ABin < Length(FSpectrumPeak)) then
+    Result := FSpectrumPeak[ABin]
+  else
+    Result := 0;
 end;
 
 function TSpectrums.EstimatedTicks(AChannelCount, ASampleCount: longint): longint;
@@ -251,6 +302,7 @@ begin
       end;
     end;
     SmoothSpectrogram;
+    BuildSpectrumSummary;
   end else
     Finalize;
 end;
