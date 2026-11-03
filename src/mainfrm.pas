@@ -727,7 +727,7 @@ begin
       TempWaveReady := True;
     end;
 
-    Stream := TFileStream.Create(TempFile, fmOpenRead or fmShareExclusive);
+    Stream := TFileStream.Create(TempFile, fmOpenRead or fmShareDenyWrite);
   except
     Stream := nil;
     TempWaveReady := False;
@@ -1159,7 +1159,7 @@ begin
 
     kHz44 .Font.Color := clGray; if ATrack.Samplerate    = 44100  then kHz44 .Font.Color := clWhite;
     kHz48 .Font.Color := clGray; if ATrack.Samplerate    = 48000  then kHz48 .Font.Color := clWhite;
-    kHz88 .Font.Color := clGray; if ATrack.Samplerate    = 88000  then kHz88 .Font.Color := clWhite;
+    kHz88 .Font.Color := clGray; if ATrack.Samplerate    = 88200  then kHz88 .Font.Color := clWhite;
     kHz96 .Font.Color := clGray; if ATrack.Samplerate    = 96000  then kHz96 .Font.Color := clWhite;
     kHz176.Font.Color := clGray; if ATrack.Samplerate    = 176400 then kHz176.Font.Color := clWhite;
     kHz192.Font.Color := clGray; if ATrack.Samplerate    = 192000 then kHz192.Font.Color := clWhite;
@@ -1175,13 +1175,13 @@ begin
     end;
 
     TruePeakLabel.Font.Color := clWhite;
-    if ATrack.ChannelCount > 0 then if Decibel(ATrack.Loudness.TruePeak(0)) <= 0.0 then TPLLeftValue .Font.Color := clLime;
-    if ATrack.ChannelCount > 0 then if Decibel(ATrack.Loudness.TruePeak(0)) >  0.0 then TPLLeftValue .Font.Color := clYellow;
-    if ATrack.ChannelCount > 0 then if Decibel(ATrack.Loudness.TruePeak(0)) >  0.5 then TPLLeftValue .Font.Color := clRed;
+    if ATrack.ChannelCount > 0 then if ATrack.Loudness.TruePeak(0) <= 0.0 then TPLLeftValue .Font.Color := clLime;
+    if ATrack.ChannelCount > 0 then if ATrack.Loudness.TruePeak(0) >  0.0 then TPLLeftValue .Font.Color := clYellow;
+    if ATrack.ChannelCount > 0 then if ATrack.Loudness.TruePeak(0) >  0.5 then TPLLeftValue .Font.Color := clRed;
 
-    if ATrack.ChannelCount > 1 then if Decibel(ATrack.Loudness.TruePeak(1)) <= 0.0 then TPLRightValue.Font.Color := clLime;
-    if ATrack.ChannelCount > 1 then if Decibel(ATrack.Loudness.TruePeak(1)) >  0.0 then TPLRightValue.Font.Color := clYellow;
-    if ATrack.ChannelCount > 1 then if Decibel(ATrack.Loudness.TruePeak(1)) >  0.5 then TPLRightValue.Font.Color := clRed;
+    if ATrack.ChannelCount > 1 then if ATrack.Loudness.TruePeak(1) <= 0.0 then TPLRightValue.Font.Color := clLime;
+    if ATrack.ChannelCount > 1 then if ATrack.Loudness.TruePeak(1) >  0.0 then TPLRightValue.Font.Color := clYellow;
+    if ATrack.ChannelCount > 1 then if ATrack.Loudness.TruePeak(1) >  0.5 then TPLRightValue.Font.Color := clRed;
 
     if ATrack.ChannelCount > 0 then PLleftvalue    .Font.Color := clWhite;
     if ATrack.ChannelCount > 1 then PLRightvalue   .Font.Color := clWhite;
