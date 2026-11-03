@@ -362,33 +362,46 @@ begin
   FPercentage := 0;
   if Assigned(FOnStart) then
     Synchronize(FOnStart);
+  try
+    try
+      ReadStream(FStream);
+      {$ifopt D+}
+      writeln;
+      writeln('LOUDNESS:');
+      writeln('Track.Rms         ', FTrack.Loudness.Rms                :2:2);
+      writeln('Track.Peak        ', FTrack.Loudness.Peak               :2:2);
+      writeln('Track.TruePeak    ', FTrack.Loudness.TruePeak           :2:2);
+      writeln('Track.Lk          ', FTrack.Loudness.IntegratedLoudness :2:2);
+      writeln('Track.LRA         ', FTrack.Loudness.LoudnessRange      :2:2);
+      writeln('Track.PLR         ', FTrack.Loudness.PeakToLoudnessRatio:2:2);
 
-  ReadStream(FStream);
-  {$ifopt D+}
-  writeln;
-  writeln('LOUDNESS:');
-  writeln('Track.Rms         ', FTrack.Loudness.Rms                :2:2);
-  writeln('Track.Peak        ', FTrack.Loudness.Peak               :2:2);
-  writeln('Track.TruePeak    ', FTrack.Loudness.TruePeak           :2:2);
-  writeln('Track.Lk          ', FTrack.Loudness.IntegratedLoudness :2:2);
-  writeln('Track.LRA         ', FTrack.Loudness.LoudnessRange      :2:2);
-  writeln('Track.PLR         ', FTrack.Loudness.PeakToLoudnessRatio:2:2);
-
-  writeln;
-  writeln('DYNAMIC RANGE:');
-  writeln('Track.DR:         ', FTrack.DRMeter.DR                  :2:2);
-  for ch := 0 to FTrack.DRMeter.ChannelCount -1 do
-  begin
-    writeln(ChannelName(ch, FTrack.FChannelCount),'.Rms         ', Decibel(FTrack.DRMeter.Rms (ch)):2:2);
-    writeln(ChannelName(ch, FTrack.FChannelCount),'.Peak        ', Decibel(FTrack.DRMeter.Peak(ch)):2:2);
-    writeln(ChannelName(ch, FTrack.FChannelCount),'.DR          ',         FTrack.DRMeter.DR  (ch) :2:2);
+      writeln;
+      writeln('DYNAMIC RANGE:');
+      writeln('Track.DR:         ', FTrack.DRMeter.DR                  :2:2);
+      for ch := 0 to FTrack.DRMeter.ChannelCount -1 do
+      begin
+        writeln(ChannelName(ch, FTrack.FChannelCount),'.Rms         ', Decibel(FTrack.DRMeter.Rms (ch)):2:2);
+        writeln(ChannelName(ch, FTrack.FChannelCount),'.Peak        ', Decibel(FTrack.DRMeter.Peak(ch)):2:2);
+        writeln(ChannelName(ch, FTrack.FChannelCount),'.DR          ',         FTrack.DRMeter.DR  (ch) :2:2);
+      end;
+      writeln;
+      {$endif}
+    except
+      // Out of memory, arithmetic errors, ...: report a failed analysis instead
+      // of letting OnStop present partially computed results as valid.
+      on E: Exception do
+      begin
+        {$ifopt D+}
+        writeln('Track.Exception    ', E.ClassName, ': ', E.Message);
+        {$endif}
+        FStatus := -4;
+      end;
+    end;
+  finally
+    FPercentage := 100;
+    if Assigned(FOnStop) then
+      Synchronize(FOnStop);
   end;
-  writeln;
-  {$endif}
-
-  FPercentage := 100;
-  if Assigned(FOnStop) then
-    Synchronize(FOnStop);
 end;
 
 procedure TTrackAnalyzer.DoTick;
@@ -397,7 +410,7 @@ begin
   FPercentage := Trunc(100 * FTick / FTickCount);
   if Assigned(FOnTick) then
   begin
-    Synchronize(FOnTick);
+    Queue(FOnTick);
   end;
 end;
 
@@ -424,6 +437,13 @@ begin
   if FTrack.FSampleRate > 0 then
   begin
     FTrack.FDuration := (FDatachunk.subck2size div FFmt.blockalign) div FTrack.FSampleRate;
+  end;
+  // Sample positions are longint throughout the meters: reject data chunks
+  // holding more frames than that (only reachable with tiny block alignments).
+  if FDatachunk.subck2size div FFmt.blockalign > High(longint) then
+  begin
+    FStatus := -1;
+    Exit;
   end;
   FTrack.FSampleCount := FDatachunk.subck2size div FFmt.blockalign;
 
@@ -551,6 +571,11 @@ begin
 
   if FFmt.Channels  = 0 then FStatus := -2;
   if FFmt.blockalign = 0 then FStatus := -1;
+  // Every meter divides by the sample rate.
+  if FFmt.samplespersec = 0 then FStatus := -1;
+  // ReadChannels de-interleaves tightly packed frames: reject layouts whose
+  // block alignment disagrees with channels * bytes per sample.
+  if FFmt.blockalign <> FFmt.Channels * (FFmt.BitsPerSample div 8) then FStatus := -1;
   // Accept integer PCM and IEEE float; reject A-law, mu-law, ADPCM and the rest.
   case FFormat of
     WAVE_FORMAT_PCM:        if not (FFmt.BitsPerSample in [8, 16, 24, 32]) then FStatus := -1;
@@ -579,102 +604,111 @@ end;
 
 function TTrackAnalyzer.ReadChannels(AStream: TStream;
   AChannels: TDoubleMatrix; ASampleCount: longint): longint;
+const
+  // Frames decoded per stream read: bounds the byte buffer to a few MB and
+  // keeps every single Read below the Longint count limit of TStream.Read.
+  ChunkFrames = 65536;
 var
-  i, j, k, Index, BytesPerSample: longint;
-  DataBytes: longint;
+  i, j, k, Index: longint;
+  First, Last, ChunkBytes: longint;
   Buffer: array of byte;
   InvNorm: TDouble;
 begin
   Result := 0;
+  SetLength(Buffer, ChunkFrames * FFmt.blockalign);
 
-  BytesPerSample := FFmt.BitsPerSample div 8;
-  DataBytes := ASampleCount * FFmt.Channels * BytesPerSample;
+  First := 0;
+  while First < ASampleCount do
+  begin
+    Last := Min(First + ChunkFrames, ASampleCount) - 1;
+    ChunkBytes := (Last - First + 1) * FFmt.blockalign;
+    if AStream.Read(Buffer[0], ChunkBytes) <> ChunkBytes then
+    begin
+      FStatus := -1;
+      Exit;
+    end;
 
-  // Bulk read of the whole data chunk, then de-interleave in memory.
-  SetLength(Buffer, DataBytes);
-  if AStream.Read(Buffer[0], DataBytes) <> DataBytes then FStatus := -1;
+    // Dispatch once per chunk on the (format, bit depth) pair, then run a
+    // single, type-specialized pass that de-interleaves AND normalizes in one
+    // go (no second sweep over the matrix). The integer paths multiply by
+    // 1/full-scale: that scale is a power of two, so its reciprocal is exactly
+    // representable and the product is bit-identical to the division.
+    Index := 0;
+    case FFormat of
+      WAVE_FORMAT_PCM:
+        case FFmt.BitsPerSample of
+          8:
+            begin
+              InvNorm := 1.0 / 128.0;          // exact (2^-7); unsigned, zero at 128
+              for i := First to Last do
+                for j := 0 to FFmt.Channels - 1 do
+                begin
+                  AChannels[j][i] := (pbyte(@Buffer[Index])^ - 128.0) * InvNorm;
+                  Inc(Index, 1);
+                end;
+            end;
+          16:
+            begin
+              InvNorm := 1.0 / 32768.0;        // exact (2^-15)
+              for i := First to Last do
+                for j := 0 to FFmt.Channels - 1 do
+                begin
+                  AChannels[j][i] := psmallint(@Buffer[Index])^ * InvNorm;
+                  Inc(Index, 2);
+                end;
+            end;
+          24:
+            begin
+              InvNorm := 1.0 / 8388608.0;      // exact (2^-23)
+              for i := First to Last do
+                for j := 0 to FFmt.Channels - 1 do
+                begin
+                  if Buffer[Index + 2] > 127 then
+                    k := longint($FFFFFFFF)
+                  else
+                    k := 0;
 
-  if FStatus <> 0 then Exit;
+                  k := (k shl 8) or Buffer[Index + 2];
+                  k := (k shl 8) or Buffer[Index + 1];
+                  k := (k shl 8) or Buffer[Index + 0];
 
-  // Dispatch once on the (format, bit depth) pair, then run a single, type-
-  // specialized pass that de-interleaves AND normalizes in one go (no second
-  // sweep over the matrix). The integer paths multiply by 1/full-scale: that
-  // scale is a power of two, so its reciprocal is exactly representable and the
-  // product is bit-identical to the division -- only without the divide.
-  Index := 0;
-  case FFormat of
-    WAVE_FORMAT_PCM:
-      case FFmt.BitsPerSample of
-        8:
-          begin
-            InvNorm := 1.0 / 128.0;          // exact (2^-7); unsigned, zero at 128
-            for i := 0 to ASampleCount - 1 do
+                  AChannels[j][i] := k * InvNorm;
+                  Inc(Index, 3);
+                end;
+            end;
+          32:
+            begin
+              InvNorm := 1.0 / 2147483648.0;   // exact (2^-31)
+              for i := First to Last do
+                for j := 0 to FFmt.Channels - 1 do
+                begin
+                  AChannels[j][i] := plongint(@Buffer[Index])^ * InvNorm;
+                  Inc(Index, 4);
+                end;
+            end;
+        end;
+      WAVE_FORMAT_IEEE_FLOAT:
+        // Raw little-endian IEEE samples, already in [-1, +1] (overs may exceed
+        // it and are kept on purpose for true-peak). Widening single -> double
+        // and reading double are both exact on an LE host, so no scaling.
+        case FFmt.BitsPerSample of
+          32:
+            for i := First to Last do
               for j := 0 to FFmt.Channels - 1 do
               begin
-                AChannels[j][i] := (pbyte(@Buffer[Index])^ - 128.0) * InvNorm;
-                Inc(Index, 1);
-              end;
-          end;
-        16:
-          begin
-            InvNorm := 1.0 / 32768.0;        // exact (2^-15)
-            for i := 0 to ASampleCount - 1 do
-              for j := 0 to FFmt.Channels - 1 do
-              begin
-                AChannels[j][i] := psmallint(@Buffer[Index])^ * InvNorm;
-                Inc(Index, 2);
-              end;
-          end;
-        24:
-          begin
-            InvNorm := 1.0 / 8388608.0;      // exact (2^-23)
-            for i := 0 to ASampleCount - 1 do
-              for j := 0 to FFmt.Channels - 1 do
-              begin
-                if Buffer[Index + 2] > 127 then
-                  k := longint($FFFFFFFF)
-                else
-                  k := 0;
-
-                k := (k shl 8) or Buffer[Index + 2];
-                k := (k shl 8) or Buffer[Index + 1];
-                k := (k shl 8) or Buffer[Index + 0];
-
-                AChannels[j][i] := k * InvNorm;
-                Inc(Index, 3);
-              end;
-          end;
-        32:
-          begin
-            InvNorm := 1.0 / 2147483648.0;   // exact (2^-31)
-            for i := 0 to ASampleCount - 1 do
-              for j := 0 to FFmt.Channels - 1 do
-              begin
-                AChannels[j][i] := plongint(@Buffer[Index])^ * InvNorm;
+                AChannels[j][i] := psingle(@Buffer[Index])^;
                 Inc(Index, 4);
               end;
-          end;
-      end;
-    WAVE_FORMAT_IEEE_FLOAT:
-      // Raw little-endian IEEE samples, already in [-1, +1] (overs may exceed it
-      // and are kept on purpose for true-peak). Widening single -> double and
-      // reading double are both exact on an LE host, so no scaling is applied.
-      case FFmt.BitsPerSample of
-        32:
-          for i := 0 to ASampleCount - 1 do
-            for j := 0 to FFmt.Channels - 1 do
-            begin
-              AChannels[j][i] := psingle(@Buffer[Index])^;
-              Inc(Index, 4);
-            end;
-        64:
-          for i := 0 to ASampleCount - 1 do
-            for j := 0 to FFmt.Channels - 1 do
-            begin
-              AChannels[j][i] := pdouble(@Buffer[Index])^;
-              Inc(Index, 8);
-            end;
-      end;
+          64:
+            for i := First to Last do
+              for j := 0 to FFmt.Channels - 1 do
+              begin
+                AChannels[j][i] := pdouble(@Buffer[Index])^;
+                Inc(Index, 8);
+              end;
+        end;
+    end;
+    First := Last + 1;
   end;
 end;
 
@@ -741,7 +775,7 @@ const
   Splitter = '--------------------------------------------------------------------------------';
 var
   DR: double;
-  i: longint;
+  i, DRCount: longint;
   Track: TTrack;
 begin
   S.Clear;
@@ -752,9 +786,9 @@ begin
   S.Add('');
 
   DR := 0;
+  DrCount := 0;
   if Count > 0 then
   begin
-    Track := GetTrack(0);
     S.Add('DR      Peak        RMS     bps  chs      SR  Duration  Track');
     S.Add(Splitter);
     for i := 0 to Count - 1 do
@@ -772,9 +806,16 @@ begin
            Track.FDuration mod (60)]),
            ExtractFileName(Track.FFilename)]));
 
-      DR := DR + Track.DRMeter.DR;
+      if Track.DRMeter.ChannelCount > 0 then
+      begin
+        DR := DR + Track.DRMeter.DR;
+        Inc(DRCount);
+      end;
     end;
-    DR := SimpleRoundTo(DR / Count, 0);
+    if DRCount > 0 then
+    begin
+      DR := SimpleRoundTo(DR / DRCount, 0);
+    end;
 
     S.Add(Splitter);
     S.Add('');
