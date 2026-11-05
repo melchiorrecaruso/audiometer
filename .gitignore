@@ -3,3 +3,6 @@ install/win64/output/**
 install/win64/fonts/**
 install/portable-linux64/bin/**
 install/portable-win64/bin/**
+# Third-party reference material: not redistributable, keep it local
+references/*
+!references/LICENSES.md
