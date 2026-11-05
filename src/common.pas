@@ -28,6 +28,11 @@ interface
 uses
   Classes, Fgl, SysUtils;
 
+const
+  // shown in the window title and in the report
+  APPVERSION = '0.6.2';
+  APPTITLE   = 'AudioMeter ' + APPVERSION + ' - Dynamic Range Meter';
+
 type
   TSingle       = single;
   TSingleVector = array of TSingle;

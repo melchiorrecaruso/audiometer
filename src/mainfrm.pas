@@ -343,6 +343,7 @@ end;
 
 procedure TAudioFrm.FormCreate(Sender: TObject);
 begin
+  Caption := APPTITLE;
   DefaultFontName := 'DejaVu Sans';
   DefaultFontFileName := ExtractFilePath(ParamStr(0)) + 'fonts/DejaVuSans/DejaVuSans.ttf';
   DoDirSeparators(DefaultFontFileName);
