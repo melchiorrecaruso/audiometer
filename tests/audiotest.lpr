@@ -26,7 +26,7 @@ program AudioTest;
 uses
   {$ifdef unix} cthreads, {$endif}
   Classes, SysUtils, Math,
-  Common, Loudness, DynamicRange, Spectrum, SoundWav, SpectrumCheck;
+  Common, Loudness, DynamicRange, Spectrum, AudioTrack, TrackAnalyzer, SpectrumCheck;
 
 type
   TMetric = (mI, mMaxM, mMaxS, mLRA, mTP);

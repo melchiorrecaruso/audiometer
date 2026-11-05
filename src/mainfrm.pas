@@ -27,7 +27,7 @@ interface
 
 uses
   Classes, sysutils, uPlaySound, forms, controls, graphics, dialogs, Buttons,
-  stdctrls, extctrls, comctrls, Menus, bufstream, soundwav, bclistbox, process,
+  stdctrls, extctrls, comctrls, Menus, bufstream, AudioTrack, TrackAnalyzer, bclistbox, process,
   bgrabitmap, bgrabitmaptypes, bgravirtualscreen, BCFluentProgressRing,
   drawers, Common, LCLType, Interfaces, BaseGraphics, BaseFrm;
 
@@ -221,11 +221,35 @@ implementation
 {$R *.lfm}
 
 uses
-  DateUtils, Math, FileUtil, LazFileUtils, ReportFrm;
+  DateUtils, Math, FileUtil, LazFileUtils, ReportFrm, TrackReport;
 
 const
   MAX_RENDER_WIDTH_KEY = 'MaxRenderWidth';
   MAX_RENDER_HEIGHT_KEY = 'MaxRenderHeight';
+
+function IsFileSupported(AFileExtension: string): boolean;
+begin
+  AFileExtension := LowerCase(AFileExtension);
+  if AFileExtension = '.wav'  then exit(True);
+  if AFileExtension = '.flac' then exit(True);
+  if AFileExtension = '.mp3'  then exit(True);
+  if AFileExtension = '.ape'  then exit(True);
+  if AFileExtension = '.ogg'  then exit(True);
+  if AFileExtension = '.m4a'  then exit(True);
+  if AFileExtension = '.ac3'  then exit(True);
+  if AFileExtension = '.opus' then exit(True);
+  if AFileExtension = '.aac'  then exit(True);
+  if AFileExtension = '.aiff' then exit(True);
+  if AFileExtension = '.alac' then exit(True);
+  if AFileExtension = '.pcm'  then exit(True);
+  if AFileExtension = '.wma'  then exit(True);
+  Result := False;
+end;
+
+function OpenDialogFileFilter: string;
+begin
+  Result := 'Supported files|*.wav;*.flac;*.mp3;*.ape;*.ogg;*.m4a;*.ac3;*.opus;*.aac;*.aiff;*.alac;*.pcm;*.wma;|All files|*.*;';
+end;
 
 function CutOff(const S: string): string;
 begin
@@ -470,7 +494,7 @@ begin
   Inc(TrackIndex);
   if TrackIndex = TrackList.Count then
   begin
-    TrackList.Save(ReportForm.Memo.Lines);
+    WriteTrackReport(TrackList, ReportForm.Memo.Lines);
   end;
 
   EnableButtons;
@@ -818,7 +842,7 @@ procedure TAudioFrm.ClearTrackList;
 begin
   // Do not expose the report from the previous selection while the newly
   // opened file/folder is being decoded and analyzed. Button state is left
-  // unchanged; TrackList.Save will populate the memo when analysis completes.
+  // unchanged; WriteTrackReport will populate the memo when analysis completes.
   if Assigned(ReportForm) and Assigned(ReportForm.Memo) then
     ReportForm.Memo.Clear;
   TempFile := '';

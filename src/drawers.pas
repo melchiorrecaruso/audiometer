@@ -26,7 +26,7 @@ unit Drawers;
 interface
 
 uses
-  BGRABitmap, BaseGraphics, BGRABitmapTypes, Classes, Common, FPImage, Graphics, SoundWav, Spectrum, SysUtils, Types;
+  BGRABitmap, BaseGraphics, BGRABitmapTypes, Classes, Common, FPImage, Graphics, AudioTrack, Spectrum, SysUtils, Types;
 
 type
   TScreenDrawerMode  = (smDynamicRange, smWaveForm, smFreqSpectrum, smSpectrogram, smLoudness);

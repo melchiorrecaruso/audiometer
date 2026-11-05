@@ -112,9 +112,24 @@
         <UnitName Value="MainFrm"/>
       </Unit>
       <Unit>
-        <Filename Value="src/soundwav.pas"/>
+        <Filename Value="src/wavreader.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="SoundWav"/>
+        <UnitName Value="WavReader"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/audiotrack.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="AudioTrack"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/trackanalyzer.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="TrackAnalyzer"/>
+      </Unit>
+      <Unit>
+        <Filename Value="src/trackreport.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="TrackReport"/>
       </Unit>
       <Unit>
         <Filename Value="src/drawers.pas"/>

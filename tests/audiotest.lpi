@@ -53,12 +53,16 @@
         <CursorPos X="21" Y="30"/>
       </Unit>
       <Unit>
-        <Filename Value="../src/soundwav.pas"/>
-        <UnitName Value="SoundWav"/>
-        <Loaded Value="True"/>
-        <UsageCount Value="11"/>
-        <EditorIndex Value="2"/>
-        <TopLine Value="275"/>
+        <Filename Value="../src/wavreader.pas"/>
+        <UnitName Value="WavReader"/>
+      </Unit>
+      <Unit>
+        <Filename Value="../src/audiotrack.pas"/>
+        <UnitName Value="AudioTrack"/>
+      </Unit>
+      <Unit>
+        <Filename Value="../src/trackanalyzer.pas"/>
+        <UnitName Value="TrackAnalyzer"/>
       </Unit>
       <Unit>
         <Filename Value="../src/loudness.pas"/>
