@@ -44,7 +44,7 @@
         <CursorPos X="27" Y="24"/>
       </Unit>
       <Unit>
-        <Filename Value="src/spectrum.pas"/>
+        <Filename Value="../src/spectrum.pas"/>
         <UnitName Value="Spectrum"/>
         <Loaded Value="True"/>
         <UsageCount Value="11"/>
@@ -53,7 +53,7 @@
         <CursorPos X="21" Y="30"/>
       </Unit>
       <Unit>
-        <Filename Value="src/soundwav.pas"/>
+        <Filename Value="../src/soundwav.pas"/>
         <UnitName Value="SoundWav"/>
         <Loaded Value="True"/>
         <UsageCount Value="11"/>
@@ -61,7 +61,7 @@
         <TopLine Value="275"/>
       </Unit>
       <Unit>
-        <Filename Value="src/loudness.pas"/>
+        <Filename Value="../src/loudness.pas"/>
         <UnitName Value="Loudness"/>
         <Loaded Value="True"/>
         <UsageCount Value="11"/>
@@ -70,7 +70,7 @@
         <CursorPos X="5" Y="805"/>
       </Unit>
       <Unit>
-        <Filename Value="src/common.pas"/>
+        <Filename Value="../src/common.pas"/>
         <UnitName Value="Common"/>
         <Loaded Value="True"/>
         <UsageCount Value="10"/>
@@ -83,13 +83,13 @@
   <CompilerOptions>
     <Version Value="11"/>
     <Target>
-      <Filename Value="build/audiotest"/>
+      <Filename Value="../build/audiotest"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <Libraries Value="src"/>
-      <OtherUnitFiles Value="src"/>
-      <UnitOutputDirectory Value="build/lib"/>
+      <Libraries Value="../src"/>
+      <OtherUnitFiles Value="../src"/>
+      <UnitOutputDirectory Value="../build/lib/audiotest"/>
     </SearchPaths>
     <CodeGeneration>
       <SmartLinkUnit Value="True"/>
