@@ -133,24 +133,28 @@ uses
 
 function GetColor(AFactor: double): TBGRAPixel;
 const
+  // Black, dark blue, purple, red, orange, yellow, white, interpolated
+  // linearly between evenly spaced points.
   {$IFDEF RGBAPIXEL}
   {** Channels if ordered RGBA ordered }
-  BaseColors: array[0..5] of TBGRAPixel =
-    ((red: $00; green: $00; blue: $00; alpha: 255),  // $000000
-     (red: $20; green: $4A; blue: $87; alpha: 255),  // $874A20
-     (red: $75; green: $50; blue: $7B; alpha: 255),  // $7B5075
-     (red: $EF; green: $29; blue: $29; alpha: 255),  // $2929EF
-     (red: $FC; green: $E9; blue: $4F; alpha: 255),  // $4FE9FC
-     (red: $FF; green: $FF; blue: $FF; alpha: 255)); // $FFFFFF
+  BaseColors: array[0..6] of TBGRAPixel =
+    ((red: $00; green: $00; blue: $00; alpha: 255),  // #000000
+     (red: $00; green: $00; blue: $70; alpha: 255),  // #000070
+     (red: $70; green: $00; blue: $90; alpha: 255),  // #700090
+     (red: $D0; green: $00; blue: $30; alpha: 255),  // #D00030
+     (red: $FF; green: $80; blue: $00; alpha: 255),  // #FF8000
+     (red: $FF; green: $FF; blue: $00; alpha: 255),  // #FFFF00
+     (red: $FF; green: $FF; blue: $FF; alpha: 255)); // #FFFFFF
   {$ELSE}
   {** Channels if ordered BGRA ordered }
-  BaseColors: array[0..5] of TBGRAPixel =
-    ((blue: $00; green: $00; red: $00; alpha: 255),  // $000000
-     (blue: $87; green: $4A; red: $20; alpha: 255),  // $874A20
-     (blue: $7B; green: $50; red: $75; alpha: 255),  // $7B5075
-     (blue: $29; green: $29; red: $EF; alpha: 255),  // $2929EF
-     (blue: $4F; green: $E9; red: $FC; alpha: 255),  // $4FE9FC
-     (blue: $FF; green: $FF; red: $FF; alpha: 255)); // $FFFFFF
+  BaseColors: array[0..6] of TBGRAPixel =
+    ((blue: $00; green: $00; red: $00; alpha: 255),  // #000000
+     (blue: $70; green: $00; red: $00; alpha: 255),  // #000070
+     (blue: $90; green: $00; red: $70; alpha: 255),  // #700090
+     (blue: $30; green: $00; red: $D0; alpha: 255),  // #D00030
+     (blue: $00; green: $80; red: $FF; alpha: 255),  // #FF8000
+     (blue: $00; green: $FF; red: $FF; alpha: 255),  // #FFFF00
+     (blue: $FF; green: $FF; red: $FF; alpha: 255)); // #FFFFFF
   {$ENDIF}
 var
   Seg: Integer;
@@ -160,12 +164,10 @@ begin
   if AFactor < 0 then AFactor := 0;
   if AFactor > 1 then AFactor := 1;
 
-  AFactor := Power(AFactor, 0.95);
+  Seg := Floor(AFactor * High(BaseColors));
+  if Seg > High(BaseColors) - 1 then Seg := High(BaseColors) - 1;
 
-  Seg := Floor(AFactor * 5);
-  if Seg > 4 then Seg := 4;
-
-  Fraction := Frac(AFactor * 5);
+  Fraction := AFactor * High(BaseColors) - Seg;
 
   C1 := BaseColors[Seg];
   C2 := BaseColors[Seg + 1];
@@ -774,13 +776,15 @@ end;
 procedure TSpectrogramDrawer.Draw;
 var
   Chart: TChart;
-  TimeIndex, FreqIndex: longint;
+  Row, Row0, Row1, Bin, Base: longint;
   X, Y, ch: longint;
   Amp: double;
-  WindowCount: longint;
+  RowCount: longint;
   OutBins: LongInt;
+  Bin0: array of longint = nil;
+  Bin1: array of longint = nil;
   Bit: TBGRABitmap;
-  MaxDB, XFactor, YFactor: TDouble;
+  MaxDB: TDouble;
 begin
   if (FTrack.ChannelCount = 0) then Exit;
   if (FTrack.Samplecount  = 0) then Exit;
@@ -801,30 +805,41 @@ begin
     Trunc(Chart.GetDrawingRect.Width *((FTrack.Samplerate div 2) / (Chart.XMaxF - Chart.XMinF))),
     Trunc(Chart.GetDrawingRect.Height*((FTrack.Duration        ) / (Chart.YMaxf - Chart.YMinF))));
 
-  // set fft analysis window size (half of total window size)
-  WindowCount := FTrack.Spectrums.WindowCount;
-  OutBins     := FTrack.Spectrums.OutBins;
+  RowCount := FTrack.Spectrums.RowCount;
+  OutBins  := FTrack.Spectrums.OutBins;
 
   if (Bit.Width  > 2) and
-     (Bit.Height > 2) then
+     (Bit.Height > 2) and
+     (RowCount   > 0) and
+     (OutBins    > 0) then
   begin
-    XFactor := (OutBins      - 1) / (Bit.Width  - 1);
-    YFactor := (WindowCount  - 1) / (Bit.Height - 1);
+    // Every pixel shows the maximum of the rows (time) and bins (frequency)
+    // it covers, so nothing is skipped when the picture is smaller than the
+    // data; when it is larger, neighbouring pixels share the same cell.
+    SetLength(Bin0, Bit.Width);
+    SetLength(Bin1, Bit.Width);
+    for X := 0 to Bit.Width -1 do
+    begin
+      Bin0[X] := int64(X) * OutBins div Bit.Width;
+      Bin1[X] := Max(Bin0[X], int64(X + 1) * OutBins div Bit.Width - 1);
+    end;
 
     MaxDB := 6 * FTrack.BitsPerSample;
     // loop over output bitmap pixels
     for Y := 0 to Bit.Height -1 do
     begin
-      TimeIndex  := Trunc(Y * YFactor);
+      Row0 := int64(Y) * RowCount div Bit.Height;
+      Row1 := Max(Row0, int64(Y + 1) * RowCount div Bit.Height - 1);
       for X := 0 to Bit.Width -1 do
       begin
-        FreqIndex  :=  Trunc(X * XFactor);
-        // compute fft bin index for this pixel
         Amp := 0;
         for ch := 0 to FTrack.ChannelCount -1 do
-        begin
-          Amp := Max(Amp, FTrack.Spectrums.Channels[ch, TimeIndex * OutBins + FreqIndex]);
-        end;
+          for Row := Row0 to Row1 do
+          begin
+            Base := Row * OutBins;
+            for Bin := Bin0[X] to Bin1[X] do
+              Amp := Max(Amp, FTrack.Spectrums.Channels[ch, Base + Bin]);
+          end;
         // map amplitude to color and set pixel
         Bit.SetPixel(X, Bit.Height - 1 - Y, GetColor((Decibel(Amp) + MaxDB) / MaxDB));
       end;

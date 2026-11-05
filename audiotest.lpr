@@ -10,7 +10,10 @@
   name contains "3341-N" and/or "3342-N" is matched to the corresponding
   case(s). The combined files (e.g. seq-3341-7_seq-3342-5) are checked twice.
 
-  Usage:   ebuvalidate [folder]        (default folder: current directory)
+  Usage:   audiotest [folder]           (default folder: current directory)
+           audiotest --spectrum
+           (checks the spectrum unit on synthetic signals, see
+           spectrumcheck.pas)
 
   Copyright (C) 2026 Melchiorre Caruso <melchiorrecaruso@gmail.com>
   GPL v2 or later.
@@ -23,7 +26,7 @@ program AudioTest;
 uses
   {$ifdef unix} cthreads, {$endif}
   Classes, SysUtils, Math,
-  Common, Loudness, DynamicRange, Spectrum, SoundWav;
+  Common, Loudness, DynamicRange, Spectrum, SoundWav, SpectrumCheck;
 
 type
   TMetric = (mI, mMaxM, mMaxS, mLRA, mTP);
@@ -226,6 +229,12 @@ var
   nTotal, nPass: integer;
   line, sdev: string;
 begin
+  if (ParamCount >= 1) and (ParamStr(1) = '--spectrum') then
+  begin
+    // exit code: 0 = all pass, 1 = failure
+    if RunSpectrumSuite = 0 then Halt(0) else Halt(1);
+  end;
+
   if ParamCount >= 1 then
     Folder := ParamStr(1)
   else
