@@ -1543,4 +1543,10 @@ begin
   FIsNeededCalcYLabelCount := False;
 end;
 
+initialization
+  ChartTextLock := TCriticalSection.Create;
+
+finalization
+  ChartTextLock.Free;
+
 end.
