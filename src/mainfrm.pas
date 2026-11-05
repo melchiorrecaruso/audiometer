@@ -221,7 +221,7 @@ implementation
 {$R *.lfm}
 
 uses
-  DateUtils, Math, FileUtil, LazFileUtils, ReportFrm, SoundUtils;
+  DateUtils, Math, FileUtil, LazFileUtils, ReportFrm;
 
 const
   MAX_RENDER_WIDTH_KEY = 'MaxRenderWidth';

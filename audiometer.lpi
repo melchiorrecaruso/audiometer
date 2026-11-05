@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
   <ProjectOptions>
-    <Version Value="13"/>
+    <Version Value="12"/>
     <General>
       <Flags>
         <SaveClosedFiles Value="False"/>
@@ -153,11 +153,6 @@
         <Filename Value="src/basegraphics.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="BaseGraphics"/>
-      </Unit>
-      <Unit>
-        <Filename Value="src/soundutils.pas"/>
-        <IsPartOfProject Value="True"/>
-        <UnitName Value="SoundUtils"/>
       </Unit>
       <Unit>
         <Filename Value="src/basefrm.pas"/>

@@ -129,7 +129,7 @@ var
 implementation
 
 uses
-  Math, SoundUtils;
+  Math;
 
 function GetColor(AFactor: double): TBGRAPixel;
 const
