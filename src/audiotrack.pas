@@ -21,7 +21,7 @@
 
 unit AudioTrack;
 
-{$mode objfpc}
+{$mode objfpc}{$H+}
 
 interface
 
@@ -51,13 +51,18 @@ type
     FLoudness: TLoudnessMeter;
     // Dynamicrange
     FDRMeter: TDynamicRangeMeter;
+    function GetDurationSeconds: double;
   public
     constructor Create(const AFilename: string);
     destructor Destroy; override;
-    // Takes the format of the WAV file and allocates ASampleCount frames per
-    // channel for the samples.
+    // Requires positive sample rate/channel count and nonnegative frame count.
+    // Allocates fresh zeroed samples and resets analysis/cache state. Invalid
+    // arguments or allocation failure leave the current track unchanged.
     procedure SetFormat(const AFormat: TWaveFormat; ASampleCount: longint);
     procedure ClearChannels;
+    // Call after changing samples through Channels, before rendering again.
+    // Like other track mutations, this must not run concurrently with a drawer.
+    procedure InvalidateWaveformCache;
     procedure PrepareWaveformCache(AWidth: longint);
     function WaveformMin(AChannel, AX: longint): double;
     function WaveformMax(AChannel, AX: longint): double;
@@ -70,6 +75,7 @@ type
     property Channels: TDoubleMatrix read FChannels;
     property BitsPerSample: longint read FBitsPerSample;
     property Duration: longint read FDuration;
+    property DurationSeconds: double read GetDurationSeconds;
 
     property Spectrums: TSpectrums read FSpectrums;
     property Loudness: TLoudnessMeter read FLoudness;
@@ -114,83 +120,103 @@ begin
   ClearChannels;
   FDRMeter.Finalize;
   FLoudness.Finalize;
-  FSpectrums.Finalize;
   inherited Destroy;
 end;
 
-procedure TTrack.SetFormat(const AFormat: TWaveFormat; ASampleCount: longint);
+function TTrack.GetDurationSeconds: double;
 begin
+  if FSampleRate > 0 then Result := FSampleCount / FSampleRate
+  else Result := 0;
+end;
+
+procedure TTrack.SetFormat(const AFormat: TWaveFormat; ASampleCount: longint);
+var
+  NewChannels: TDoubleMatrix;
+begin
+  if ASampleCount < 0 then
+    raise EArgumentException.Create('Sample count must not be negative');
+  if AFormat.SampleRate = 0 then
+    raise EArgumentException.Create('Sample rate must be positive');
+  if AFormat.Channels = 0 then
+    raise EArgumentException.Create('Channel count must be positive');
+
+  // Allocate first, so failure cannot leave metadata and sample arrays out
+  // of sync. Fresh arrays also avoid retaining samples from an earlier file.
+  NewChannels := nil;
+  SetLength(NewChannels, AFormat.Channels, ASampleCount);
+  ClearChannels;
+  FDRMeter.Finalize;
+  FLoudness.Finalize;
+  FChannels := NewChannels;
   FSampleRate    := AFormat.SampleRate;
   FBitsPerSample := AFormat.BitsPerSample;
   FChannelCount  := AFormat.Channels;
   FChannelMask   := AFormat.ChannelMask;
-  FDuration      := 0;
-  if FSampleRate > 0 then
-    FDuration := (AFormat.DataSize div AFormat.BlockAlign) div FSampleRate;
   FSampleCount   := ASampleCount;
-  SetLength(FChannels, FChannelCount, FSampleCount);
+  FDuration      := Trunc(GetDurationSeconds);
 end;
 
 procedure TTrack.ClearChannels;
 begin
   SetLength(FChannels, 0, 0);
-  FWaveCacheWidth := 0;
-  SetLength(FWaveMin, 0, 0);
-  SetLength(FWaveMax, 0, 0);
+  InvalidateWaveformCache;
   FSpectrums.Finalize;
+end;
+
+procedure TTrack.InvalidateWaveformCache;
+begin
+  FWaveCacheWidth := 0;
+  FWaveMin := nil;
+  FWaveMax := nil;
 end;
 
 procedure TTrack.PrepareWaveformCache(AWidth: longint);
 var
   ch, i, X: longint;
-  FirstSample, WindowSize: longint;
+  FirstSample, LastSample: longint;
   ZMin, ZMax: double;
+  NewMin, NewMax: TDoubleMatrix;
 begin
   if (AWidth <= 0) or (FSampleCount <= 0) or
      (Length(FChannels) = 0) then
   begin
-    FWaveCacheWidth := 0;
-    SetLength(FWaveMin, 0, 0);
-    SetLength(FWaveMax, 0, 0);
+    InvalidateWaveformCache;
     Exit;
   end;
+
+  for ch := Low(FChannels) to High(FChannels) do
+    if Length(FChannels[ch]) < FSampleCount then
+      raise EArgumentException.Create('Sample count exceeds channel length');
 
   if (FWaveCacheWidth = AWidth) and
      (Length(FWaveMin) = Length(FChannels)) then Exit;
 
-  SetLength(FWaveMin, Length(FChannels), AWidth);
-  SetLength(FWaveMax, Length(FChannels), AWidth);
-  WindowSize := FSampleCount div AWidth;
+  NewMin := nil;
+  NewMax := nil;
+  SetLength(NewMin, Length(FChannels), AWidth);
+  SetLength(NewMax, Length(FChannels), AWidth);
 
   for ch := Low(FChannels) to High(FChannels) do
     for X := 0 to AWidth - 1 do
     begin
       ZMin := Infinity;
       ZMax := -Infinity;
-      if WindowSize > 0 then
+      // Partition the entire track, including its remainder. When there
+      // are more columns than samples, repeat the corresponding sample.
+      FirstSample := int64(X) * FSampleCount div AWidth;
+      LastSample := Max(FirstSample,
+        int64(X + 1) * FSampleCount div AWidth - 1);
+      for i := FirstSample to LastSample do
       begin
-        FirstSample := X * WindowSize;
-        // Preserve the original drawer's fixed-size windows exactly. Any
-        // remainder at the end of the track is intentionally not redistributed.
-        for i := 0 to WindowSize - 1 do
-        begin
-          ZMin := Min(ZMin, FChannels[ch][FirstSample + i]);
-          ZMax := Max(ZMax, FChannels[ch][FirstSample + i]);
-        end;
-      end else
-      begin
-        // A very short clip (or an unusually wide configured backing bitmap)
-        // has fewer samples than columns. The old loop produced infinities in
-        // this case; repeat the nearest sample to keep coordinates finite.
-        FirstSample := longint(Int64(X) * FSampleCount div AWidth);
-        FirstSample := EnsureRange(FirstSample, 0, FSampleCount - 1);
-        ZMin := FChannels[ch][FirstSample];
-        ZMax := ZMin;
+        ZMin := Min(ZMin, FChannels[ch][i]);
+        ZMax := Max(ZMax, FChannels[ch][i]);
       end;
-      FWaveMin[ch][X] := ZMin;
-      FWaveMax[ch][X] := ZMax;
+      NewMin[ch][X] := ZMin;
+      NewMax[ch][X] := ZMax;
     end;
 
+  FWaveMin := NewMin;
+  FWaveMax := NewMax;
   FWaveCacheWidth := AWidth;
 end;
 
@@ -237,7 +263,12 @@ var
   Track: TTrack;
 begin
   Track := TTrack.Create(ATrackname);
-  FList.add(Track);
+  try
+    FList.Add(Track);
+  except
+    Track.Free;
+    raise;
+  end;
 end;
 
 procedure TTrackList.Delete(AIndex: longint);
