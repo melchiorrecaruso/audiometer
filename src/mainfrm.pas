@@ -27,7 +27,7 @@ interface
 
 uses
   Classes, sysutils, uPlaySound, forms, controls, graphics, dialogs, Buttons,
-  stdctrls, extctrls, comctrls, Menus, bufstream, AudioTrack, TrackAnalyzer, bclistbox, process,
+  stdctrls, extctrls, comctrls, Menus, bufstream, AudioTrack, TrackAnalyzer, Decoder, bclistbox,
   bgrabitmap, bgrabitmaptypes, bgravirtualscreen, BCFluentProgressRing,
   drawers, Common, LCLType, Interfaces, BaseGraphics, BaseFrm;
 
@@ -133,22 +133,6 @@ type
     // buttons
     procedure OpenFileBtnClick(sender: tobject);
     procedure OpenFolderBtnClick(sender: tobject);
-
-    procedure Execute;
-    procedure ClearTrackList;
-    procedure ClearData;
-    procedure Clear;
-
-    procedure OnStartAnalyzer;
-    procedure OnTickAnalyzer;
-    procedure OnStopAnalyzer;
-
-    procedure OnStartDrawer;
-    procedure OnStopDrawer;
-
-    procedure DisableButtons;
-    procedure EnableButtons;
-
     procedure PlayBtnClick(Sender: TObject);
     procedure PlayTimerStartTimer(Sender: TObject);
     procedure PlayTimerStopTimer(Sender: TObject);
@@ -163,28 +147,36 @@ type
     procedure ScreenTimerTimer(Sender: TObject);
     procedure ShowAlltemClick(Sender: TObject);
     procedure StopBtnClick(Sender: TObject);
-
-    procedure RedrawScreen(ATrack: TTrack);
     procedure RedrawVirtualScreen(Sender: TObject; Bitmap: TBGRABitmap);
   private
     Buffer: TReadBufStream;
     Stream: TFileStream;
     Screen: TBGRABitmap;
 
-    TrackIndex: longint;
+    // A batch analyzes TrackList in order, one track at a time: non-WAV files
+    // are first decoded to SessionTempFile by WaveDecoder, then AudioAnalyzer
+    // reads TempFile. The batch is running while one of the two is assigned.
     TrackList: TTrackList;
     TrackFile: string;
-    TempFile:  string;
+    TrackIndex: longint;      // track being decoded or analyzed
+    CompletedIndex: longint;  // last track analyzed successfully
+    ShownIndex: longint;      // track shown by the labels and the charts
+    BatchError: string;       // why the last batch stopped, '' if it ended
+    TempFile: string;         // WAV read by the analyzer
+    PlayFile: string;         // WAV of CompletedIndex, '' if not playable
     SessionTempFile: string;
-    TempWaveError: string;
-    TempWaveReady: boolean;
     FFmpegExecutable: string;
     FFprobeExecutable: string;
+    WaveDecoder: TWaveDecoder;
+    // Cancelling: the workers are being stopped, their OnStop must not
+    // continue the batch. Closing: the form is closing, nothing restarts.
+    Cancelling: boolean;
+    Closing: boolean;
 
-    LastIndex: longint;
     LastWidth: longint;
     LastHeight: longint;
     LastMode: TScreenDrawerModes;
+    IsNeededUpdateScreens: boolean;
 
     PanX: longint;
     PanY: longint;
@@ -196,18 +188,41 @@ type
     MaxRenderWidth: longint;
     MaxRenderHeight: longint;
 
-    PlayStart: TDateTime;
+    PlayStart: QWord;
+    FullTrackTitle: string;
 
-    IsNeededUpdateScreens: boolean;
-    IsNeededKillAnalyzer:  boolean;
+    function BatchActive: boolean;
+    function WorkersActive: boolean;
+    procedure StopWorkers;
+    procedure StopPlayback;
+    procedure UpdateControls;
+
+    procedure ClearTrackList;
+    procedure StartBatch;
+    procedure StartTrack;
+    procedure StartAnalyzer(ATrack: TTrack);
+    procedure FinishBatch(const AError: string);
+    procedure ShowBatchError(Data: PtrInt);
+
+    procedure OnStartAnalyzer;
+    procedure OnTickAnalyzer;
+    procedure OnStopAnalyzer;
+    procedure OnStopDecoder;
+    procedure OnStartDrawer;
+    procedure OnStopDrawer;
+
+    procedure ClearData;
+    procedure ShowTrackInfo(ATrack: TTrack);
+    procedure UpdateTitle;
+    procedure SetTrackTitle(const ATitle: string);
+    procedure FitTrackTitle;
 
     procedure CalculateBackingSize(out AWidth, AHeight: longint);
     procedure ClampPan;
+    procedure UpdatePanCursor;
     procedure ClearTemporaryWave;
     procedure InitializeTemporaryWave;
     procedure LocateFFmpegTools;
-    function ExtractWave(const AInputFile: string): boolean;
-    procedure UpdatePanCursor;
     procedure ReadSetting; overload;
     procedure WriteSetting;  overload;
   public
@@ -221,146 +236,59 @@ implementation
 {$R *.lfm}
 
 uses
-  DateUtils, Math, FileUtil, LazFileUtils, ReportFrm, TrackReport;
+  Math, FileUtil, LazFileUtils, LazUTF8, ReportFrm, TrackReport;
 
 const
   MAX_RENDER_WIDTH_KEY = 'MaxRenderWidth';
   MAX_RENDER_HEIGHT_KEY = 'MaxRenderHeight';
 
-function IsFileSupported(AFileExtension: string): boolean;
+// Workers
+
+function TAudioFrm.BatchActive: boolean;
 begin
-  AFileExtension := LowerCase(AFileExtension);
-  if AFileExtension = '.wav'  then exit(True);
-  if AFileExtension = '.flac' then exit(True);
-  if AFileExtension = '.mp3'  then exit(True);
-  if AFileExtension = '.ape'  then exit(True);
-  if AFileExtension = '.ogg'  then exit(True);
-  if AFileExtension = '.m4a'  then exit(True);
-  if AFileExtension = '.ac3'  then exit(True);
-  if AFileExtension = '.opus' then exit(True);
-  if AFileExtension = '.aac'  then exit(True);
-  if AFileExtension = '.aiff' then exit(True);
-  if AFileExtension = '.alac' then exit(True);
-  if AFileExtension = '.pcm'  then exit(True);
-  if AFileExtension = '.wma'  then exit(True);
-  Result := False;
+  Result := Assigned(AudioAnalyzer) or Assigned(WaveDecoder);
 end;
 
-function OpenDialogFileFilter: string;
+function TAudioFrm.WorkersActive: boolean;
 begin
-  Result := 'Supported files|*.wav;*.flac;*.mp3;*.ape;*.ogg;*.m4a;*.ac3;*.opus;*.aac;*.aiff;*.alac;*.pcm;*.wma;|All files|*.*;';
+  Result := BatchActive or Assigned(ScreenDrawer);
 end;
 
-function CutOff(const S: string): string;
+procedure TAudioFrm.StopWorkers;
 begin
-  Result := S;
-  SetLength(Result, Max(0, Length(Result) - 4));
-  Result := Result + '...';
-end;
-
-function StreamToString(AStream: TStream): string;
-begin
-  Result := '';
-  SetLength(Result, AStream.Size);
-  AStream.Position := 0;
-  if AStream.Size > 0 then
-    AStream.ReadBuffer(Result[1], AStream.Size);
-end;
-
-function RunProcess(const AExecutable: string; AParameters: TStrings;
-  out AOutput, AError: string): boolean;
-var
-  Buff: array[0..4095] of byte;
-  Count: longint;
-  OutputStream, ErrorStream: TMemoryStream;
-  Process: TProcess;
-begin
-  Result := False;
-  AOutput := '';
-  AError := '';
-  Process := TProcess.Create(nil);
-  OutputStream := TMemoryStream.Create;
-  ErrorStream := TMemoryStream.Create;
+  Cancelling := True;
   try
-    Process.Executable := AExecutable;
-    Process.Parameters.Assign(AParameters);
-    Process.Options := [poNoConsole, poUsePipes];
-    try
-      Process.Execute;
-      while Process.Running or (Process.Output.NumBytesAvailable > 0) or
-            (Process.Stderr.NumBytesAvailable > 0) do
-      begin
-        while Process.Output.NumBytesAvailable > 0 do
-        begin
-          Count := Process.Output.Read(Buff, SizeOf(Buff));
-          if Count > 0 then OutputStream.WriteBuffer(Buff, Count);
-        end;
-        while Process.Stderr.NumBytesAvailable > 0 do
-        begin
-          Count := Process.Stderr.Read(Buff, SizeOf(Buff));
-          if Count > 0 then ErrorStream.WriteBuffer(Buff, Count);
-        end;
-        if Process.Running and (Process.Output.NumBytesAvailable = 0) and
-           (Process.Stderr.NumBytesAvailable = 0) then
-          Sleep(1);
-      end;
-      Result := Process.ExitStatus = 0;
-    except
-      on E: Exception do AError := E.Message;
-    end;
-    AOutput := StreamToString(OutputStream);
-    if AError = '' then AError := Trim(StreamToString(ErrorStream));
+    if Assigned(WaveDecoder) then WaveDecoder.Terminate;
+    if Assigned(AudioAnalyzer) then AudioAnalyzer.Terminate;
+    if Assigned(ScreenDrawer) then ScreenDrawer.Terminate;
+    // Every OnStop is synchronized and clears its worker reference: run them
+    // here, so the tracks are no longer in use when this returns.
+    while WorkersActive do
+      CheckSynchronize(10);
   finally
-    ErrorStream.Free;
-    OutputStream.Free;
-    Process.Free;
+    Cancelling := False;
   end;
 end;
 
-function ProbeAudio(const AExecutable, AFilename: string;
-  out ASampleFormat: string; out ABitsPerSample, ASampleRate, AChannels: longint;
-  out AError: string): boolean;
-var
-  Output: string;
-  Parameters, Values: TStringList;
+procedure TAudioFrm.StopPlayback;
 begin
-  ASampleFormat := '';
-  ABitsPerSample := 0;
-  ASampleRate := 0;
-  AChannels := 0;
-  Parameters := TStringList.Create;
-  Values := TStringList.Create;
-  try
-    Parameters.Add('-v');
-    Parameters.Add('error');
-    Parameters.Add('-select_streams');
-    Parameters.Add('a:0');
-    Parameters.Add('-show_entries');
-    Parameters.Add('stream=sample_fmt,bits_per_sample,bits_per_raw_sample,sample_rate,channels');
-    Parameters.Add('-of');
-    Parameters.Add('default=noprint_wrappers=1:nokey=0');
-    Parameters.Add(AFilename);
-    Result := RunProcess(AExecutable, Parameters, Output, AError);
-    if not Result then
-    begin
-      if AError = '' then AError := 'ffprobe failed without an error message.';
-      Exit;
-    end;
+  PlayTimer.Enabled := False;
+  PlaySound.StopSound;
+end;
 
-    Values.Text := Output;
-    ASampleFormat := LowerCase(Trim(Values.Values['sample_fmt']));
-    ABitsPerSample := StrToIntDef(Values.Values['bits_per_raw_sample'], 0);
-    if ABitsPerSample <= 0 then
-      ABitsPerSample := StrToIntDef(Values.Values['bits_per_sample'], 0);
-    ASampleRate := StrToIntDef(Values.Values['sample_rate'], 0);
-    AChannels := StrToIntDef(Values.Values['channels'], 0);
-    Result := (ASampleFormat <> '') and (ASampleRate > 0) and (AChannels > 0);
-    if not Result then
-      AError := 'ffprobe did not return complete properties for the first audio stream.';
-  finally
-    Values.Free;
-    Parameters.Free;
-  end;
+procedure TAudioFrm.UpdateControls;
+var
+  Busy: boolean;
+begin
+  Busy := BatchActive or Closing;
+  // Opening a file or a folder cancels the running batch.
+  OpenFileBtn.Enabled := not Closing;
+  OpenFolderBtn.Enabled := not Closing;
+  ReportBtn.Enabled := not Busy and Assigned(ReportForm) and
+    (ReportForm.Memo.Lines.Count > 0);
+  PlayBtn.Enabled := not Busy and (PlayFile <> '') and
+    (ShownIndex = CompletedIndex) and FileExistsUTF8(PlayFile);
+  StopBtn.Enabled := PlayTimer.Enabled;
 end;
 
 { TAudioFrm }
@@ -375,44 +303,45 @@ begin
   // ---
   Screen := TBGRABitmap.Create;
   IsNeededUpdateScreens := False;
-  IsNeededKillAnalyzer  := False;
   PanX := 0;
   PanY := 0;
   IsPanning := False;
   MaxRenderWidth := 0;
   MaxRenderHeight := 0;
+  LastMode := [];
   // ---
-  LastMode   := [];
-  LastIndex  := -1;
-  TrackIndex := -1;
-  TrackList  := TTrackList.create;
-  TempFile := '';
+  TrackList := TTrackList.Create;
+  WaveDecoder := nil;
+  Cancelling := False;
+  Closing := False;
   InitializeTemporaryWave;
-  // Initialize progress bar
   ProgressRing.Value := 0;
   ProgressRing.Visible := True;
-  // inizialize main form
   Color := clBlack;
-  // Initialize
+  // ---
   ReadSetting;
-  Clear;
+  ClearTrackList;
   LocateFFmpegTools;
 end;
 
 procedure TAudioFrm.FormDestroy(Sender: TObject);
 begin
-  WriteSetting;
-  PlayTimer.Enabled := False;
-  PlaySound.StopSound;
+  ScreenTimer.Enabled := False;
+  Application.RemoveAsyncCalls(Self);
+  StopPlayback;
   ClearTemporaryWave;
   FreeAndNil(Screen);
-  TrackList.Destroy;
+  FreeAndNil(TrackList);
+  WriteSetting;
 end;
 
-procedure TAudioFrm.FormClosequery(Sender: TObject; var CanClose: boolean);
+procedure TAudioFrm.FormCloseQuery(Sender: TObject; var CanClose: boolean);
 begin
-  IsNeededKillAnalyzer := True;
-  CanClose := (AudioAnalyzer = nil) and (ScreenDrawer = nil);
+  Closing := True;
+  ScreenTimer.Enabled := False;
+  StopPlayback;
+  StopWorkers;
+  CanClose := True;
 end;
 
 procedure TAudioFrm.FormResize(Sender: TObject);
@@ -428,11 +357,7 @@ begin
   UpdatePanCursor;
   if Assigned(VirtualScreen) then
     VirtualScreen.RedrawBitmap;
-
-  while (ProgressPanel.Left + ProgressPanel.Width) > (PlayBtn.Left) do
-  begin
-    TrackFileName.Caption := CutOff(TrackFileName.Caption);
-  end;
+  FitTrackTitle;
 end;
 
 procedure TAudioFrm.ReadSetting;
@@ -457,51 +382,191 @@ begin
   WriteSetting(MAX_RENDER_HEIGHT_KEY, MaxRenderHeight);
 end;
 
+// Batch
+
+procedure TAudioFrm.ClearTrackList;
+begin
+  StopWorkers;
+  if Assigned(ReportForm) and Assigned(ReportForm.Memo) then
+    ReportForm.Memo.Clear;
+  TrackList.Clear;
+  TrackIndex := -1;
+  CompletedIndex := -1;
+  ShownIndex := -1;
+  BatchError := '';
+  TempFile := '';
+  PlayFile := '';
+  PanX := 0;
+  PanY := 0;
+  ProgressRing.Value := 0;
+  ShowTrackInfo(nil);
+  // Blank the previous charts at once, the new ones follow the analysis.
+  if (Screen.Width > 0) and (Screen.Height > 0) then
+    Screen.Fill(BGRA(0, 0, 0, 255));
+  VirtualScreen.RedrawBitmap;
+  IsNeededUpdateScreens := True;
+  UpdateControls;
+end;
+
+procedure TAudioFrm.StartBatch;
+begin
+  if TrackList.Count = 0 then
+  begin
+    FinishBatch('No supported audio files found.');
+    Exit;
+  end;
+  BatchError := '';
+  TrackIndex := 0;
+  StartTrack;
+end;
+
+procedure TAudioFrm.StartTrack;
+var
+  Track: TTrack;
+begin
+  Track := TrackList[TrackIndex];
+  ProgressRing.Value := 0;
+  if SameText(ExtractFileExt(Track.Filename), '.wav') then
+  begin
+    TempFile := Track.Filename;
+    StartAnalyzer(Track);
+  end else
+  begin
+    // The decoder overwrites the session WAV: it no longer holds PlayFile.
+    if PlayFile = SessionTempFile then PlayFile := '';
+    TempFile := SessionTempFile;
+    try
+      WaveDecoder := TWaveDecoder.Create(FFmpegExecutable, FFprobeExecutable,
+        Track.Filename, TempFile);
+      WaveDecoder.OnStop := @OnStopDecoder;
+      WaveDecoder.Start;
+    except
+      on E: Exception do
+      begin
+        FreeAndNil(WaveDecoder);
+        FinishBatch(Format('Unable to start the decoder for "%s": %s',
+          [Track.Filename, E.Message]));
+      end;
+    end;
+  end;
+  UpdateControls;
+end;
+
+procedure TAudioFrm.StartAnalyzer(ATrack: TTrack);
+begin
+  try
+    Stream := TFileStream.Create(TempFile, fmOpenRead or fmShareDenyWrite);
+    Buffer := TReadBufStream.Create(Stream);
+    AudioAnalyzer := TTrackAnalyzer.Create(ATrack, Buffer, True);
+    AudioAnalyzer.OnStart := @OnStartAnalyzer;
+    AudioAnalyzer.OnTick  := @OnTickAnalyzer;
+    AudioAnalyzer.OnStop  := @OnStopAnalyzer;
+    AudioAnalyzer.Start;
+  except
+    on E: Exception do
+    begin
+      FreeAndNil(AudioAnalyzer);
+      FreeAndNil(Buffer);
+      FreeAndNil(Stream);
+      FinishBatch(Format('Unable to analyze "%s": %s', [ATrack.Filename, E.Message]));
+    end;
+  end;
+end;
+
+procedure TAudioFrm.FinishBatch(const AError: string);
+begin
+  TrackIndex := -1;
+  BatchError := AError;
+  ProgressRing.Value := 0;
+  // The report lists the analyzed tracks only: no report without tracks.
+  if Assigned(ReportForm) then
+  begin
+    ReportForm.Memo.Clear;
+    if CompletedIndex >= 0 then
+    begin
+      WriteTrackReport(TrackList, ReportForm.Memo.Lines, CompletedIndex + 1);
+      if AError <> '' then
+        ReportForm.Memo.Lines.Add('Analysis stopped: ' + AError);
+    end;
+  end;
+  UpdateTitle;
+  UpdateControls;
+  // Shown after the synchronized OnStop has returned to its thread.
+  if AError <> '' then
+    Application.QueueAsyncCall(@ShowBatchError, 0);
+end;
+
+procedure TAudioFrm.ShowBatchError(Data: PtrInt);
+begin
+  if (BatchError <> '') and not Closing then
+    MessageDlg('AudioMeter', BatchError, mtError, [mbOk], '');
+end;
+
 // Track analyzer events
 
 procedure TAudioFrm.OnStartAnalyzer;
 begin
-  DisableButtons;
+  UpdateControls;
 end;
 
 procedure TAudioFrm.OnTickAnalyzer;
 begin
-  ProgressRing.Value := AudioAnalyzer.Percentage;
+  if Assigned(AudioAnalyzer) and not Cancelling then
+    ProgressRing.Value := AudioAnalyzer.Percentage;
 end;
 
 procedure TAudioFrm.OnStopAnalyzer;
 var
-  Track: TTrack;
+  Status: longint;
+  ErrorText: string;
 begin
+  Status := AudioAnalyzer.Status;
+  AudioAnalyzer := nil;
   FreeAndNil(Buffer);
   FreeAndNil(Stream);
+  if Cancelling then Exit;
 
-  Track := TrackList[TrackIndex];
-  if AudioAnalyzer.Status <> 0 then
+  if Status <> 0 then
   begin
-    TempWaveReady := False;
-    TrackIndex := TrackList.Count;
-    TrackFileName.Font.Color := clrRed;
-    case AudioAnalyzer.Status of
-     -1:  TrackFileName.Caption := Format('File format error "%s".',  [Track.Filename]);
-     -2:  TrackFileName.Caption := Format('File "%s" is empty.',      [Track.Filename]);
-     -3:  TrackFileName.Caption := Format('File "%s" is too short.',  [Track.Filename]);
-    else  TrackFileName.Caption := Format('Unknown error with "%s".', [Track.Filename]);
+    case Status of
+      -1: ErrorText := 'Invalid WAV format';
+      -2: ErrorText := 'Empty audio file';
+      -3: ErrorText := 'Audio file too short';
+      else ErrorText := 'Audio analysis failed';
     end;
+    FinishBatch(Format('%s: "%s"', [ErrorText, TrackList[TrackIndex].Filename]));
+    Exit;
   end;
-  AudioAnalyzer := nil;
 
+  CompletedIndex := TrackIndex;
+  PlayFile := TempFile;
   Inc(TrackIndex);
-  if TrackIndex = TrackList.Count then
-  begin
-    WriteTrackReport(TrackList, ReportForm.Memo.Lines);
-  end;
-
-  EnableButtons;
-  Execute;
+  if TrackIndex < TrackList.Count then
+    StartTrack
+  else
+    FinishBatch('');
 end;
 
-// chart drawer events
+// Wave decoder events
+
+procedure TAudioFrm.OnStopDecoder;
+var
+  Successful: boolean;
+  ErrorMessage, InputFile: string;
+begin
+  Successful   := WaveDecoder.Successful;
+  ErrorMessage := WaveDecoder.ErrorMessage;
+  InputFile    := WaveDecoder.InputFile;
+  WaveDecoder  := nil;
+  if Cancelling then Exit;
+
+  if Successful then
+    StartAnalyzer(TrackList[TrackIndex])
+  else
+    FinishBatch(Format('Unable to decode "%s": %s', [InputFile, ErrorMessage]));
+end;
+
+// Chart drawer events
 
 procedure TAudioFrm.OnStartDrawer;
 var
@@ -514,76 +579,58 @@ begin
 end;
 
 procedure TAudioFrm.OnStopDrawer;
+var
+  Successful: boolean;
+  ErrorMessage: string;
 begin
-  if Assigned(ScreenDrawer) then
-  begin
-    VirtualScreen.Hint := ScreenDrawer.ErrorMessage;
-    VirtualScreen.ShowHint := ScreenDrawer.ErrorMessage <> '';
-    if ScreenDrawer.Successful and (IsNeededUpdateScreens = False) then
-      RedrawScreen(ScreenDrawer.Track);
-  end;
+  Successful   := ScreenDrawer.Successful;
+  ErrorMessage := ScreenDrawer.ErrorMessage;
   ScreenDrawer := nil;
+  if not Successful and (ErrorMessage = '') then
+  begin
+    // Cancelled: do not show the partial picture, draw it again.
+    IsNeededUpdateScreens := True;
+    Exit;
+  end;
+  VirtualScreen.Hint := ErrorMessage;
+  VirtualScreen.ShowHint := ErrorMessage <> '';
   ClampPan;
   UpdatePanCursor;
   VirtualScreen.RedrawBitmap;
-  if (AudioAnalyzer = nil) and not IsNeededUpdateScreens and
-     not IsNeededKillAnalyzer then
-    EnableButtons;
 end;
 
-//
+// Temporary wave
 
 procedure TAudioFrm.ClearTemporaryWave;
 begin
   if (SessionTempFile <> '') and FileExistsUTF8(SessionTempFile) then
     DeleteFileUTF8(SessionTempFile);
   TempFile := '';
-  TempWaveError := '';
-  TempWaveReady := False;
+  PlayFile := '';
 end;
 
 procedure TAudioFrm.InitializeTemporaryWave;
 var
   SessionGuid: TGUID;
-  SessionName: string;
 begin
+  // An empty name makes the decoder refuse the conversion.
   SessionTempFile := '';
-  TempWaveError := '';
-  TempWaveReady := False;
   if CreateGUID(SessionGuid) <> 0 then
   begin
-    TempWaveError := 'Unable to generate the temporary WAV name.';
     MessageDlg('AudioMeter',
       'Warning: unable to generate the temporary WAV name. Files that require conversion cannot be analyzed.',
       mtWarning, [mbOk], '');
     Exit;
   end;
-  SessionName := IncludeTrailingPathDelimiter(GetTempDir(False)) +
-    'audiometer_' + Copy(GUIDToString(SessionGuid), 2, 36);
-  SessionTempFile := SessionName + '.wav';
+  SessionTempFile := IncludeTrailingPathDelimiter(GetTempDir(False)) +
+    'audiometer_' + Copy(GUIDToString(SessionGuid), 2, 36) + '.wav';
 end;
 
 procedure TAudioFrm.LocateFFmpegTools;
 var
   Missing: string;
 begin
-  {$IFDEF MSWINDOWS}
-  FFmpegExecutable := ExtractFilePath(ParamStr(0)) + 'ffmpeg.exe';
-  FFprobeExecutable := ExtractFilePath(ParamStr(0)) + 'ffprobe.exe';
-  if not FileExistsUTF8(FFmpegExecutable) then FFmpegExecutable := '';
-  if not FileExistsUTF8(FFprobeExecutable) then FFprobeExecutable := '';
-  {$ELSE}
-  FFmpegExecutable := FindDefaultExecutablePath('ffmpeg');
-  FFprobeExecutable := FindDefaultExecutablePath('ffprobe');
-  {$ENDIF}
-
-  Missing := '';
-  if FFmpegExecutable = '' then Missing := 'ffmpeg';
-  if FFprobeExecutable = '' then
-  begin
-    if Missing <> '' then Missing := Missing + ' and ';
-    Missing := Missing + 'ffprobe';
-  end;
+  Missing := Decoder.LocateFFmpegTools(FFmpegExecutable, FFprobeExecutable);
   if Missing <> '' then
   begin
     {$IFDEF MSWINDOWS}
@@ -600,286 +647,23 @@ begin
   end;
 end;
 
-function TAudioFrm.ExtractWave(const AInputFile: string): boolean;
-var
-  Codec, ErrorOutput, ExpectedFormat, Output: string;
-  InputBits, InputChannels, InputRate: longint;
-  OutputBits, OutputChannels, OutputRate: longint;
-  InputFormat, OutputFormat: string;
-  Parameters: TStringList;
-begin
-  Result := False;
-  TempWaveReady := False;
-  TempWaveError := '';
-  TempFile := SessionTempFile;
-  PlayBtn.Enabled := False;
-  StopBtn.Enabled := False;
-  if (FFmpegExecutable = '') or not FileExistsUTF8(FFmpegExecutable) then
-  begin
-    TempWaveError := 'ffmpeg is not available. The audio file was not converted.';
-    Exit;
-  end;
-  if (FFprobeExecutable = '') or not FileExistsUTF8(FFprobeExecutable) then
-  begin
-    TempWaveError := 'ffprobe is not available. The audio file was not converted.';
-    Exit;
-  end;
-  if SessionTempFile = '' then
-  begin
-    TempWaveError := 'The temporary WAV name is not available for this application session.';
-    Exit;
-  end;
-
-  if not ProbeAudio(FFprobeExecutable, AInputFile, InputFormat, InputBits,
-    InputRate, InputChannels, TempWaveError) then Exit;
-  if (Length(InputFormat) > 0) and
-     (InputFormat[Length(InputFormat)] = 'p') then
-    Delete(InputFormat, Length(InputFormat), 1);
-
-  if InputFormat = 'u8' then
-    Codec := 'pcm_u8'
-  else if InputFormat = 's16' then
-    Codec := 'pcm_s16le'
-  else if InputFormat = 's32' then
-  begin
-    if InputBits = 24 then Codec := 'pcm_s24le'
-                      else Codec := 'pcm_s32le';
-  end
-  else if InputFormat = 'flt' then
-    Codec := 'pcm_f32le'
-  else if InputFormat = 'dbl' then
-    Codec := 'pcm_f64le'
-  else
-  begin
-    TempWaveError := Format(
-      'The decoded sample format "%s" is not supported without a possible loss of precision.',
-      [InputFormat]);
-    Exit;
-  end;
-
-  // The GUID and WAV path are created once for the application session.
-  // ffmpeg overwrites this file; TempWaveReady is the authority that prevents
-  // an incomplete output from being analyzed or played after an error.
-
-  Parameters := TStringList.Create;
-  try
-    Parameters.Add('-nostdin');
-    Parameters.Add('-v');
-    Parameters.Add('error');
-    Parameters.Add('-xerror');
-    Parameters.Add('-y');
-    // Apply bit-exact mode to the decoder as well as to the WAV encoder/muxer.
-    Parameters.Add('-bitexact');
-    Parameters.Add('-i');
-    Parameters.Add(AInputFile);
-    Parameters.Add('-map');
-    Parameters.Add('0:a:0');
-    Parameters.Add('-c:a');
-    Parameters.Add(Codec);
-    Parameters.Add('-bitexact');
-    Parameters.Add('-f');
-    Parameters.Add('wav');
-    Parameters.Add(TempFile);
-    if not RunProcess(FFmpegExecutable, Parameters, Output, ErrorOutput) then
-    begin
-      if ErrorOutput = '' then ErrorOutput := 'ffmpeg failed without an error message.';
-      TempWaveError := 'Unable to create the analysis WAV:' + LineEnding + ErrorOutput;
-      Exit;
-    end;
-  finally
-    Parameters.Free;
-  end;
-
-  if not ProbeAudio(FFprobeExecutable, TempFile, OutputFormat, OutputBits,
-    OutputRate, OutputChannels, TempWaveError) then
-  begin
-    TempWaveError := 'The WAV created by ffmpeg is invalid:' + LineEnding + TempWaveError;
-    Exit;
-  end;
-  if (Length(OutputFormat) > 0) and
-     (OutputFormat[Length(OutputFormat)] = 'p') then
-    Delete(OutputFormat, Length(OutputFormat), 1);
-  if Codec = 'pcm_u8' then ExpectedFormat := 'u8'
-  else if Codec = 'pcm_s16le' then ExpectedFormat := 's16'
-  else if (Codec = 'pcm_s24le') or (Codec = 'pcm_s32le') then ExpectedFormat := 's32'
-  else if Codec = 'pcm_f32le' then ExpectedFormat := 'flt'
-  else ExpectedFormat := 'dbl';
-  if (OutputFormat <> ExpectedFormat) or
-     ((Codec = 'pcm_s24le') and (OutputBits > 0) and (OutputBits <> 24)) then
-  begin
-    TempWaveError := Format(
-      'The WAV created by ffmpeg has an unexpected sample format (%s, %d bit).',
-      [OutputFormat, OutputBits]);
-    Exit;
-  end;
-  if (OutputRate <> InputRate) or (OutputChannels <> InputChannels) then
-  begin
-    TempWaveError := Format(
-      'The WAV created by ffmpeg changed the audio layout (%d Hz/%d channels to %d Hz/%d channels).',
-      [InputRate, InputChannels, OutputRate, OutputChannels]);
-    Exit;
-  end;
-  TempWaveReady := True;
-  Result := True;
-end;
-
-procedure TAudioFrm.Execute;
-var
-  Track: TTrack;
-begin
-  if IsNeededKillAnalyzer then Exit;
-  if TrackIndex >= TrackList.Count then Exit;
-  if TrackIndex < 0 then Exit;
-
-  Track := TrackList[TrackIndex];
-  TempWaveReady := False;
-  TempWaveError := '';
-  PlayBtn.Enabled := False;
-  StopBtn.Enabled := False;
-  try
-    if not SameText(ExtractFileExt(Track.Filename), '.wav') then
-    begin
-      if not ExtractWave(Track.Filename) then
-      begin
-        TrackFileName.Font.Color := clrRed;
-        TrackFileName.Caption := Format('Unable to decode "%s".', [Track.Filename]);
-        MessageDlg('AudioMeter', TempWaveError, mtError, [mbOk], '');
-        Exit;
-      end;
-    end else
-    begin
-      TempFile := Track.Filename;
-      TempWaveReady := True;
-    end;
-
-    Stream := TFileStream.Create(TempFile, fmOpenRead or fmShareDenyWrite);
-  except
-    Stream := nil;
-    TempWaveReady := False;
-  end;
-
-  if Assigned(Stream) then
-  begin
-    Buffer := TReadBufStream.Create(Stream);
-    AudioAnalyzer := TTrackAnalyzer.Create(Track, Buffer, True);
-    AudioAnalyzer.OnStart := @OnStartAnalyzer;
-    AudioAnalyzer.OnTick  := @OnTickAnalyzer;
-    AudioAnalyzer.OnStop  := @OnStopAnalyzer;
-    AudioAnalyzer.Start;
-  end else
-  begin
-    MessageDlg('AudioMeter', Format('Error to open file "%s"', [TempFile]), mtError, [mbOk], '');
-    Track := nil;
-  end;
-end;
-
-procedure TAudioFrm.Clear;
-begin
-  TrackFileName.Font.Color := clwhite;
-  TrackFileName.Caption := 'Audio';
-
-  ClearData;
-
-  IsNeededUpdateScreens := True;
-end;
-
-procedure TAudioFrm.ClearData;
-begin
-  pcm   .Font.Color := clGray;
-  bit8  .Font.Color := clGray;
-  bit16 .Font.Color := clGray;
-  bit24 .Font.Color := clGray;
-  bit32 .Font.Color := clGray;
-  kHz44 .Font.Color := clGray;
-  kHz48 .Font.Color := clGray;
-  kHz88 .Font.Color := clGray;
-  kHz96 .Font.Color := clGray;
-  kHz176.Font.Color := clGray;
-  kHz192.Font.Color := clGray;
-  Mono  .Font.Color := clGray;
-  Stereo.Font.Color := clGray;
-  Stereo .Font.Color := clGray;
-
-  TruePeakLabel  .Font.Color := clGray;
-  TPLLeftValue   .Font.Color := clGray;
-  TPLRightValue  .Font.Color := clGray;
-  PLLeftValue    .Font.Color := clGray;
-  PLRightValue   .Font.Color := clGray;
-
-  RMSLeftValue   .Font.Color := clGray;
-  RMSRightValue  .Font.Color := clGray;
-  CRestLeftValue .Font.Color := clGray;
-  CRestRightValue.Font.Color := clGray;
-
-  LoudnessFSLabel         .Font.Color := clGray;
-  MomentaryLoudnessValue  .Font.Color := clGray;
-  ShortTermLoudnessValue  .Font.Color := clGray;
-  IntegratedLoudnessValue .Font.Color := clGray;
-  RangeLoudnessValue      .Font.Color := clGray;
-  PeakToLoudnessRatioValue.Font.Color := clGray;
-  DRValue                 .Font.Color := clGray;
-  DRLabel                 .Font.Color := clGray;
-
-  TPLLeftValue   .Caption := '-';
-  TPLRightValue  .Caption := '-';
-  PLLeftValue    .Caption := '-';
-  PLRightValue   .Caption := '-';
-
-  RMSLeftValue   .Caption := '-';
-  RMSRightValue  .Caption := '-';
-  CRestLeftValue .Caption := '-';
-  CRestRightValue.Caption := '-';
-
-  MomentaryLoudnessValue  .Caption := '-';
-  ShortTermLoudnessValue  .Caption := '-';
-  IntegratedLoudnessValue .Caption := '-';
-  RangeLoudnessValue      .Caption := '-';
-  PeakToLoudnessRatioValue.Caption := '-';
-  DRValue                 .Caption := '--';
-end;
-
-procedure TAudioFrm.ClearTrackList;
-begin
-  // Do not expose the report from the previous selection while the newly
-  // opened file/folder is being decoded and analyzed. Button state is left
-  // unchanged; WriteTrackReport will populate the memo when analysis completes.
-  if Assigned(ReportForm) and Assigned(ReportForm.Memo) then
-    ReportForm.Memo.Clear;
-  TempFile := '';
-  TempWaveError := '';
-  TempWaveReady := False;
-  PlayBtn.Enabled := False;
-  StopBtn.Enabled := False;
-  LastIndex  := -1;
-  TrackIndex := -1;
-  TrackList.Clear;
-end;
-
 // Button Events
 
 procedure TAudioFrm.OpenFileBtnClick(sender: tobject);
 begin
-  FileDialog.Filter:= OpenDialogFileFilter;
-  if FileDialog.Execute then
+  if Closing then Exit;
+  FileDialog.Filter := OpenDialogFileFilter;
+  if not FileDialog.Execute then Exit;
+
+  StopPlayback;
+  ClearTrackList;
+  if IsFileSupported(ExtractFileExt(FileDialog.FileName)) then
   begin
-    PlaySound.StopSound;
-    PlayTimer.Enabled := False;
-
-    ClearTrackList;
-    if IsFileSupported(ExtractFileExt(FileDialog.FileName)) then
-    begin
-      TrackList.Add(FileDialog.FileName);
-      TrackFile  := ChangeFileExt(FileDialog.FileName, '.md');
-      TrackIndex := 0;
-
-      IsNeededKillAnalyzer := False;
-      Execute;
-    end else
-    begin
-      TrackFileName.Caption    := 'File format error!';
-      TrackFileName.Font.Color := clrRed;
-    end;
-  end;
+    TrackList.Add(FileDialog.FileName);
+    TrackFile := ChangeFileExt(FileDialog.FileName, '.md');
+    StartBatch;
+  end else
+    FinishBatch(Format('Unsupported file format: "%s"', [FileDialog.FileName]));
 end;
 
 procedure TAudioFrm.OpenFolderBtnClick(Sender: TObject);
@@ -888,35 +672,28 @@ var
   Path: string;
   SR:   TSearchRec;
 begin
-  if DirDialog.Execute then
+  if Closing then Exit;
+  if not DirDialog.Execute then Exit;
+
+  StopPlayback;
+  ClearTrackList;
+  Path := IncludeTrailingPathDelimiter(DirDialog.FileName);
+  Err := SysUtils.FindFirst(Path + '*', faAnyfile, SR);
+  while Err = 0 do
   begin
-    PlaySound.StopSound;
-    PlayTimer.Enabled := False;
-
-    ClearTrackList;
-    Path := IncludeTrailingBackslash(DirDialog.FileName);
-     Err := SysUtils.FindFirst(Path + '*.*', faAnyfile, SR);
-    while Err = 0 do
-    begin
-      if SR.Attr and (faDirectory) = 0 then
-      begin
-        if IsFileSupported(ExtractFileExt(SR.Name)) then
-          TrackList.Add(Path + SR.Name);
-      end;
-      Err := FindNext(SR);
-    end;
-    SysUtils.FindClose(SR);
-    TrackList.Sort;
-    TrackFile  := Path + ExtractFileName(DirDialog.FileName) + '.md';
-    TrackIndex := 0;
-
-    IsNeededKillAnalyzer  := False;
-    Execute;
+    if (SR.Attr and faDirectory = 0) and IsFileSupported(ExtractFileExt(SR.Name)) then
+      TrackList.Add(Path + SR.Name);
+    Err := FindNext(SR);
   end;
+  SysUtils.FindClose(SR);
+  TrackList.Sort;
+  TrackFile := Path + ExtractFileName(ExcludeTrailingPathDelimiter(DirDialog.FileName)) + '.md';
+  StartBatch;
 end;
 
 procedure TAudioFrm.ReportBtnClick(Sender: TObject);
 begin
+  if not ReportBtn.Enabled then Exit;
   ReportForm.SaveDialog.InitialDir := ExtractFileDir (TrackFile);
   ReportForm.SaveDialog.FileName   := ExtractFileName(TrackFile);
   ReportForm.ShowModal;
@@ -924,23 +701,29 @@ end;
 
 procedure TAudioFrm.PlayBtnClick(Sender: TObject);
 begin
-  PlaySound.StopSound;
-  PlayTimer.Enabled := False;
-  if TempWaveReady and FileExistsUTF8(TempFile) then
-  begin
-    PlaySound.PlayStyle := psaSync;
-    PlaySound.SoundFile := TempFile;
+  if not PlayBtn.Enabled then Exit;
+  StopPlayback;
+  PlaySound.PlayStyle := psAsync;
+  PlaySound.SoundFile := PlayFile;
+  try
     PlaySound.Execute;
-
-    PlayStart := Now;
-    PlayTimer.Enabled := True;
+  except
+    on E: Exception do
+    begin
+      MessageDlg('AudioMeter', 'Unable to play the track: ' + E.Message,
+        mtError, [mbOk], '');
+      Exit;
+    end;
   end;
+  PlayStart := GetTickCount64;
+  PlayTimer.Enabled := True;
 end;
 
 procedure TAudioFrm.PlayTimerStartTimer(Sender: TObject);
 begin
   ShortTermLoudnessValue.Font.Color := clSkyBlue;
   MomentaryLoudnessValue.Font.Color := clLime;
+  UpdateControls;
 end;
 
 procedure TAudioFrm.PlayTimerStopTimer(Sender: TObject);
@@ -950,34 +733,33 @@ begin
 
   ShortTermLoudnessValue.Caption := '-';
   MomentaryLoudnessValue.Caption := '-';
+  UpdateControls;
 end;
 
 procedure TAudioFrm.PlayTimerTimer(Sender: TObject);
 var
   Track: TTrack;
-  PlayTime: longint;
+  PlayTime: QWord;
 begin
-  Track := nil;
-  if (LastIndex > -1) and (LastIndex < TrackList.Count) then
+  if (ShownIndex < 0) or (ShownIndex >= TrackList.Count) then
   begin
-    Track := TrackList[LastIndex];
-
-    PlayTime := MilliSecondsBetween(Now, PlayStart);
-    ShortTermLoudnessValue.Caption := Format('%0.2f', [Track.Loudness.ShortTermLoudness(PlayTime)]);
-    MomentaryLoudnessValue.Caption := Format('%0.2f', [Track.Loudness.MomentaryLoudness(PlayTime)]);
-
-    if PlayTime > (Track.Duration * 1000) then
-    begin
-      PlayTimer.Enabled := False;
-    end;
+    PlayTimer.Enabled := False;
+    Exit;
   end;
+  Track := TrackList[ShownIndex];
+  PlayTime := GetTickCount64 - PlayStart;
+  if (PlayTime > High(longint)) or (PlayTime >= Track.DurationSeconds * 1000) then
+  begin
+    PlayTimer.Enabled := False;
+    Exit;
+  end;
+  ShortTermLoudnessValue.Caption := Format('%0.2f', [Track.Loudness.ShortTermLoudness(PlayTime)]);
+  MomentaryLoudnessValue.Caption := Format('%0.2f', [Track.Loudness.MomentaryLoudness(PlayTime)]);
 end;
 
 procedure TAudioFrm.StopBtnClick(Sender: TObject);
 begin
-  if not TempWaveReady then Exit;
-  PlayTimer.Enabled := False;
-  PlaySound.StopSound;
+  StopPlayback;
 end;
 
 procedure TAudioFrm.MenuItemClick(Sender: TObject);
@@ -1003,32 +785,6 @@ begin
   SpectrogramItem .Checked := True;
 end;
 
-procedure TAudioFrm.DisableButtons;
-begin
-  PlayBtn      .Enabled := False;
-  StopBtn      .Enabled := False;
-  OpenFileBtn  .Enabled := False;
-  OpenFolderBtn.Enabled := False;
-  ReportBtn    .Enabled := False;
-
-  DRValue.Visible := True;
-  ProgressRing.Value := 0;
-  Popup.AutoPopup := False;
-end;
-
-procedure TAudioFrm.EnableButtons;
-begin
-  PlayBtn      .Enabled := TempWaveReady and FileExistsUTF8(TempFile);
-  StopBtn      .Enabled := TempWaveReady and FileExistsUTF8(TempFile);
-  OpenFileBtn  .Enabled := True;
-  OpenFolderBtn.Enabled := True;
-  ReportBtn    .Enabled := True;
-
-  DRValue.Visible := True;
-  ProgressRing.Value := 0;
-  Popup.AutoPopup := True;
-end;
-
 procedure TAudioFrm.CalculateBackingSize(out AWidth, AHeight: longint);
 begin
   if Assigned(VirtualScreen) then
@@ -1036,8 +792,11 @@ begin
     MaxRenderWidth := Max(MaxRenderWidth, VirtualScreen.Width);
     MaxRenderHeight := Max(MaxRenderHeight, VirtualScreen.Height);
   end;
-  AWidth := Max(1, MaxRenderWidth);
-  AHeight := Max(1, MaxRenderHeight);
+  // Bound persistent backing storage (64 MiB for the main RGBA bitmap).
+  MaxRenderWidth := EnsureRange(MaxRenderWidth, 1, 4096);
+  MaxRenderHeight := EnsureRange(MaxRenderHeight, 1, 4096);
+  AWidth := MaxRenderWidth;
+  AHeight := MaxRenderHeight;
 end;
 
 procedure TAudioFrm.ClampPan;
@@ -1094,16 +853,17 @@ end;
 
 procedure TAudioFrm.ScreenTimerTimer(Sender: TObject);
 var
-  i, Index: longint;
+  i: longint;
   BackingWidth, BackingHeight: longint;
   Track: TTrack;
   Mode: TScreenDrawerModes;
 begin
-  if ScreenDrawer <> nil then Exit;
+  if Closing then Exit;
 
   if (LastWidth <> VirtualScreen.Width) or
      (LastHeight <> VirtualScreen.Height) then
   begin
+    // Wait for the next tick: the window may still be resizing.
     LastWidth  := VirtualScreen.Width;
     LastHeight := VirtualScreen.Height;
     CalculateBackingSize(BackingWidth, BackingHeight);
@@ -1122,60 +882,116 @@ begin
   if WaveFormItem    .Checked then Include(Mode, smWaveForm    );
   if FreqSpectrumItem.Checked then Include(Mode, smFreqSpectrum);
   if SpectrogramItem .Checked then Include(Mode, smSpectrogram );
-
   if LastMode <> Mode then
   begin
     LastMode := Mode;
     IsNeededUpdateScreens := True;
+  end;
+  if ShownIndex <> CompletedIndex then
+    IsNeededUpdateScreens := True;
+
+  if Assigned(ScreenDrawer) then
+  begin
+    // The picture being drawn is already out of date: drop it.
+    if IsNeededUpdateScreens then ScreenDrawer.Terminate;
     Exit;
   end;
 
-  Index := TrackIndex -1;
-  if (Index >= 0) and (Index < TrackList.Count) then
+  if ShownIndex <> CompletedIndex then
   begin
-    if LastIndex <> Index then
-    begin
-      LastIndex := Index;
-      for i := Index -1 downto 0 do
-        TrackList [i].ClearChannels;
-      IsNeededUpdateScreens := True;
-      Exit;
-    end;
+    ShownIndex := CompletedIndex;
+    // Only the shown track needs its samples for the charts.
+    for i := ShownIndex - 1 downto 0 do
+      TrackList[i].ClearChannels;
+    ShowTrackInfo(TrackList[ShownIndex]);
+    UpdateControls;
   end;
 
   if IsNeededUpdateScreens then
   begin
     IsNeededUpdateScreens := False;
-
     Track := nil;
-    if (LastIndex > -1) and (LastIndex < TrackList.Count) then
-    begin
-      Track := TrackList[LastIndex]
+    if (ShownIndex >= 0) and (ShownIndex < TrackList.Count) then
+      Track := TrackList[ShownIndex];
+    try
+      // TrackList owns the track: ClearTrackList stops the drawer first.
+      ScreenDrawer := TScreenDrawer.Create(Track, Screen);
+      ScreenDrawer.OnStart := @OnStartDrawer;
+      ScreenDrawer.OnStop  := @OnStopDrawer;
+      ScreenDrawer.Mode    := Mode;
+      ScreenDrawer.Start;
+    except
+      on E: Exception do
+      begin
+        FreeAndNil(ScreenDrawer);
+        VirtualScreen.Hint := 'Unable to render: ' + E.Message;
+        VirtualScreen.ShowHint := True;
+      end;
     end;
-
-    ScreenDrawer := TScreenDrawer.Create(Track, Screen);
-    ScreenDrawer.OnStart := @OnStartDrawer;
-    ScreenDrawer.OnStop  := @OnStopDrawer;
-    ScreenDrawer.Mode    := Mode;
-    // TrackList owns the track used by the renderer. Prevent commands that
-    // can clear the list until the background renderer releases that pointer.
-    DisableButtons;
-    ScreenDrawer.Start;
   end;
 end;
 
-procedure TAudioFrm.RedrawScreen(ATrack: TTrack);
+procedure TAudioFrm.ClearData;
+begin
+  pcm   .Font.Color := clGray;
+  bit8  .Font.Color := clGray;
+  bit16 .Font.Color := clGray;
+  bit24 .Font.Color := clGray;
+  bit32 .Font.Color := clGray;
+  kHz44 .Font.Color := clGray;
+  kHz48 .Font.Color := clGray;
+  kHz88 .Font.Color := clGray;
+  kHz96 .Font.Color := clGray;
+  kHz176.Font.Color := clGray;
+  kHz192.Font.Color := clGray;
+  Mono  .Font.Color := clGray;
+  Stereo.Font.Color := clGray;
+  Stereo.Caption := 'Stereo';
+
+  TruePeakLabel  .Font.Color := clGray;
+  TPLLeftValue   .Font.Color := clGray;
+  TPLRightValue  .Font.Color := clGray;
+  PLLeftValue    .Font.Color := clGray;
+  PLRightValue   .Font.Color := clGray;
+
+  RMSLeftValue   .Font.Color := clGray;
+  RMSRightValue  .Font.Color := clGray;
+  CRestLeftValue .Font.Color := clGray;
+  CRestRightValue.Font.Color := clGray;
+
+  LoudnessFSLabel         .Font.Color := clGray;
+  MomentaryLoudnessValue  .Font.Color := clGray;
+  ShortTermLoudnessValue  .Font.Color := clGray;
+  IntegratedLoudnessValue .Font.Color := clGray;
+  RangeLoudnessValue      .Font.Color := clGray;
+  PeakToLoudnessRatioValue.Font.Color := clGray;
+  DRValue                 .Font.Color := clGray;
+  DRLabel                 .Font.Color := clGray;
+
+  TPLLeftValue   .Caption := '-';
+  TPLRightValue  .Caption := '-';
+  PLLeftValue    .Caption := '-';
+  PLRightValue   .Caption := '-';
+
+  RMSLeftValue   .Caption := '-';
+  RMSRightValue  .Caption := '-';
+  CRestLeftValue .Caption := '-';
+  CRestRightValue.Caption := '-';
+
+  MomentaryLoudnessValue  .Caption := '-';
+  ShortTermLoudnessValue  .Caption := '-';
+  IntegratedLoudnessValue .Caption := '-';
+  RangeLoudnessValue      .Caption := '-';
+  PeakToLoudnessRatioValue.Caption := '-';
+  DRValue                 .Caption := '--';
+end;
+
+procedure TAudioFrm.ShowTrackInfo(ATrack: TTrack);
 begin
   ClearData;
+  UpdateTitle;
   if Assigned(ATrack) then
   begin
-    TrackFileName.Font.Color := clWhite;
-    TrackFileName.Caption    := ExtractFileName(ATrack.FileName);
-    while (TrackFileName.Left + TrackFileName.Width) > (PlayBtn.Left + PlayBtn.Width) do
-    begin
-      TrackFileName.Caption := CutOff(TrackFileName.Caption);
-    end;
-
     pcm   .Font.Color := clWhite;
     bit8  .Font.Color := clGray; if ATrack.Bitspersample = 8      then bit8  .Font.Color := clWhite;
     bit16 .Font.Color := clGray; if ATrack.Bitspersample = 16     then bit16 .Font.Color := clWhite;
@@ -1229,7 +1045,6 @@ begin
     if ATrack.ChannelCount > 1 then rmsrightvalue  .Caption := Format('%0.2f', [ATrack.Loudness.Rms(1)]);
     if ATrack.ChannelCount > 0 then crestleftvalue .Caption := Format('%0.2f', [ATrack.Loudness.CrestFactor(0)]);
     if ATrack.ChannelCount > 1 then crestrightvalue.Caption := Format('%0.2f', [ATrack.Loudness.CrestFactor(1)]);
-    if ATrack.ChannelCount > 0 then PeakToLoudnessRatioValue   .Caption := Format('%0.2f', [ATrack.Loudness.PeakToLoudnessRatio]);
 
     if ATrack.ChannelCount > 0 then IntegratedLoudnessValue .Caption := Format('%0.2f', [ATrack.Loudness.IntegratedLoudness]);
     if ATrack.ChannelCount > 0 then RangeLoudnessValue      .Caption := Format('%0.2f', [ATrack.Loudness.LoudnessRange]);
@@ -1238,7 +1053,8 @@ begin
     DRValue.Caption := '--';
     DRValue.Font.Color := clWhite;
     DRLabel.Font.Color := clWhite;
-    if (ATrack.DRMeter.DR) > 0 then
+    if not IsInfinite(ATrack.DRMeter.DR) and not IsNan(ATrack.DRMeter.DR)
+      and (ATrack.DRMeter.DR >= 0) then
     begin
       DRValue.Caption := Format('%2.0f', [ATrack.DRMeter.DR]);
       if DRValue.Caption = ' 0' then DRValue.Font.Color := RGBToColor(255,   0, 0) else
@@ -1258,6 +1074,61 @@ begin
                                      DRValue.Font.Color := RGBToColor(  0, 255, 0);
     end;
   end;
+end;
+
+procedure TAudioFrm.UpdateTitle;
+var
+  Title: string;
+  N: SizeInt;
+begin
+  if BatchError <> '' then
+  begin
+    // The title holds one line, the hint and the dialog the whole message.
+    Title := BatchError;
+    N := Pos(#10, Title);
+    if N > 0 then Title := TrimRight(Copy(Title, 1, N - 1));
+    TrackFileName.Font.Color := clrRed;
+    TrackFileName.Hint := BatchError;
+  end else
+  if (ShownIndex >= 0) and (ShownIndex < TrackList.Count) then
+  begin
+    Title := ExtractFileName(TrackList[ShownIndex].Filename);
+    TrackFileName.Font.Color := clWhite;
+    TrackFileName.Hint := TrackList[ShownIndex].Filename;
+  end else
+  begin
+    Title := 'Audio';
+    TrackFileName.Font.Color := clWhite;
+    TrackFileName.Hint := '';
+  end;
+  TrackFileName.ShowHint := TrackFileName.Hint <> '';
+  SetTrackTitle(Title);
+end;
+
+procedure TAudioFrm.SetTrackTitle(const ATitle: string);
+begin
+  FullTrackTitle := ATitle;
+  FitTrackTitle;
+end;
+
+procedure TAudioFrm.FitTrackTitle;
+var
+  DisplayTitle: string;
+  N, Available: integer;
+begin
+  // Room left of the progress ring, which keeps its spacing on both sides.
+  Available := Max(0, PlayBtn.Left - TrackFileName.Left -
+    2 * ProgressPanel.BorderSpacing.Left - ProgressPanel.Width);
+  Canvas.Font.Assign(TrackFileName.Font);
+  DisplayTitle := FullTrackTitle;
+  N := UTF8Length(DisplayTitle);
+  while (N > 0) and (Canvas.TextWidth(DisplayTitle) > Available) do
+  begin
+    Dec(N);
+    DisplayTitle := UTF8Copy(FullTrackTitle, 1, N) + '...';
+  end;
+  if Canvas.TextWidth(DisplayTitle) > Available then DisplayTitle := '';
+  TrackFileName.Caption := DisplayTitle;
 end;
 
 procedure TAudioFrm.RedrawVirtualScreen(Sender: TObject; Bitmap: TBGRABitmap);
