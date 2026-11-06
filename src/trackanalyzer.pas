@@ -33,7 +33,8 @@ type
 
   // Reads a WAV stream into a track and runs every meter on it, reporting
   // the progress. Status: 0 = done, -1 = unreadable or unsupported file,
-  // -2 = no channels or no audio, -4 = the analysis raised an exception.
+  // -2 = no channels or no audio, -4 = the analysis raised an exception,
+  // -5 = cancelled by Terminate (checked at every progress tick).
   TTrackAnalyzer = class(TThread)
   private
     FTrack: TTrack;
@@ -119,6 +120,8 @@ begin
       writeln;
       {$endif}
     except
+      on EAbort do
+        FStatus := -5;
       // Out of memory, arithmetic errors, ...: report a failed analysis instead
       // of letting OnStop present partially computed results as valid.
       on E: Exception do
@@ -138,6 +141,7 @@ end;
 
 procedure TTrackAnalyzer.DoTick;
 begin
+  if Terminated then Abort;
   Inc(FTick);
   FPercentage := Trunc(100 * FTick / FTickCount);
   if Assigned(FOnTick) then
@@ -172,6 +176,7 @@ begin
 
   FStatus := ReadWaveSamples(AStream, Format, FTrack.Channels, FTrack.SampleCount);
   if Status <> 0 then Exit;
+  if Terminated then Abort;
 
   // Init
   FTrack.DRMeter  .Init(@DoTick);
