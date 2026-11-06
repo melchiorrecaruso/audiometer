@@ -226,6 +226,7 @@ var
 begin
   // create and configure the chart
   Chart := NewDefaultChart;
+  try
   Chart.Title      := 'Energy & peaks (1s blocks)';
   Chart.XAxisLabel := 'Block';
   Chart.YAxisLabel := 'dBFS';
@@ -239,7 +240,9 @@ begin
 
   // draw chart on screen
   Chart.Draw(ABitmap, ABitmap.Width, ABitmap.Height, True);
-  Chart.Destroy;
+  finally
+    Chart.Free;
+  end;
 end;
 
 procedure DrawDefaultSpectrumChart(var ABitmap: TBGRABitmap);
@@ -249,6 +252,7 @@ var
 begin
   // create and configure the chart
   Chart := NewDefaultChart;
+  try
   Chart.Title      := 'Frequency spectrum';
   Chart.XAxisLabel := 'Hz';
   Chart.YAxisLabel := 'dBFS';
@@ -261,7 +265,9 @@ begin
   Chart.AddPolygon(Points, '');
   // draw Chart on screen
   Chart.Draw(ABitmap, ABitmap.Width, ABitmap.Height, True);
-  Chart.Destroy;
+  finally
+    Chart.Free;
+  end;
 end;
 
 procedure DrawDefaultSpectrogramChart(var ABitmap: TBGRABitmap);
@@ -271,19 +277,22 @@ var
 begin
   // create and configure the chart
   Chart := NewDefaultChart;
+  try
   Chart.Title := 'Spectrogram';
-  Chart.XAxisLabel := 'Hz';
-  Chart.YAxisLabel := 's';
+  Chart.XAxisLabel := 's';
+  Chart.YAxisLabel := 'Hz';
 
   SetLength(Points, 2);
   Points[0].x := 0;
   Points[0].y := 0;
-  Points[1].x := 22050;
-  Points[1].y := 96;
+  Points[1].x := 96;
+  Points[1].y := 22050;
   Chart.AddPolygon(Points, '');
   // draw chart on screen
   Chart.Draw(ABitmap, ABitmap.Width, ABitmap.Height, True);
-  Chart.Destroy;
+  finally
+    Chart.Free;
+  end;
 end;
 
 procedure DrawDefaultWaveChart(var ABitmap: TBGRABitmap);
@@ -293,6 +302,7 @@ var
 begin
   // create and configure the chart
   Chart := NewDefaultChart;
+  try
   Chart.LegendEnabled := True;
   Chart.Title := 'Waveform (Mono)';
   Chart.XAxisLabel := 's';
@@ -314,7 +324,9 @@ begin
   SetLength(Points, 0);
   // draw Chart on screen
   Chart.Draw(ABitmap, ABitmap.Width, ABitmap.Height, True);
-  Chart.Destroy;
+  finally
+    Chart.Free;
+  end;
 end;
 
 procedure DrawDefaultLoudnessChart(var ABitmap: TBGRABitmap);
@@ -324,28 +336,31 @@ var
 begin
   // create and configure the chart
   Chart := NewDefaultChart;
+  try
   Chart.LegendEnabled := True;
   Chart.Title := 'ShortTerm & Momentary Loudness';
   Chart.XAxisLabel := 's';
-  Chart.YAxisLabel := 'dBFS';
+  Chart.YAxisLabel := 'LUFS';
 
-  Chart.YMaxF   := +1.0;
-  Chart.YMinF   := -1.0;
+  Chart.YMaxF   := 5;
+  Chart.YMinF   := -70;
   Chart.XMinF   := 0;
   Chart.XMaxF   := 100;
-  Chart.YCount  := 4;
-  Chart.YDeltaF := 0.5;
+  Chart.YCount  := 5;
+  Chart.YDeltaF := 15;
 
   SetLength(Points, 2);
   Points[0].x := 0;
-  Points[0].y := -1;
+  Points[0].y := -70;
   Points[1].x := 100;
-  Points[1].y := 1;
+  Points[1].y := 5;
   Chart.AddPolygon(Points, '');
   SetLength(Points, 0);
   // draw Chart on screen
   Chart.Draw(ABitmap, ABitmap.Width, ABitmap.Height, True);
-  Chart.Destroy;
+  finally
+    Chart.Free;
+  end;
 end;
 
 // TScreenDrawer
@@ -626,6 +641,7 @@ begin
   if (FTrack.SampleCount  = 0) then Exit;
   // create and configure the chart
   Chart := NewDefaultChart;
+  try
   Chart.Title      := 'Energy & peaks (1s blocks)';
   Chart.XAxisLabel := 'Block';
   Chart.YAxisLabel := 'dBFS';
@@ -690,7 +706,9 @@ begin
     FScreen.FillRect(X0, Min(YPEak, YRms), X1, Max(YPEak, YRms) + 1,
       clrRed);
   end;
-  Chart.Destroy;
+  finally
+    Chart.Free;
+  end;
 end;
 
 // TSpectrumDrawer
@@ -710,6 +728,7 @@ begin
   if (FTrack.Samplecount  = 0) then Exit;
   // create and configure the chart
   Chart := NewDefaultChart;
+  try
   Chart.Title      := 'Frequency spectrum';
   Chart.XAxisLabel := 'Hz';
   Chart.YAxisLabel := 'dBFS';
@@ -768,7 +787,9 @@ begin
     FScreen.FillRect(X0, Min(YPEak0, YPeak1), X1,
       Max(YPEak0, YPeak1) + 1, clrRed);
   end;
-  Chart.Destroy;
+  finally
+    Chart.Free;
+  end;
 end;
 
 // TSpectrogramDrawer
@@ -776,13 +797,13 @@ end;
 procedure TSpectrogramDrawer.Draw;
 var
   Chart: TChart;
-  Row, Row0, Row1, Bin, Base: longint;
+  Row, Bin, Bin0, Bin1, Base: longint;
   X, Y, ch: longint;
   Amp: double;
   RowCount: longint;
   OutBins: LongInt;
-  Bin0: array of longint = nil;
-  Bin1: array of longint = nil;
+  Row0: array of longint = nil;
+  Row1: array of longint = nil;
   Bit: TBGRABitmap;
   MaxDB: TDouble;
 begin
@@ -790,20 +811,25 @@ begin
   if (FTrack.Samplecount  = 0) then Exit;
   // create and configure the chart
   Chart := NewDefaultChart;
+  Bit := nil;
+  try
   Chart.Title := 'Spectrogram';
-  Chart.XAxisLabel := 'Hz';
-  Chart.YAxisLabel := 's';
+  Chart.XAxisLabel := 's';
+  Chart.YAxisLabel := 'Hz';
   Chart.TitleFontColor := clrWhite;
   Chart.XAxisFontColor := clrWhite;
   Chart.YAxisFontColor := clrWhite;
 
-  Chart.AddPixel(FTrack.Samplerate div 2, FTrack.Duration, clblack);
+  Chart.AddPixel(FTrack.DurationSeconds, FTrack.Samplerate * 0.5, clblack);
   Chart.Draw(FScreen, FScreen.Width, FScreen.Height, True);
 
+  if (Chart.GetDrawingRect.Width <= 0) or
+     (Chart.GetDrawingRect.Height <= 0) or
+     (Chart.XMaxF <= Chart.XMinF) or (Chart.YMaxF <= Chart.YMinF) then Exit;
   Bit := TBGRABitmap.create;
   Bit.SetSize(
-    Trunc(Chart.GetDrawingRect.Width *((FTrack.Samplerate div 2) / (Chart.XMaxF - Chart.XMinF))),
-    Trunc(Chart.GetDrawingRect.Height*((FTrack.Duration        ) / (Chart.YMaxf - Chart.YMinF))));
+    Trunc(Chart.GetDrawingRect.Width * (FTrack.DurationSeconds / (Chart.XMaxF - Chart.XMinF))),
+    Trunc(Chart.GetDrawingRect.Height * (FTrack.Samplerate * 0.5 / (Chart.YMaxF - Chart.YMinF))));
 
   RowCount := FTrack.Spectrums.RowCount;
   OutBins  := FTrack.Spectrums.OutBins;
@@ -816,28 +842,28 @@ begin
     // Every pixel shows the maximum of the rows (time) and bins (frequency)
     // it covers, so nothing is skipped when the picture is smaller than the
     // data; when it is larger, neighbouring pixels share the same cell.
-    SetLength(Bin0, Bit.Width);
-    SetLength(Bin1, Bit.Width);
+    SetLength(Row0, Bit.Width);
+    SetLength(Row1, Bit.Width);
     for X := 0 to Bit.Width -1 do
     begin
-      Bin0[X] := int64(X) * OutBins div Bit.Width;
-      Bin1[X] := Max(Bin0[X], int64(X + 1) * OutBins div Bit.Width - 1);
+      Row0[X] := int64(X) * RowCount div Bit.Width;
+      Row1[X] := Max(Row0[X], int64(X + 1) * RowCount div Bit.Width - 1);
     end;
 
-    MaxDB := 6 * FTrack.BitsPerSample;
-    // loop over output bitmap pixels
+    MaxDB := Max(1, 6 * FTrack.BitsPerSample);
+    // loop over output bitmap pixels, low frequencies at the bottom
     for Y := 0 to Bit.Height -1 do
     begin
-      Row0 := int64(Y) * RowCount div Bit.Height;
-      Row1 := Max(Row0, int64(Y + 1) * RowCount div Bit.Height - 1);
+      Bin0 := int64(Y) * OutBins div Bit.Height;
+      Bin1 := Max(Bin0, int64(Y + 1) * OutBins div Bit.Height - 1);
       for X := 0 to Bit.Width -1 do
       begin
         Amp := 0;
         for ch := 0 to FTrack.ChannelCount -1 do
-          for Row := Row0 to Row1 do
+          for Row := Row0[X] to Row1[X] do
           begin
             Base := Row * OutBins;
-            for Bin := Bin0[X] to Bin1[X] do
+            for Bin := Bin0 to Bin1 do
               Amp := Max(Amp, FTrack.Spectrums.Channels[ch, Base + Bin]);
           end;
         // map amplitude to color and set pixel
@@ -848,8 +874,10 @@ begin
   FScreen.PutImage(
     Chart.GetDrawingRect.Left,
     Chart.GetDrawingRect.Top + (Chart.GetDrawingRect.Height - Bit.Height), Bit, dmSet);
-  Bit.Destroy;
-  Chart.Destroy;
+  finally
+    Bit.Free;
+    Chart.Free;
+  end;
 end;
 
 // TWaveDrawer
@@ -869,6 +897,7 @@ begin
   if (FTrack.Samplecount  = 0) then Exit;
   // create a bitmap for each audio channel
   SetLength(Bit, FTrack.ChannelCount);
+  try
   for ch := Low(Bit) to High(Bit) do
     Bit[ch] := TBGRABitmap.create;
 
@@ -880,6 +909,7 @@ begin
   for ch := Low(Bit) to High(Bit) do
   begin
     Chart := NewDefaultChart;
+    try
     Chart.LegendEnabled := False;
     Chart.Title := Format('Waveform (%s)', [ChannelName(ch, FTrack.ChannelCount)]);
     Chart.XAxisLabel := 's';
@@ -904,11 +934,11 @@ begin
     Chart.YMaxF := +1.0;
     Chart.YMinF := -1.0;
     Chart.XMinF := 0;
-    Chart.XMaxF := Max(1, FTrack.Duration);
+    Chart.XMaxF := Max(1.0, FTrack.DurationSeconds);
     // Keep CalculateDataArea active while the actual waveform is rendered
     // directly after Chart.Draw.
     Chart.AddPixel(0, -1, clrBlack);
-    Chart.AddPixel(Max(1, FTrack.Duration), 1, clrBlack);
+    Chart.AddPixel(Max(1.0, FTrack.DurationSeconds), 1, clrBlack);
     // draw Chart on bitmap
     Chart.Draw(Bit[ch], Bit[ch].Width, Bit[ch].Height);
 
@@ -919,7 +949,7 @@ begin
     begin
       zMin := FTrack.WaveformMin(ch, x);
       zMax := FTrack.WaveformMax(ch, x);
-      DataX := x / Max(1, WindowxCount - 1) * FTrack.Duration;
+      DataX := x / Max(1, WindowxCount - 1) * FTrack.DurationSeconds;
 
       PixelX := Chart.DataToCanvasX(DataX);
       PixelYMin := Chart.DataToCanvasY(zMin);
@@ -935,7 +965,9 @@ begin
         Round(Max(PixelYMin, PixelYMax)) + 1,
         clrRed);
     end;
-    Chart.Destroy;
+    finally
+      Chart.Free;
+    end;
   end;
 
   // composite each channel's bitmap into the final output
@@ -944,77 +976,91 @@ begin
   begin
     FScreen.PutImage(0, OffSet, Bit[ch], dmSet);
     Inc(OffSet, FScreen.Height div FTrack.ChannelCount);
-
-    Bit[ch].Destroy;
+  end;
+  finally
+    for ch := Low(Bit) to High(Bit) do Bit[ch].Free;
   end;
 end;
 
 // TLoudnessDrawer
 
 procedure TLoudnessDrawer.Draw;
+const
+  MinLUFS = -70;
+  MaxLUFS = 5;
 var
-  ch, i, TimeMs, SampleIndex, MaxDB: longint;
-  WindowxSize, WindowxCount: longint;
-  zMax, zMin: double;
-  P1, P2: ArrayOfTPointF;
   Chart: TChart;
-  OffSet: longint;
+  TickCount: longint;
+
+  procedure AddCurve(AShortTerm: boolean; AColor: TBGRAPixel);
+  var
+    Points: ArrayOfTPointF;
+    i, Used: longint;
+    Level: double;
+
+    procedure Flush;
+    begin
+      if Used > 0 then
+      begin
+        SetLength(Points, Used);
+        if Used = 1 then Chart.AddPixel(Points[0].x, Points[0].y, AColor)
+        else Chart.AddPolyline(Points, False, '');
+        SetLength(Points, TickCount);
+        Used := 0;
+      end;
+    end;
+
+  begin
+    Chart.PenColor := AColor;
+    Chart.TextureColor := AColor;
+    SetLength(Points, TickCount);
+    Used := 0;
+    // Meter entry zero ends at 100 ms. Include the last complete interval.
+    for i := 1 to TickCount do
+    begin
+      if AShortTerm then Level := FTrack.Loudness.ShortTermLoudness(i * 100)
+      else Level := FTrack.Loudness.MomentaryLoudness(i * 100);
+      // Do not pass infinities to chart geometry, or connect across gaps.
+      if IsNan(Level) or IsInfinite(Level) then Flush
+      else
+      begin
+        Points[Used].x := i * 0.1;
+        Points[Used].y := EnsureRange(Level, MinLUFS, MaxLUFS);
+        Inc(Used);
+      end;
+    end;
+    Flush;
+  end;
+
 begin
-  if (FTrack.ChannelCount = 0) then Exit;
-  if (FTrack.Samplecount  = 0) then Exit;
-
+  if (FTrack.ChannelCount = 0) or (FTrack.SampleCount = 0) or
+     (FTrack.SampleRate = 0) then Exit;
   Chart := NewDefaultChart;
-  Chart.LegendEnabled := False;
-  Chart.Title := 'ShortTerm & Momentary Loudness';
-  Chart.XAxisLabel := 's';
-  Chart.YAxisLabel := 'dBFS';
-  Chart.TitleFontColor := clrwhite;
-  Chart.XAxisFontColor := clrWhite;
-  Chart.YAxisFontColor := clrWhite;
-
-//Chart.YCount  := 4;
-//Chart.YDeltaF := 0.5;
-
-  MaxDB := 6 * FTrack.BitsPerSample;
-
-  Chart.PenWidth     := 1.5;
-  Chart.PenColor     := clrSkyBlu;
-  Chart.TextureColor := clrSkyBlu;
-
-  TimeMs := 0;
-  SetLength(P1, FTrack.Duration * 10);
-  for i := Low(P1) to High(P1) do
-  begin
-    P1[i].x := TimeMs / 1000;
-    P1[i].y := MaxDB + FTrack.Loudness.ShortTermLoudness(TimeMs);
-
-    Inc(TimeMs, 100);
+  try
+    Chart.LegendEnabled := False;
+    Chart.Title := 'ShortTerm & Momentary Loudness';
+    Chart.XAxisLabel := 's';
+    Chart.YAxisLabel := 'LUFS';
+    Chart.TitleFontColor := clrWhite;
+    Chart.XAxisFontColor := clrWhite;
+    Chart.YAxisFontColor := clrWhite;
+    Chart.XMinF := 0;
+    Chart.XMaxF := Max(1.0, FTrack.DurationSeconds);
+    Chart.YMinF := MinLUFS;
+    Chart.YMaxF := MaxLUFS;
+    Chart.PenWidth := 1.5;
+    // Keep valid bounds even for silence and tracks shorter than 100 ms.
+    Chart.AddPixel(0, MinLUFS, clrBlack);
+    // Meter time arguments are signed millisecond counts. Clamp before
+    // narrowing the sample-based calculation to LongInt.
+    TickCount := Min(int64(FTrack.SampleCount) * 10 div FTrack.SampleRate,
+      int64(High(longint) div 100));
+    AddCurve(True, clrSkyBlu);
+    AddCurve(False, clrGreen);
+    Chart.Draw(FScreen, FScreen.Width, FScreen.Height);
+  finally
+    Chart.Free;
   end;
-  Chart.AddPolyline(P1, False, '');
-
-  Chart.PenWidth     := 1.5;
-  Chart.PenColor     := clrGreen;
-  Chart.TextureColor := clrGreen;
-
-  TimeMs := 0;
-  SetLength(P2, FTrack.Duration * 10);
-  for i := Low(P2) to High(P2) do
-  begin
-    P2[i].x := TimeMs / 1000;
-    P2[i].y := MaxDB + FTrack.Loudness.MomentaryLoudness(TimeMs);
-
-    Inc(TimeMs, 100);
-  end;
-  Chart.AddPolyline(P2, False, '');
-
-  // set visible bounds for Chart
-  //Chart.YMaxF := +1.0;
-  Chart.YMinF := 0;
-  Chart.XMinF := 0;
-  //Chart.XMaxF := Max(1, FTrack.Duration);
-  // draw Chart on bitmap
-  Chart.Draw(FScreen, FScreen.Width, FScreen.Height);
-  Chart.Destroy;
 end;
 
 end.

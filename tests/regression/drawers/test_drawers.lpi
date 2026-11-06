@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+<ProjectOptions><Version Value="13"/><General><UseAppBundle Value="False"/></General><BuildModes><Item Name="Default" Default="True"/></BuildModes><RequiredPackages><Item><PackageName Value="BGRABitmapPack"/></Item><Item><PackageName Value="lmDSP"/></Item><Item><PackageName Value="LCL"/></Item></RequiredPackages><Units><Unit><Filename Value="test_drawers.lpr"/><IsPartOfProject Value="True"/></Unit></Units></ProjectOptions>
+<CompilerOptions><Version Value="11"/><Target><Filename Value="../../../.regression-build/drawers/test_drawers"/></Target><SearchPaths><OtherUnitFiles Value="../../../src"/><UnitOutputDirectory Value="../../../.regression-build/drawers/lib"/></SearchPaths><CodeGeneration><Checks><RangeChecks Value="True"/><OverflowChecks Value="True"/><IOChecks Value="True"/></Checks></CodeGeneration><Linking><Debugging><UseHeaptrc Value="True"/><UseLineInfoUnit Value="True"/></Debugging></Linking></CompilerOptions>
+</CONFIG>
