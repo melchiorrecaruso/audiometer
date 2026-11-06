@@ -29,7 +29,7 @@ uses
   Classes, AudioTrack;
 
 // Writes the DR report of every track in AList into S (cleared first).
-procedure WriteTrackReport(AList: TTrackList; S: TStrings);
+procedure WriteTrackReport(AList: TTrackList; S: TStrings; ACount: integer = -1);
 
 
 implementation
@@ -37,7 +37,7 @@ implementation
 uses
   Common, Math, SysUtils;
 
-procedure WriteTrackReport(AList: TTrackList; S: TStrings);
+procedure WriteTrackReport(AList: TTrackList; S: TStrings; ACount: integer);
 const
   Splitter = '--------------------------------------------------------------------------------';
 var
@@ -45,6 +45,8 @@ var
   i, DRCount: longint;
   Track: TTrack;
 begin
+  if ACount < 0 then ACount := AList.Count;
+  ACount := Min(ACount, AList.Count);
   S.Clear;
   S.Add(APPTITLE);
   S.Add(Splitter);
@@ -54,11 +56,11 @@ begin
 
   DR := 0;
   DrCount := 0;
-  if AList.Count > 0 then
+  if ACount > 0 then
   begin
     S.Add('DR      Peak        RMS     bps  chs      SR  Duration  Track');
     S.Add(Splitter);
-    for i := 0 to AList.Count - 1 do
+    for i := 0 to ACount - 1 do
     begin
       Track := AList[i];
       S.Add(Format('DR%2.0f %7.2f dB %7.2f dB %4.0d %4.0d %7.0d %-s     %s',
@@ -86,7 +88,7 @@ begin
 
     S.Add(Splitter);
     S.Add('');
-    S.Add(Format('Number of tracks:  %d', [AList.Count]));
+    S.Add(Format('Number of tracks:  %d', [ACount]));
     if DR >  0 then S.Add(Format('Official DR value: DR%1.0f', [DR]));
     if DR <= 0 then S.Add('Official DR value: ---');
 
