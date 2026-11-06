@@ -1,4 +1,5 @@
 build/**
+.regression-build/**
 install/win64/output/**
 install/win64/fonts/**
 install/portable-linux64/bin/**

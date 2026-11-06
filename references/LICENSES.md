@@ -8,7 +8,7 @@ official sources.
 
 The EBU compliance test reads the test set from a local folder:
 
-    build/audiotest <folder with the EBU test set WAV files>
+    instantfpc .github/workflows/regression.pas --only=ebu/ --ebu=<folder with the EBU test set WAV files>
 
 Files copied into this folder are ignored by git (see `../.gitignore`).
 

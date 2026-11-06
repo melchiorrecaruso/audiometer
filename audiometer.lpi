@@ -132,6 +132,11 @@
         <UnitName Value="TrackReport"/>
       </Unit>
       <Unit>
+        <Filename Value="src/decoder.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="Decoder"/>
+      </Unit>
+      <Unit>
         <Filename Value="src/drawers.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="Drawers"/>
