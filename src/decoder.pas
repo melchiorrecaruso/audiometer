@@ -411,7 +411,10 @@ begin
       [InputRate, InputChannels, OutputRate, OutputChannels]);
     Exit;
   end;
-  if (InputLayout <> '') and (OutputLayout <> InputLayout) then
+  // A plain PCM WAV (mono, stereo) has no channel mask, so ffprobe reports
+  // its layout as unknown: compare the layouts only when both are known.
+  if (InputLayout <> '') and (OutputLayout <> '') and
+     (OutputLayout <> InputLayout) then
   begin
     AError := Format('The WAV changed the channel layout (%s to %s).',
       [InputLayout, OutputLayout]);
