@@ -1,6 +1,6 @@
-program TestDrawers;
+program Test_drawers;
 {$mode objfpc}{$H+}
-uses {$ifdef unix}cthreads,{$endif} Interfaces, Forms, Classes, SysUtils, Math,
+uses HeapTrc, {$ifdef unix}cthreads,{$endif} Interfaces, Forms, Classes, SysUtils, Math,
  BGRABitmap, BGRABitmapTypes, BaseGraphics, Drawers, AudioTrack, WavReader;
 type TDrawerClass = class of TCustomDrawer;
 const Workers: array[0..4] of TDrawerClass =
@@ -61,11 +61,13 @@ begin
 end;
 var K:integer;
 begin
+ // A leak sets exit code 203 at the end of the program.
+ HaltOnNotReleased:=True;
  Application.Initialize;
- // Resolve the bundled font relative to the build output, not the cwd.
+ // Resolve the bundled font relative to the executable, not the cwd.
  DefaultFontName:='DejaVu Sans';
  DefaultFontFileName:=ExpandFileName(ExtractFilePath(ParamStr(0))+
-   '../../fonts/DejaVuSans/DejaVuSans.ttf');
+   '../../../fonts/DejaVuSans/DejaVuSans.ttf');
  Require(FileExists(DefaultFontFileName),'bundled font available');
  InitializeChartFont;
  for K:=0 to High(Workers) do begin

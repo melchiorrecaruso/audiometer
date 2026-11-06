@@ -1,0 +1,17 @@
+# Source relative to tests/regression | build/execution mode
+# console: lazbuild the adjacent .lpi, no widgetset, no arguments
+# nogui:   lazbuild --ws=nogui, LCL without a display; argument: results folder
+# ffmpeg:  as console, requires ffmpeg and ffprobe
+# ebu:     as console, requires --ebu with the EBU WAVs, otherwise skipped
+common/test_common.lpr|console
+audiotrack/test_audiotrack.lpr|console
+dynamicrange/test_dynamicrange.lpr|console
+loudness/test_loudness.lpr|console
+gating/test_gating.lpr|console
+slidingmax/test_slidingmax.lpr|console
+spectrum/test_spectrum.lpr|console
+spectrumlong/test_spectrumlong.lpr|console
+boundaries/test_boundaries.lpr|console
+decoder/test_decoder.lpr|ffmpeg
+drawers/test_drawers.lpr|nogui
+ebu/test_ebu.lpr|ebu
