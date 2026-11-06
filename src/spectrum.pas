@@ -115,7 +115,7 @@ end;
 
 function TSpectrums.ComputeWindowCount(ASampleCount: longint): longint;
 begin
-  if ASampleCount >= FWindowSize then
+  if (FWindowSize > 0) and (FHopSize > 0) and (ASampleCount >= FWindowSize) then
     result := (ASampleCount - FWindowSize) div FHopSize + 1
   else
     result := 0;
@@ -202,14 +202,17 @@ end;
 procedure TSpectrums.Init(AWindowSize: longint = DEFAULTWINDOWSIZE;
   AHopSize: LongInt = DEFAULTHOPSIZE; const ATick: TTickMethod = nil);
 begin
-  Finalize;
-  FTick := ATick;
-
   if AWindowSize <= 0 then
     AWindowSize := DEFAULTWINDOWSIZE;
   if AHopSize <= 0 then
     AHopSize := DEFAULTHOPSIZE;
 
+  // The FFT backend only accepts powers of two; Hann needs at least 3 taps.
+  if (AWindowSize < 4) or ((AWindowSize and (AWindowSize - 1)) <> 0) then
+    raise EArgumentException.Create('FFT window size must be a power of two >= 4');
+
+  Finalize;
+  FTick := ATick;
   FWindowSize := AWindowSize;
   FHopSize    := AHopSize;
   BuildWindow;
@@ -269,8 +272,16 @@ begin
 end;
 
 function TSpectrums.EstimatedTicks(AChannelCount, ASampleCount: longint): longint;
+var
+  Count: int64;
 begin
-  result := ComputeWindowCount(ASampleCount) * AChannelCount;
+  if AChannelCount < 0 then
+    raise EArgumentException.Create('Channel count must not be negative');
+  Count := int64(ComputeWindowCount(ASampleCount)) * AChannelCount;
+  // Keep the LongInt API used by the progress counter, without wrapping.
+  if Count > High(longint) then
+    raise ERangeError.Create('Estimated spectrum ticks exceed LongInt capacity');
+  result := longint(Count);
 end;
 
 procedure TSpectrums.Process(const AChannels: TDoubleMatrix; ASampleCount: longint);
@@ -278,6 +289,20 @@ var
   ch, i, k: longint;
   SpectrumA, SpectrumB: TDoubleVector;
 begin
+  if (FWindowSize = 0) or (FHopSize = 0) then
+    raise EInvalidOpException.Create('Spectrum must be initialized before processing');
+
+  // Clear results only: empty/short input must not destroy the FFT setup.
+  FWindowCount := 0;
+  FRowCount := 0;
+  FOutBins := 0;
+  FChannels := nil;
+  FSpectrumRms := nil;
+  FSpectrumPeak := nil;
+  if (Length(AChannels) = 0) or (ASampleCount <= 0) then Exit;
+  for ch := Low(AChannels) to High(AChannels) do
+    if Length(AChannels[ch]) < ASampleCount then
+      raise EArgumentException.Create('Sample count exceeds channel length');
   FWindowCount := ComputeWindowCount(ASampleCount);
 
   if FWindowCount > 0 then
@@ -285,10 +310,7 @@ begin
     FOutBins  := FWindowSize div 2 + 1;
     FRowCount := Min(FWindowCount, DEFAULTMAXROWS);
 
-    // accumulators start from zero (SetLength only clears new elements)
-    SetLength(FChannels, 0, 0);
-    SetLength(FSpectrumRms, 0);
-    SetLength(FSpectrumPeak, 0);
+    // Arrays were released above, so all newly allocated elements start at zero.
     SetLength(FChannels, Length(AChannels), int64(FRowCount) * OutBins);
     SetLength(FSpectrumRms, FOutBins);
     SetLength(FSpectrumPeak, FOutBins);
@@ -323,8 +345,7 @@ begin
     for k := 0 to FOutBins - 1 do
       FSpectrumRms[k] := Sqrt(FSpectrumRms[k] / (int64(FWindowCount) * Length(AChannels)));
     SmoothSpectrogram;
-  end else
-    Finalize;
+  end;
 end;
 
 procedure TSpectrums.SmoothSpectrogram;
