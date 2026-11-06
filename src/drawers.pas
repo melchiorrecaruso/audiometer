@@ -433,6 +433,7 @@ begin
         Inc(OffSet, Bit.Height);
         FreeAndNil(BlockDrawer);
         FreeAndNil(Bit);
+        if Terminated then Exit;
       end;
 
       if smLoudness in FModes then
@@ -446,6 +447,7 @@ begin
         Inc(OffSet, Bit.Height);
         FreeAndNil(LoudnessDrawer);
         FreeAndNil(Bit);
+        if Terminated then Exit;
       end;
 
       if smWaveForm in FModes then
@@ -459,6 +461,7 @@ begin
         Inc(OffSet, Bit.Height);
         FreeAndNil(WaveDrawer);
         FreeAndNil(Bit);
+        if Terminated then Exit;
       end;
 
       if smFreqSpectrum in FModes then
@@ -472,6 +475,7 @@ begin
         Inc(OffSet, Bit.Height);
         FreeAndNil(SpectrumDrawer);
         FreeAndNil(Bit);
+        if Terminated then Exit;
       end;
 
       if smSpectrogram in FModes then
@@ -485,6 +489,7 @@ begin
        Inc(OffSet, Bit.Height);
        FreeAndNil(SpectrogramDrawer);
        FreeAndNil(Bit);
+       if Terminated then Exit;
      end;
 
     end else
