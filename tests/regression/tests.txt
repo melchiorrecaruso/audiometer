@@ -14,4 +14,5 @@ spectrumlong/test_spectrumlong.lpr|console
 boundaries/test_boundaries.lpr|console
 decoder/test_decoder.lpr|ffmpeg
 drawers/test_drawers.lpr|nogui
+workers/test_workers.lpr|nogui
 ebu/test_ebu.lpr|ebu

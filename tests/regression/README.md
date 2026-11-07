@@ -15,3 +15,12 @@ To add a test, create `<theme>/test_<theme>.lpr` and `<theme>/test_<theme>.lpi`
 (the program is built beside the project) and register it in `tests.txt`,
 whose header describes the modes. Logs are written to
 `.regression-build/<mode>/test_<theme>/`.
+
+The `workers` test covers cancellation before/after `Start`, failure completion,
+main-thread delivery of `OnTerminate`, and exactly-once destruction with both
+manual ownership and `FreeOnTerminate`. It also runs valid in-memory WAV
+analyses (including cancellation inside `Execute`), followed by a screen worker,
+and releases the input resources at completion before automatic destruction.
+Rendering itself is covered by `drawers`; `workers` uses an empty drawing mode.
+These tests do not automate the application's file dialogs or inject allocation
+failures into GUI error handlers.
