@@ -7,9 +7,20 @@ else a failure. Run them from the repository root:
 instantfpc .github/workflows/regression.pas
 ```
 
-Requirements: Free Pascal, Lazarus with the `lmDSP` (LMath) and
-`BGRABitmapPack` packages registered, `ffmpeg` and `ffprobe`.
-`--help` lists the options.
+Requirements: Free Pascal, Lazarus with the `lmDSP` (LMath), `BGRABitmapPack`,
+`bgracontrols` and `playwavepackage` packages registered, `ffmpeg` and
+`ffprobe`. `--help` lists the options.
+
+The `widgetset` tests are built and run once per widgetset. On Linux the
+defaults are GTK2, GTK3, Qt5 and Qt6, run on a private Xvfb display
+(`xvfb-run`), so they need the GTK2/GTK3 development packages, `libQt5Pas`,
+`libQt6Pas` and Xvfb. `--ws=gtk2,qt6` selects a subset; `--display=current`
+uses the session's `$DISPLAY` instead of Xvfb. Windows uses win32, macOS cocoa.
+The `application` test creates the application's forms, analyzes two
+synthetic WAVs through the main form's batch, resizes and closes the form.
+
+The EBU reference WAVs are not distributed: `--ebu[=FOLDER]` runs the `ebu`
+test with them, otherwise it is skipped.
 
 On Windows the tests are built for x86_64/win64, like the released
 application (the i386 compiler cannot load the BGRABitmap units reliably).

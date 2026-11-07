@@ -102,7 +102,17 @@ begin
       if GetTickCount64 > Deadline then
         raise Exception.Create('Termination callback missing');
     end;
-    if not AutoFree then Worker.WaitFor;
+    if not AutoFree then
+    begin
+      // WaitFor on the main thread polls every 100 ms: wait for Finished first.
+      while not Worker.Finished do
+      begin
+        CheckSynchronize(1);
+        if GetTickCount64 > Deadline then
+          raise Exception.Create('Worker did not finish');
+      end;
+      Worker.WaitFor;
+    end;
     if (Observer.Calls <> 1) or not Observer.OnMainThread then
       raise Exception.Create('OnTerminate must run once on the main thread');
     if (Kind = 0) and (Cancellation = 0) and (Observer.Status <> -5) then
@@ -115,10 +125,11 @@ begin
     if not AutoFree then Worker.Free;
     // Do not dereference Worker after OnTerminate in the auto-free case.
     // The callback is delivered before the destructor has completed.
+    // No Synchronize signals the destruction: poll with a short wait.
     Deadline := GetTickCount64 + 5000;
     while InterlockedCompareExchange(Destroyed, 0, 0) = DestroyedBefore do
     begin
-      CheckSynchronize(10);
+      CheckSynchronize(1);
       if GetTickCount64 > Deadline then
         raise Exception.Create('Worker was not destroyed');
     end;
@@ -201,7 +212,7 @@ begin
     Deadline := GetTickCount64 + 5000;
     while InterlockedCompareExchange(Destroyed, 0, 0) <> Before + 2 do
     begin
-      CheckSynchronize(10);
+      CheckSynchronize(1);
       if GetTickCount64 > Deadline then
         raise Exception.Create('Real-input workers were not destroyed');
     end;
