@@ -22,6 +22,7 @@
 unit Drawers;
 
 {$mode objfpc}
+{$modeswitch nestedprocvars}
 
 interface
 
@@ -209,8 +210,8 @@ begin
 
   result.XMinF  := 0;
   result.YMinF  := 0;
-  result.XCount := 6;
-  result.YCount := 4;
+  result.XCount := 8;
+  result.YCount := 5;
 
   result.YAxisLabelLength := result.GetXAxisLabelSize('Amplitude').Width;
 end;
@@ -227,13 +228,20 @@ begin
   try
   Chart.Title      := 'Energy & peaks (1s blocks)';
   Chart.XAxisLabel := 'Block';
+  Chart.XIntegerTicks := True;
   Chart.YAxisLabel := 'dBFS';
+
+  // Same dBFS scale as TBlockDrawer for 16-bit audio: 0 dBFS at the top.
+  Chart.YMinF   := -96;
+  Chart.YMaxF   := 0;
+  Chart.YCount  := 4;
+  Chart.YDeltaF := 24;
 
   SetLength(Points, 2);
   Points[0].x := 0;
-  Points[0].y := 0;
+  Points[0].y := -96;
   Points[1].x := 30;
-  Points[1].y := 96;
+  Points[1].y := 0;
   Chart.AddPolygon(Points, '');
 
   // draw chart on screen
@@ -255,11 +263,17 @@ begin
   Chart.XAxisLabel := 'Hz';
   Chart.YAxisLabel := 'dBFS';
 
+  // Same dBFS scale as TSpectrumDrawer for 16-bit audio: 0 dBFS at the top.
+  Chart.YMinF   := -96;
+  Chart.YMaxF   := 0;
+  Chart.YCount  := 4;
+  Chart.YDeltaF := 24;
+
   SetLength(Points, 2);
   Points[0].x := 0;
-  Points[0].y := 0;
+  Points[0].y := -96;
   Points[1].x := 44100 div 2;
-  Points[1].y := 96;
+  Points[1].y := 0;
   Chart.AddPolygon(Points, '');
   // draw Chart on screen
   Chart.Draw(ABitmap, ABitmap.Width, ABitmap.Height, True);
@@ -620,8 +634,8 @@ begin
 
   result.XMinF  := 0;
   result.YMinF  := 0;
-  result.XCount := 6;
-  result.YCount := 4;
+  result.XCount := 8;
+  result.YCount := 5;
 
   result.YAxisLabelLength := result.GetXAxisLabelSize('Amplitude').Width;
 end;
@@ -630,12 +644,33 @@ end;
 
 procedure TBlockDrawer.Draw;
 var
-  i, j, X0, X1, YBase, YRms, YPeak: longint;
+  i, j: longint;
   Rms2, Peak: TDouble;
   RmsValues: TDoubleVector = nil;
   PeakValues: TDoubleVector = nil;
   Chart: TChart;
   MaxDB, MinDB: double;
+
+  // Domain-specific bars are rasterized here so TChart remains generic.
+  procedure PaintBars(AChart: TChart; ACanvas: TBGRABitmap);
+  var
+    i, X0, X1, YBase, YRms, YPeak: longint;
+  begin
+    YBase := Round(AChart.DataToCanvasY(MinDB));
+    for i := 0 to High(RmsValues) do
+    begin
+      X0 := Round(AChart.DataToCanvasX((i + 1) - 0.35));
+      X1 := Round(AChart.DataToCanvasX((i + 1) + 0.35));
+      if X1 <= X0 then X1 := X0 + 1;
+      YRms := Round(AChart.DataToCanvasY(RmsValues[i]));
+      ACanvas.FillRect(X0, Min(YRms, YBase), X1, Max(YRms, YBase) + 1,
+        clrYellow);
+      YPeak := Round(AChart.DataToCanvasY(PeakValues[i]));
+      ACanvas.FillRect(X0, Min(YPeak, YRms), X1, Max(YPeak, YRms) + 1,
+        clrRed);
+    end;
+  end;
+
 begin
   if (FTrack.ChannelCount = 0) then Exit;
   if (FTrack.SampleCount  = 0) then Exit;
@@ -644,6 +679,7 @@ begin
   try
   Chart.Title      := 'Energy & peaks (1s blocks)';
   Chart.XAxisLabel := 'Block';
+  Chart.XIntegerTicks := True;
   Chart.YAxisLabel := 'dBFS';
   Chart.TitleFontColor := clrwhite;
   Chart.XAxisFontColor := clrWhite;
@@ -689,23 +725,8 @@ begin
     Chart.XMaxF := Length(RmsValues) + 0.35;
     Chart.AddPixel(0, MinDB, clBlack);
   end;
-  // draw Chart on screen
-  Chart.Draw(FScreen, FScreen.Width, FScreen.Height, True);
-
-  // Domain-specific bars are rasterized here so TChart remains generic.
-  YBase := Round(Chart.DataToCanvasY(MinDB));
-  for i := 0 to High(RmsValues) do
-  begin
-    X0 := Round(Chart.DataToCanvasX((i + 1) - 0.35));
-    X1 := Round(Chart.DataToCanvasX((i + 1) + 0.35));
-    if X1 <= X0 then X1 := X0 + 1;
-    YRms := Round(Chart.DataToCanvasY(RmsValues[i]));
-    FScreen.FillRect(X0, Min(YRms, YBase), X1, Max(YRms, YBase) + 1,
-      clrYellow);
-    YPeak := Round(Chart.DataToCanvasY(PeakValues[i]));
-    FScreen.FillRect(X0, Min(YPEak, YRms), X1, Max(YPEak, YRms) + 1,
-      clrRed);
-  end;
+  // draw Chart on screen, with the bars below the axes
+  Chart.Draw(FScreen, FScreen.Width, FScreen.Height, True, @PaintBars);
   finally
     Chart.Free;
   end;
@@ -716,13 +737,37 @@ end;
 procedure TSpectrumDrawer.Draw;
 var
   Chart: TChart;
-  i, X0, X1, YAmp, YBase, YPeak0, YPeak1: longint;
+  i: longint;
   OutBins: longint;
   Amplitudes: TDoubleVector = nil;
   Peaks: TDoubleVector = nil;
   Amp, Peak, FreqIndex: TDouble;
   Factor: single;
   MaxDB, MinDB: TDouble;
+
+  // Domain-specific spectrum bars are kept out of the generic chart unit.
+  procedure PaintBars(AChart: TChart; ACanvas: TBGRABitmap);
+  var
+    i, X0, X1, YAmp, YBase, YPeak0, YPeak1: longint;
+    FreqIndex: TDouble;
+  begin
+    YBase := Round(AChart.DataToCanvasY(MinDB));
+    for i := 0 to High(Amplitudes) do
+    begin
+      FreqIndex := (i + 1) * Factor;
+      X0 := Round(AChart.DataToCanvasX(FreqIndex - 0.25 * Factor));
+      X1 := Round(AChart.DataToCanvasX(FreqIndex + 0.25 * Factor));
+      if X1 <= X0 then X1 := X0 + 1;
+      YAmp := Round(AChart.DataToCanvasY(Amplitudes[i]));
+      ACanvas.FillRect(X0, Min(YAmp, YBase), X1, Max(YAmp, YBase) + 1,
+        clrYellow);
+      YPeak0 := Round(AChart.DataToCanvasY(Peaks[i]));
+      YPeak1 := Round(AChart.DataToCanvasY(Min(Peaks[i] + 0.5, 0)));
+      ACanvas.FillRect(X0, Min(YPeak0, YPeak1), X1,
+        Max(YPeak0, YPeak1) + 1, clrRed);
+    end;
+  end;
+
 begin
   if (FTrack.ChannelCount = 0) then Exit;
   if (FTrack.Samplecount  = 0) then Exit;
@@ -768,25 +813,8 @@ begin
     Chart.XMaxF := FreqIndex + 0.25 * Factor;
     Chart.AddPixel(0, MinDB, clBlack);
   end;
-  // draw chart on screen
-  Chart.Draw(FScreen, FScreen.Width, FScreen.Height, True);
-
-  // Domain-specific spectrum bars are kept out of the generic chart unit.
-  YBase := Round(Chart.DataToCanvasY(MinDB));
-  for i := 0 to High(Amplitudes) do
-  begin
-    FreqIndex := (i + 1) * Factor;
-    X0 := Round(Chart.DataToCanvasX(FreqIndex - 0.25 * Factor));
-    X1 := Round(Chart.DataToCanvasX(FreqIndex + 0.25 * Factor));
-    if X1 <= X0 then X1 := X0 + 1;
-    YAmp := Round(Chart.DataToCanvasY(Amplitudes[i]));
-    FScreen.FillRect(X0, Min(YAmp, YBase), X1, Max(YAmp, YBase) + 1,
-      clrYellow);
-    YPeak0 := Round(Chart.DataToCanvasY(Peaks[i]));
-    YPeak1 := Round(Chart.DataToCanvasY(Min(Peaks[i] + 0.5, 0)));
-    FScreen.FillRect(X0, Min(YPEak0, YPeak1), X1,
-      Max(YPEak0, YPeak1) + 1, clrRed);
-  end;
+  // draw chart on screen, with the bars below the axes
+  Chart.Draw(FScreen, FScreen.Width, FScreen.Height, True, @PaintBars);
   finally
     Chart.Free;
   end;
@@ -797,21 +825,81 @@ end;
 procedure TSpectrogramDrawer.Draw;
 var
   Chart: TChart;
-  Row, Bin, Bin0, Bin1, Base: longint;
-  X, Y, ch: longint;
-  Amp: double;
-  RowCount: longint;
-  OutBins: LongInt;
-  Row0: array of longint = nil;
-  Row1: array of longint = nil;
-  Bit: TBGRABitmap;
-  MaxDB: TDouble;
+
+  // Paints the spectrogram picture inside the drawing area, below the axes.
+  procedure PaintImage(AChart: TChart; ACanvas: TBGRABitmap);
+  var
+    Row, Bin, Bin0, Bin1, Base: longint;
+    X, Y, ch: longint;
+    Amp: double;
+    RowCount: longint;
+    OutBins: LongInt;
+    Row0: array of longint = nil;
+    Row1: array of longint = nil;
+    Bit: TBGRABitmap;
+    MaxDB: TDouble;
+    Area: TRect;
+  begin
+    Area := AChart.GetDrawingRect;
+    if (Area.Width <= 0) or (Area.Height <= 0) or
+       (AChart.XMaxF <= AChart.XMinF) or (AChart.YMaxF <= AChart.YMinF) then Exit;
+    Bit := TBGRABitmap.create;
+    try
+    Bit.SetSize(
+      Trunc(Area.Width * (FTrack.DurationSeconds / (AChart.XMaxF - AChart.XMinF))),
+      Trunc(Area.Height * (FTrack.Samplerate * 0.5 / (AChart.YMaxF - AChart.YMinF))));
+
+    RowCount := FTrack.Spectrums.RowCount;
+    OutBins  := FTrack.Spectrums.OutBins;
+
+    if (Bit.Width  > 2) and
+       (Bit.Height > 2) and
+       (RowCount   > 0) and
+       (OutBins    > 0) then
+    begin
+      // Every pixel shows the maximum of the rows (time) and bins (frequency)
+      // it covers, so nothing is skipped when the picture is smaller than the
+      // data; when it is larger, neighbouring pixels share the same cell.
+      SetLength(Row0, Bit.Width);
+      SetLength(Row1, Bit.Width);
+      for X := 0 to Bit.Width -1 do
+      begin
+        Row0[X] := int64(X) * RowCount div Bit.Width;
+        Row1[X] := Max(Row0[X], int64(X + 1) * RowCount div Bit.Width - 1);
+      end;
+
+      MaxDB := Max(1, 6 * FTrack.BitsPerSample);
+      // loop over output bitmap pixels, low frequencies at the bottom
+      for Y := 0 to Bit.Height -1 do
+      begin
+        Bin0 := int64(Y) * OutBins div Bit.Height;
+        Bin1 := Max(Bin0, int64(Y + 1) * OutBins div Bit.Height - 1);
+        for X := 0 to Bit.Width -1 do
+        begin
+          Amp := 0;
+          for ch := 0 to FTrack.ChannelCount -1 do
+            for Row := Row0[X] to Row1[X] do
+            begin
+              Base := Row * OutBins;
+              for Bin := Bin0 to Bin1 do
+                Amp := Max(Amp, FTrack.Spectrums.Channels[ch, Base + Bin]);
+            end;
+          // map amplitude to color and set pixel
+          Bit.SetPixel(X, Bit.Height - 1 - Y, GetColor((Decibel(Amp) + MaxDB) / MaxDB));
+        end;
+      end;
+    end;
+    ACanvas.PutImage(Area.Left, Area.Top + (Area.Height - Bit.Height), Bit, dmSet);
+    finally
+      Bit.Free;
+    end;
+  end;
+
 begin
   if (FTrack.ChannelCount = 0) then Exit;
   if (FTrack.Samplecount  = 0) then Exit;
   // create and configure the chart
   Chart := NewDefaultChart;
-  Bit := nil;
   try
   Chart.Title := 'Spectrogram';
   Chart.XAxisLabel := 's';
@@ -821,61 +909,9 @@ begin
   Chart.YAxisFontColor := clrWhite;
 
   Chart.AddPixel(FTrack.DurationSeconds, FTrack.Samplerate * 0.5, clblack);
-  Chart.Draw(FScreen, FScreen.Width, FScreen.Height, True);
-
-  if (Chart.GetDrawingRect.Width <= 0) or
-     (Chart.GetDrawingRect.Height <= 0) or
-     (Chart.XMaxF <= Chart.XMinF) or (Chart.YMaxF <= Chart.YMinF) then Exit;
-  Bit := TBGRABitmap.create;
-  Bit.SetSize(
-    Trunc(Chart.GetDrawingRect.Width * (FTrack.DurationSeconds / (Chart.XMaxF - Chart.XMinF))),
-    Trunc(Chart.GetDrawingRect.Height * (FTrack.Samplerate * 0.5 / (Chart.YMaxF - Chart.YMinF))));
-
-  RowCount := FTrack.Spectrums.RowCount;
-  OutBins  := FTrack.Spectrums.OutBins;
-
-  if (Bit.Width  > 2) and
-     (Bit.Height > 2) and
-     (RowCount   > 0) and
-     (OutBins    > 0) then
-  begin
-    // Every pixel shows the maximum of the rows (time) and bins (frequency)
-    // it covers, so nothing is skipped when the picture is smaller than the
-    // data; when it is larger, neighbouring pixels share the same cell.
-    SetLength(Row0, Bit.Width);
-    SetLength(Row1, Bit.Width);
-    for X := 0 to Bit.Width -1 do
-    begin
-      Row0[X] := int64(X) * RowCount div Bit.Width;
-      Row1[X] := Max(Row0[X], int64(X + 1) * RowCount div Bit.Width - 1);
-    end;
-
-    MaxDB := Max(1, 6 * FTrack.BitsPerSample);
-    // loop over output bitmap pixels, low frequencies at the bottom
-    for Y := 0 to Bit.Height -1 do
-    begin
-      Bin0 := int64(Y) * OutBins div Bit.Height;
-      Bin1 := Max(Bin0, int64(Y + 1) * OutBins div Bit.Height - 1);
-      for X := 0 to Bit.Width -1 do
-      begin
-        Amp := 0;
-        for ch := 0 to FTrack.ChannelCount -1 do
-          for Row := Row0[X] to Row1[X] do
-          begin
-            Base := Row * OutBins;
-            for Bin := Bin0 to Bin1 do
-              Amp := Max(Amp, FTrack.Spectrums.Channels[ch, Base + Bin]);
-          end;
-        // map amplitude to color and set pixel
-        Bit.SetPixel(X, Bit.Height - 1 - Y, GetColor((Decibel(Amp) + MaxDB) / MaxDB));
-      end;
-    end;
-  end;
-  FScreen.PutImage(
-    Chart.GetDrawingRect.Left,
-    Chart.GetDrawingRect.Top + (Chart.GetDrawingRect.Height - Bit.Height), Bit, dmSet);
+  // draw chart on screen, with the spectrogram below the axes
+  Chart.Draw(FScreen, FScreen.Width, FScreen.Height, True, @PaintImage);
   finally
-    Bit.Free;
     Chart.Free;
   end;
 end;
@@ -884,14 +920,46 @@ end;
 
 procedure TWaveDrawer.Draw;
 var
-  ch, x: longint;
+  ch, Channel: longint;
   WindowySize: longint;
   WindowxCount, WindowyCount: longint;
-  zMax, zMin: double;
-  DataX, PixelX, PixelYMin, PixelYMax: double;
   Bit: array of TBGRABitmap = nil;
   Chart: TChart;
   OffSet: longint;
+
+  // Draws the cached envelope of Channel below the axes.  The chart is used
+  // only for axes and labels; no per-column chart items are allocated or
+  // traversed by TChart.DrawItems.
+  procedure PaintEnvelope(AChart: TChart; ACanvas: TBGRABitmap);
+  var
+    x: longint;
+    zMax, zMin: double;
+    DataX, PixelX, PixelYMin, PixelYMax: double;
+  begin
+    for x := 0 to WindowxCount - 1 do
+    begin
+      // Samples beyond full scale (float or lossy sources) fall outside the
+      // plot area, where TChart.Draw cuts them.
+      zMin := FTrack.WaveformMin(Channel, x);
+      zMax := FTrack.WaveformMax(Channel, x);
+      DataX := x / Max(1, WindowxCount - 1) * FTrack.DurationSeconds;
+
+      PixelX := AChart.DataToCanvasX(DataX);
+      PixelYMin := AChart.DataToCanvasY(zMin);
+      PixelYMax := AChart.DataToCanvasY(zMax);
+
+      // The envelope is one vertical segment per output column.  Integer,
+      // pixel-aligned fills avoid the much more expensive antialias pipeline
+      // without changing the effective one-pixel geometry.
+      ACanvas.FillRect(
+        Round(PixelX),
+        Round(Min(PixelYMin, PixelYMax)),
+        Round(PixelX) + 1,
+        Round(Max(PixelYMin, PixelYMax)) + 1,
+        clrRed);
+    end;
+  end;
+
 begin
   if (FTrack.ChannelCount = 0) then Exit;
   if (FTrack.Samplecount  = 0) then Exit;
@@ -936,35 +1004,12 @@ begin
     Chart.XMinF := 0;
     Chart.XMaxF := Max(1.0, FTrack.DurationSeconds);
     // Keep CalculateDataArea active while the actual waveform is rendered
-    // directly after Chart.Draw.
+    // by PaintEnvelope.
     Chart.AddPixel(0, -1, clrBlack);
     Chart.AddPixel(Max(1.0, FTrack.DurationSeconds), 1, clrBlack);
-    // draw Chart on bitmap
-    Chart.Draw(Bit[ch], Bit[ch].Width, Bit[ch].Height);
-
-    // Draw the cached envelope directly on the chart bitmap.  The chart is
-    // used only for axes and labels; no per-column chart items are allocated
-    // or traversed by TChart.DrawItems.
-    for x := 0 to WindowxCount - 1 do
-    begin
-      zMin := FTrack.WaveformMin(ch, x);
-      zMax := FTrack.WaveformMax(ch, x);
-      DataX := x / Max(1, WindowxCount - 1) * FTrack.DurationSeconds;
-
-      PixelX := Chart.DataToCanvasX(DataX);
-      PixelYMin := Chart.DataToCanvasY(zMin);
-      PixelYMax := Chart.DataToCanvasY(zMax);
-
-      // The envelope is one vertical segment per output column.  Integer,
-      // pixel-aligned fills avoid the much more expensive antialias pipeline
-      // without changing the effective one-pixel geometry.
-      Bit[ch].FillRect(
-        Round(PixelX),
-        Round(Min(PixelYMin, PixelYMax)),
-        Round(PixelX) + 1,
-        Round(Max(PixelYMin, PixelYMax)) + 1,
-        clrRed);
-    end;
+    // draw Chart on bitmap, with the envelope below the axes
+    Channel := ch;
+    Chart.Draw(Bit[ch], Bit[ch].Width, Bit[ch].Height, True, @PaintEnvelope);
     finally
       Chart.Free;
     end;
@@ -1025,7 +1070,9 @@ var
       else
       begin
         Points[Used].x := i * 0.1;
-        Points[Used].y := EnsureRange(Level, MinLUFS, MaxLUFS);
+        // Levels outside [MinLUFS, MaxLUFS] keep their true slope and are cut
+        // at the plot border by TChart.Draw.
+        Points[Used].y := Level;
         Inc(Used);
       end;
     end;

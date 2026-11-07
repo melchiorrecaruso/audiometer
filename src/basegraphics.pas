@@ -23,6 +23,7 @@ unit BaseGraphics;
 
 {$mode ObjFPC}{$H+}
 {$modeSwitch advancedRecords}
+{$modeSwitch nestedProcVars}
 
 interface
 
@@ -121,6 +122,13 @@ type
     destructor Destroy; override;
   end;
 
+  TChart = class;
+
+  // Paints data that is not a chart item onto ACanvas, in the coordinates of
+  // DataToCanvasX/Y. Draw calls it after the items and before the legend and
+  // the axes, so the axes always stay on top of the data.
+  TChartPaintProc = procedure(AChart: TChart; ACanvas: TBGRABitmap) is nested;
+
   TChart = class
   private
     FBit: TBGRABitmap;
@@ -198,6 +206,9 @@ type
     FIsNeededCalcXLabelCount: boolean;
     FIsNeededCalcYLabelCount: boolean;
 
+    FXIntegerTicks: boolean;
+    FYIntegerTicks: boolean;
+
     function PxFromAreaFToArea(const AX: single): single;
     function PyFromAreaFToArea(const AY: single): single;
 
@@ -261,7 +272,8 @@ type
 
     procedure AddDotLabel(AX, AY, ARadius: single; AShiftX, AShiftY: longint; AAlign: TAlignment; AVertAlign: TVerticalAlignment; const ACaption: string);
 
-    procedure Draw(ABitmap: TBGRABitmap; AWidth, AHeight: longint; AOpaque: boolean = True);
+    procedure Draw(ABitmap: TBGRABitmap; AWidth, AHeight: longint; AOpaque: boolean = True;
+      APaintData: TChartPaintProc = nil);
     procedure Clear;
 
     function GetDrawingRect: TRect;
@@ -325,10 +337,17 @@ type
     property XMinF: single read GetXMinF write SetXMinF;
     property YMaxF: single read GetYMaxF write SetYMaxF;
     property YMinF: single read GetYMinF write SetYMinF;
+    // The axes span exactly [Min, Max]. Ticks are the multiples of the step
+    // inside that range. XDeltaF/YDeltaF fix the step; otherwise it is the
+    // smallest 1, 2, 2.5 or 5 x 10^n step giving at most XCount/YCount
+    // intervals (by default, as many as the labels leave room for).
     property XDeltaF: single write SetXDeltaF;
     property YDeltaF: single write SetYDeltaF;
     property XCount: longint read FXAxisLabelCount write SetXCount;
     property YCount: longint read FYAxisLabelCount write SetYCount;
+    // Restrict the automatic step to whole numbers (e.g. block indexes).
+    property XIntegerTicks: boolean read FXIntegerTicks write FXIntegerTicks;
+    property YIntegerTicks: boolean read FYIntegerTicks write FYIntegerTicks;
 
     property Spacer: longint read FSpacer write FSpacer;
     property Scale: single read FScale write FScale;
@@ -340,6 +359,10 @@ type
   end;
 
 procedure InitializeChartFont;
+
+// Smallest step of the form 1, 2, 2.5 or 5 x 10^n that splits ARange into at
+// most ACount intervals; AInteger allows whole steps only. 0 if none applies.
+function GetNiceStep(const ARange: double; ACount: longint; AInteger: boolean): double;
 
 const
   DefaultSpacer = 16;
@@ -371,24 +394,56 @@ end;
 
 // Common routines
 
-function GetDelta(Count: longint; const Range: double): double;
+function GetNiceStep(const ARange: double; ACount: longint; AInteger: boolean): double;
+const
+  Mantissas: array[0..3] of double = (1, 2, 2.5, 5);
 var
-  k: double = 0.001;
+  Exponent, i: longint;
+  Candidate: double;
 begin
+  Result := 0;
+  if (ACount <= 0) or IsNan(ARange) or IsInfinite(ARange) or (ARange <= 0) then Exit;
+  // Start one decade at or below ARange / ACount: some mantissa in this decade
+  // or the next one always satisfies the count. Each decade is computed from
+  // its exponent, so no rounding error accumulates.
+  Exponent := Floor(Log10(ARange / ACount));
   while True do
   begin
-    Result := 0.01 * k; if (Result * Count) >= (Range) then Break;
-    Result := 0.02 * k; if (Result * Count) >= (Range) then Break;
-    Result := 0.04 * k; if (Result * Count) >= (Range) then Break;
-    Result := 0.05 * k; if (Result * Count) >= (Range) then Break;
-    Result := 0.06 * k; if (Result * Count) >= (Range) then Break;
-    Result := 0.10 * k; if (Result * Count) >= (Range) then Break;
-    Result := 0.15 * k; if (Result * Count) >= (Range) then Break;
-    Result := 0.20 * k; if (Result * Count) >= (Range) then Break;
-    Result := 0.25 * k; if (Result * Count) >= (Range) then Break;
-    Result := 0.50 * k; if (Result * Count) >= (Range) then Break;
-    k := k * 10;
+    for i := Low(Mantissas) to High(Mantissas) do
+    begin
+      Candidate := Mantissas[i] * Power(10, Exponent);
+      if AInteger then
+      begin
+        if (Candidate < 1 - 1e-9) or
+           (Abs(Candidate - Round(Candidate)) > 1e-9 * Candidate) then Continue;
+        Candidate := Round(Candidate);
+      end;
+      // The tolerance keeps an exact fit, e.g. 96 / 24 = 4, from rounding up.
+      if ARange / Candidate <= ACount * (1 + 1e-9) then Exit(Candidate);
+    end;
+    Inc(Exponent);
   end;
+end;
+
+// Indexes of the first and last multiples of AStep inside [AMin, AMax]: the
+// ticks are AFirst * AStep .. ALast * AStep. False when there is none.
+function GetTickRange(const AMin, AMax, AStep: double; out AFirst, ALast: longint): boolean;
+const
+  MaxTicks = 1000;
+var
+  First, Last: double;
+begin
+  AFirst := 0;
+  ALast := -1;
+  Result := False;
+  if (AStep <= 0) or (AMax < AMin) then Exit;
+  // The tolerance keeps the ends of the range despite floating point errors.
+  First := AMin / AStep - 1e-6;
+  Last := AMax / AStep + 1e-6;
+  if IsNan(First) or IsNan(Last) or (Abs(First) > 1e9) or (Abs(Last) > 1e9) then Exit;
+  AFirst := Ceil(First);
+  ALast := Floor(Last);
+  Result := (ALast >= AFirst) and (ALast - AFirst <= MaxTicks);
 end;
 
 function GetMin(const MinValue: double): double;
@@ -878,7 +933,6 @@ end;
 
 function TChart.GetXAxisLabelSize: TSize;
 var
-  I: longint;
   Size: TSize;
 begin
   SetCurrentFontAntialias(False);
@@ -888,10 +942,6 @@ begin
   SetCurrentFontHeight(Trunc(FXAxisFontHeight * FScale));
 
   Result := GetTextSize(FXAxisLabel);
-  if FIsNeededCalcXLabelCount then
-  begin
-    FXAxisLabelCount := FWidth div Max(Result.Width, 2);
-  end;
 
   Size := GetTextSize(GetString(FDataArea.Left));
   Result.Height := Max(Result.Height, Size.Height);
@@ -924,10 +974,6 @@ begin
   SetCurrentFontHeight(Trunc(FYAxisFontHeight * FScale));
 
   Result := GetTextSize(FYAxisLabel);
-  if FIsNeededCalcYLabelCount then
-  begin
-    FYAxisLabelCount := FHeight div Max(Result.Height, 2);
-  end;
 
   Size := GetTextSize(GetString(FDataArea.Bottom));
   Result.Height := Max(Result.Height, Size.Height);
@@ -1006,14 +1052,13 @@ end;
 
 procedure TChart.DrawGrid;
 var
-  I: longint;
-  X, XShift, XSpacing: double;
-  Y, YShift, YSpacing: double;
+  I, First, Last: longint;
+  Value: double;
+  X, XShift: double;
+  Y, YShift: double;
 begin
   XShift   := -(FSpacer * FScale) * 0.5;
   YShift   := -(FSpacer * FScale) * 0.5;
-  XSpacing :=  (FDrawingArea.Right - FDrawingArea.Left  ) / FXAxisLabelCount;
-  YSpacing :=  (FDrawingArea.Top   - FDrawingArea.Bottom) / FYAxisLabelCount;
 
   // Draw Y secondary axis and X labels
   SetCurrentFontAntialias(False);
@@ -1026,12 +1071,15 @@ begin
   SetCurrentLineCap(pecRound);
   SetCurrentPenStyle(FYGridLineStyle);
 
-  for I := 0 to FXAxisLabelCount do
-  begin
-    X := FDrawingArea.Left + XSpacing * I;
-    DrawLine(X, FDrawingArea.Bottom, X, FDrawingArea.Top, FYGridLineColor, FYGridLineWidth * FScale);
-    DrawText(X, FDrawingArea.Bottom + YShift, GetString(FDataArea.Left + FXIncrementF * I), FXAxisFontColor, taCenter, taAlignTop);
-  end;
+  // Ticks sit on the multiples of the step, wherever the axis begins and ends.
+  if GetTickRange(FDataArea.Left, FDataArea.Right, FXIncrementF, First, Last) then
+    for I := First to Last do
+    begin
+      Value := I * FXIncrementF;
+      X := PxFromAreaFToArea(Value);
+      DrawLine(X, FDrawingArea.Bottom, X, FDrawingArea.Top, FYGridLineColor, FYGridLineWidth * FScale);
+      DrawText(X, FDrawingArea.Bottom + YShift, GetString(Value), FXAxisFontColor, taCenter, taAlignTop);
+    end;
 
   if FXAxisLabel <> '' then
   begin
@@ -1050,12 +1098,14 @@ begin
   SetCurrentLineCap(pecRound);
   SetCurrentPenStyle(FXGridLineStyle);
 
-  for I := 0 to FYAxisLabelCount do
-  begin
-    Y := FDrawingArea.Bottom + YSpacing * I;
-    DrawLine(FDrawingArea.Left, Y, FDrawingArea.Right, Y, FXGridLineColor, FXGridLineWidth * FScale);
-    DrawText(FDrawingArea.Left + XShift, Y, GetString(FDataArea.Bottom + FYIncrementF * I), FYAxisFontColor, taRightJustify, taVerticalCenter);
-  end;
+  if GetTickRange(FDataArea.Bottom, FDataArea.Top, FYIncrementF, First, Last) then
+    for I := First to Last do
+    begin
+      Value := I * FYIncrementF;
+      Y := PyFromAreaFToArea(Value);
+      DrawLine(FDrawingArea.Left, Y, FDrawingArea.Right, Y, FXGridLineColor, FXGridLineWidth * FScale);
+      DrawText(FDrawingArea.Left + XShift, Y, GetString(Value), FYAxisFontColor, taRightJustify, taVerticalCenter);
+    end;
 
   if FYAxisLabel <> '' then
   begin
@@ -1369,10 +1419,17 @@ procedure TChart.DrawItems;
 var
   I: longint;
   Item: TChartItem;
+  DataClip: TRect;
 begin
+  DataClip := FBit.ClipRect;
   for I := 0 to FItems.Count -1 do
   begin
     Item := TChartItem(FItems[I]);
+    // Labels are annotations: only the data is clipped to the plot area.
+    if Item is TChartLabelItem then
+      FBit.NoClip
+    else
+      FBit.ClipRect := DataClip;
     if Item.ClassType = TChartPixelItem then
     begin
       DrawPixel(Item as TChartPixelItem);
@@ -1394,9 +1451,11 @@ begin
       DrawLabel(Item as TChartLabelItem);
     end;
   end;
+  FBit.ClipRect := DataClip;
 end;
 
-procedure TChart.Draw(ABitmap: TBGRABitmap; AWidth, AHeight: longint; AOpaque: boolean = True);
+procedure TChart.Draw(ABitmap: TBGRABitmap; AWidth, AHeight: longint; AOpaque: boolean;
+  APaintData: TChartPaintProc);
 var
   Size1, Size2, Size3: TSize;
 begin
@@ -1419,28 +1478,44 @@ begin
   if (FDrawingArea.Width  > 0) and
      (FDrawingArea.Height > 0) then
   begin
-    if FIsNeededCalcXLabelCount then FXAxisLabelCount := FDrawingArea.Height div (Size2.Height + Trunc(FSpacer * FScale));
-    if FIsNeededCalcYLabelCount then FYAxisLabelCount := FDrawingArea.Width  div (Size1.Width  + Trunc(FSpacer * FScale));
+    // The axes span the data exactly; an empty range still needs a scale.
+    if not (FDataArea.Right > FDataArea.Left) then FDataArea.Right := FDataArea.Left   + 1;
+    if not (FDataArea.Top > FDataArea.Bottom) then FDataArea.Top   := FDataArea.Bottom + 1;
+
+    // By default, as many intervals as the widest/tallest label leaves room for.
+    if FIsNeededCalcXLabelCount then
+      FXAxisLabelCount := FDrawingArea.Width  div Max(1, Size1.Width + 2 * Trunc(FSpacer * FScale));
+    if FIsNeededCalcYLabelCount then
+      FYAxisLabelCount := FDrawingArea.Height div Max(1, Size2.Height * 2);
 
     if (FXAxisLabelCount > 0) and
        (FYAxisLabelCount > 0) then
     begin
-      if FIsNeededCalcXDeltaF then FXIncrementF := GetDelta(FXAxisLabelCount, FDataArea.Right - FDataArea.Left);
-      if FIsNeededCalcYDeltaF then FYIncrementF := GetDelta(FYAxisLabelCount, FDataArea.Top   - FDataArea.Bottom);
+      if FIsNeededCalcXDeltaF then
+        FXIncrementF := GetNiceStep(FDataArea.Right - FDataArea.Left, FXAxisLabelCount, FXIntegerTicks);
+      if FIsNeededCalcYDeltaF then
+        FYIncrementF := GetNiceStep(FDataArea.Top - FDataArea.Bottom, FYAxisLabelCount, FYIntegerTicks);
 
       if (FXIncrementF > 0) and
          (FYIncrementF > 0) then
       begin
-        while (FDataArea.Left   + ((FXAxisLabelCount -1) * FXIncrementF) > FDataArea.Right) do Dec(FXAxisLabelCount);
-        while (FDataArea.Bottom + ((FYAxisLabelCount -1) * FYIncrementF) > FDataArea.Top  ) do Dec(FYAxisLabelCount);
-
-        FDataArea.Right := FDataArea.Left   + FXIncrementF * FXAxisLabelCount;
-        FDataArea.Top   := FDataArea.Bottom + FYIncrementF * FYAxisLabelCount;
         FXScaleF := (FDrawingArea.Right - FDrawingArea.Left  ) / (FDataArea.Right - FDataArea.Left);
         FYScaleF := (FDrawingArea.Top   - FDrawingArea.Bottom) / (FDataArea.Top   - FDataArea.Bottom);
 
         DrawGrid;
-        DrawItems;
+        // Data beyond the axis limits is cut, never squeezed onto the border.
+        // The clip includes the axis lines, which are drawn over it later.
+        FBit.ClipRect := Rect(
+          FDrawingArea.Left,
+          FHeight - FDrawingArea.Top,
+          FDrawingArea.Right + 1,
+          FHeight - FDrawingArea.Bottom + 1);
+        try
+          DrawItems;
+          if Assigned(APaintData) then APaintData(Self, FBit);
+        finally
+          FBit.NoClip;
+        end;
         DrawLegend;
       end;
     end;
