@@ -1942,7 +1942,6 @@ object AudioFrm: TAudioFrm
     About.AuthorEmail = 'minesadorada@charcodelvalle.com'
     About.ComponentName = 'PlaySound'
     About.LicenseType = abModifiedGPL
-    PlayCommand = 'aplay -q'
     Left = 984
     Top = 80
   end
