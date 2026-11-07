@@ -26,17 +26,25 @@ const
   // The application ships as a 64-bit program: build the tests the same way.
   DefaultCPU = {$IFDEF WINDOWS}'x86_64'{$ELSE}''{$ENDIF};
   DefaultOS = {$IFDEF WINDOWS}'win64'{$ELSE}''{$ENDIF};
+  // Widgetsets the application is validated on.
+  DefaultWidgetsets =
+    {$IF DEFINED(WINDOWS)}'win32'
+    {$ELSEIF DEFINED(DARWIN)}'cocoa'
+    {$ELSE}'gtk2,gtk3,qt5,qt6'{$ENDIF};
+  // X11 desktops other than macOS need a display: by default a private Xvfb.
+  NeedsDisplay = {$IF DEFINED(UNIX) and not DEFINED(DARWIN)}True{$ELSE}False{$ENDIF};
 
 type
   // Described in the header of tests/regression/tests.txt.
-  TMode = (mdConsole, mdNoGUI, mdFFmpeg, mdEBU);
+  TMode = (mdConsole, mdNoGUI, mdWidgetset, mdFFmpeg, mdEBU);
 
 const
-  ModeNames: array[TMode] of string = ('console', 'nogui', 'ffmpeg', 'ebu');
+  ModeNames: array[TMode] of string = ('console', 'nogui', 'widgetset', 'ffmpeg', 'ebu');
 
 var
   Root, ManifestFile, BuildDir, LazBuild, PCP, OnlyPrefix: string;
-  EBUFolder, FFmpegDir, TargetCPU, TargetOS: string;
+  EBUFolder, FFmpegDir, TargetCPU, TargetOS, Display: string;
+  Widgetsets: TStringList;
   RunTimeout: longint = 120;
   Passed, Failed, Skipped, Selected: longint;
 
@@ -51,6 +59,11 @@ begin
   Writeln('  --cpu=CPU --os=OS   lazbuild target (default: ',
     {$IFDEF WINDOWS}'x86_64 and win64'{$ELSE}'the compiler''s own'{$ENDIF},
     '; an empty value keeps the compiler''s own)');
+  Writeln('  --ws=LIST           comma-separated widgetsets for the widgetset tests ',
+    '(default: ', DefaultWidgetsets, ')');
+  if NeedsDisplay then
+    Writeln('  --display=xvfb|current  run widgetset tests on a private Xvfb ',
+      '(default) or on $DISPLAY');
   Writeln('  --ffmpeg-dir=FOLDER folder holding ffmpeg and ffprobe (default: PATH)');
   Writeln('  --timeout=SECONDS   run timeout per test (default: 120)');
   Writeln('  --root=FOLDER --manifest=FILE --build-dir=FOLDER');
@@ -71,6 +84,10 @@ begin
   FFmpegDir := '';
   TargetCPU := DefaultCPU;
   TargetOS := DefaultOS;
+  Display := 'xvfb';
+  Widgetsets := TStringList.Create;
+  Widgetsets.StrictDelimiter := True;
+  Widgetsets.CommaText := DefaultWidgetsets;
   for i := 1 to ParamCount do
   begin
     Arg := ParamStr(i);
@@ -96,6 +113,13 @@ begin
     else if Key = 'pcp' then PCP := ExpandFileName(Value)
     else if Key = 'cpu' then TargetCPU := Value
     else if Key = 'os' then TargetOS := Value
+    else if Key = 'ws' then Widgetsets.CommaText := Value
+    else if Key = 'display' then
+    begin
+      if (Value <> 'xvfb') and (Value <> 'current') then
+        raise Exception.Create('Invalid display: ' + Value);
+      Display := Value;
+    end
     else if Key = 'only' then OnlyPrefix := Value
     else if Key = 'ebu' then EBUFolder := Value
     else if Key = 'ffmpeg-dir' then FFmpegDir := ExpandFileName(Value)
@@ -115,12 +139,18 @@ begin
   if EBUFolder = '*' then
     EBUFolder := Root + '/../audiometer-references/ebu-loudness-test-setv05';
   if EBUFolder <> '' then EBUFolder := ExpandFileName(EBUFolder);
+  for i := Widgetsets.Count - 1 downto 0 do
+  begin
+    Widgetsets[i] := Trim(Widgetsets[i]);
+    if Widgetsets[i] = '' then Widgetsets.Delete(i);
+  end;
 end;
 
 // Runs AExe in ADir and saves its command line, output and exit status to
 // ALog. The pipe is read while the child runs, so a verbose child cannot
 // block on a full pipe. Launch errors, nonzero exit codes and timeouts fail.
-function RunLogged(const AExe: string; const AArgs: array of string;
+// AEnv entries (NAME=VALUE) are added to the inherited environment.
+function RunLogged(const AExe: string; const AArgs, AEnv: array of string;
   const ADir, ALog: string; ATimeout: longint): boolean;
 var
   Child: TProcess;
@@ -130,6 +160,7 @@ var
   Start: QWord;
   TimedOut: boolean;
   Arg, Status: string;
+  i: longint;
 
   procedure Drain;
   begin
@@ -147,12 +178,21 @@ begin
   Log := TStringStream.Create('');
   Child := TProcess.Create(nil);
   try
+    for Arg in AEnv do Log.WriteString(Arg + ' ');
     Log.WriteString('$ ' + AExe);
     for Arg in AArgs do Log.WriteString(' ' + Arg);
     Log.WriteString(LineEnding + LineEnding);
     Child.Executable := AExe;
     for Arg in AArgs do Child.Parameters.Add(Arg);
     Child.CurrentDirectory := ADir;
+    if Length(AEnv) > 0 then
+    begin
+      for i := 1 to GetEnvironmentVariableCount do
+        Child.Environment.Add(GetEnvironmentString(i));
+      for Arg in AEnv do
+        Child.Environment.Values[Copy(Arg, 1, Pos('=', Arg) - 1)] :=
+          Copy(Arg, Pos('=', Arg) + 1, MaxInt);
+    end;
     Child.Options := [poUsePipes, poStderrToOutPut];
     try
       Child.Execute;
@@ -224,39 +264,38 @@ begin
   Inc(Skipped);
 end;
 
-procedure RunTest(const ASource: string; AMode: TMode);
+// Builds and runs one test; AWidgetset is the lazbuild --ws value, empty for
+// the compiler's default.
+procedure RunOne(const ASource: string; AMode: TMode; const AWidgetset: string);
 var
-  Source, Project, Exe, Name, OutDir: string;
-  Args: array of string;
+  Source, Project, Exe, Name, OutDir, Title, RunExe: string;
+  Args, Env: array of string;
   Ok: boolean;
 begin
   Source := ExpandFileName(Root + '/tests/regression/' + ASource);
   Project := ChangeFileExt(Source, '.lpi');
-  if not FileExists(Source) then raise Exception.Create('Missing test source: ' + Source);
-  if not FileExists(Project) then raise Exception.Create('Missing test project: ' + Project);
   Inc(Selected);
-  if (AMode = mdEBU) and (EBUFolder = '') then
-  begin
-    Skip(ASource, 'requires --ebu with the EBU reference WAVs');
-    Exit;
-  end;
+  Title := ASource;
+  if AWidgetset <> '' then Title := ASource + ' [' + AWidgetset + ']';
 
   // The project builds its program beside itself, named after the source.
   Name := ChangeFileExt(ExtractFileName(Source), '');
   Exe := ChangeFileExt(Source, ExeExt);
-  OutDir := BuildDir + PathDelim + ModeNames[AMode] + PathDelim + Name;
+  OutDir := BuildDir + PathDelim + ModeNames[AMode];
+  if AMode = mdWidgetset then OutDir := OutDir + PathDelim + AWidgetset;
+  OutDir := OutDir + PathDelim + Name;
   if not ForceDirectories(OutDir) then raise Exception.Create('Cannot create ' + OutDir);
   if FileExists(Exe) and not DeleteFile(Exe) then
     raise Exception.Create('Cannot remove the previous program ' + Exe);
 
-  Writeln('BUILD [', ModeNames[AMode], ']: ', ASource);
+  Writeln('BUILD [', ModeNames[AMode], ']: ', Title);
   Args := ['--no-write-project'];
-  if AMode = mdNoGUI then Args := Concat(Args, ['--ws=nogui']);
+  if AWidgetset <> '' then Args := Concat(Args, ['--ws=' + AWidgetset]);
   if TargetCPU <> '' then Args := Concat(Args, ['--cpu=' + TargetCPU]);
   if TargetOS <> '' then Args := Concat(Args, ['--os=' + TargetOS]);
   if PCP <> '' then Args := Concat(Args, ['--pcp=' + PCP]);
   Args := Concat(Args, [Project]);
-  Ok := RunLogged(LazBuild, Args, Root, OutDir + PathDelim + 'build.log', BuildTimeout);
+  Ok := RunLogged(LazBuild, Args, [], Root, OutDir + PathDelim + 'build.log', BuildTimeout);
   if Ok and not FileExists(Exe) then
   begin
     Writeln('FAIL: lazbuild did not produce ', Exe);
@@ -274,22 +313,67 @@ begin
     end;
     {$ENDIF}
     case AMode of
-      mdNoGUI: Args := [OutDir];
+      mdNoGUI, mdWidgetset: Args := [OutDir];
       mdEBU:   Args := [EBUFolder];
       else     Args := [];
     end;
-    Writeln('RUN: ', ASource);
-    Ok := RunLogged(Exe, Args, OutDir, OutDir + PathDelim + 'run.log', RunTimeout);
+    Env := [];
+    RunExe := Exe;
+    if AMode = mdWidgetset then
+    begin
+      // Settings and temporary files stay in the log folder.
+      Env := ['XDG_CONFIG_HOME=' + OutDir, 'TMPDIR=' + OutDir];
+      if NeedsDisplay and (Display = 'xvfb') then
+      begin
+        // GTK and Qt would otherwise prefer a Wayland session over Xvfb.
+        Env := Concat(Env, ['GDK_BACKEND=x11', 'QT_QPA_PLATFORM=xcb',
+          'WAYLAND_DISPLAY=']);
+        Args := Concat(['-a', '-s', '-screen 0 1280x1024x24', Exe], Args);
+        RunExe := ExeSearch('xvfb-run', GetEnvironmentVariable('PATH'));
+        if RunExe = '' then
+          raise Exception.Create('xvfb-run not found: install Xvfb or pass --display=current');
+      end;
+    end;
+    Writeln('RUN: ', Title);
+    Ok := RunLogged(RunExe, Args, Env, OutDir, OutDir + PathDelim + 'run.log', RunTimeout);
   end;
 
   if Ok then
   begin
-    Writeln('PASS: ', ASource);
+    Writeln('PASS: ', Title);
     Inc(Passed);
   end else
   begin
-    Writeln('FAIL: ', ASource, ' (logs: ', OutDir, ')');
+    Writeln('FAIL: ', Title, ' (logs: ', OutDir, ')');
     Inc(Failed);
+  end;
+end;
+
+procedure RunTest(const ASource: string; AMode: TMode);
+var
+  Source, Widgetset: string;
+begin
+  Source := ExpandFileName(Root + '/tests/regression/' + ASource);
+  if not FileExists(Source) then raise Exception.Create('Missing test source: ' + Source);
+  if not FileExists(ChangeFileExt(Source, '.lpi')) then
+    raise Exception.Create('Missing test project: ' + ChangeFileExt(Source, '.lpi'));
+  case AMode of
+    mdEBU:
+      if EBUFolder = '' then
+      begin
+        Inc(Selected);
+        Skip(ASource, 'requires --ebu with the EBU reference WAVs');
+      end else
+        RunOne(ASource, AMode, '');
+    mdNoGUI: RunOne(ASource, AMode, 'nogui');
+    mdWidgetset:
+      if Widgetsets.Count = 0 then
+      begin
+        Inc(Selected);
+        Skip(ASource, 'no widgetset selected with --ws');
+      end else
+        for Widgetset in Widgetsets do RunOne(ASource, AMode, Widgetset);
+    else RunOne(ASource, AMode, '');
   end;
 end;
 
@@ -323,6 +407,7 @@ begin
       end;
     finally
       Manifest.Free;
+      Widgetsets.Free;
     end;
     if Selected = 0 then raise Exception.Create('No regression test selected');
     Writeln('Regression results: ', Passed, ' passed, ', Failed, ' failed, ',
