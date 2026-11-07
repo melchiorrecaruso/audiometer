@@ -7,7 +7,7 @@ program Test_application;
 uses
   CMem, {$ifdef unix}cthreads,{$endif}
   Interfaces, InterfaceBase, Forms, Controls, Classes, SysUtils, Math,
-  Common, AudioTrack, MainFrm, ReportFrm;
+  Common, AudioTrack, Decoder, MainFrm, ReportFrm;
 
 procedure Require(B: Boolean; const Msg: string);
 begin
@@ -90,12 +90,19 @@ end;
 
 var
   Deadline: QWord;
-  Folder, Loud, Quiet: string;
+  Folder, Loud, Quiet, FFmpeg, FFprobe, Missing: string;
 begin
   if ParamCount <> 1 then
   begin
     Writeln(StdErr, 'Usage: test_application results-folder');
     Halt(2);
+  end;
+  // Fail non-interactively before form creation can show a missing-tools dialog.
+  Missing := LocateFFmpegTools(FFmpeg, FFprobe);
+  if Missing <> '' then
+  begin
+    Writeln(StdErr, 'Missing required audio tools: ', Missing);
+    Halt(1);
   end;
   Folder := IncludeTrailingPathDelimiter(ExpandFileName(ParamStr(1)));
   Loud := Folder + 'sine-23.wav';

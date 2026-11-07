@@ -18,6 +18,10 @@ defaults are GTK2, GTK3, Qt5 and Qt6, run on a private Xvfb display
 uses the session's `$DISPLAY` instead of Xvfb. Windows uses win32, macOS cocoa.
 The `application` test creates the application's forms, analyzes two
 synthetic WAVs through the main form's batch, resizes and closes the form.
+It checks for `ffmpeg` and `ffprobe` before creating the forms and fails without
+opening a dialog if either is missing. On Windows the runner copies both tools
+beside the decoder and application test executables (`--ffmpeg-dir` overrides
+the source folder; otherwise they are found in `PATH`).
 
 The EBU reference WAVs are not distributed: `--ebu[=FOLDER]` runs the `ebu`
 test with them, otherwise it is skipped.

@@ -305,8 +305,8 @@ begin
   if Ok then
   begin
     {$IFDEF WINDOWS}
-    // On Windows the decoder looks for the tools beside the executable.
-    if AMode = mdFFmpeg then
+    // Both the decoder and application startup look beside the executable.
+    if AMode in [mdFFmpeg, mdWidgetset] then
     begin
       CopyTool('ffmpeg', ExtractFileDir(Exe));
       CopyTool('ffprobe', ExtractFileDir(Exe));
