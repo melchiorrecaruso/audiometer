@@ -34,7 +34,9 @@ type
   // Reads a WAV stream into a track and runs every meter on it, reporting
   // the progress. Status: 0 = done, -1 = unreadable or unsupported file,
   // -2 = no channels or no audio, -4 = the analysis raised an exception,
-  // -5 = cancelled by Terminate (checked at every progress tick).
+  // -5 = cancelled by Terminate (checked at every progress tick, and the
+  // initial value: a thread terminated before Execute never ran).
+  // Completion is signalled by the synchronized TThread.OnTerminate.
   TTrackAnalyzer = class(TThread)
   private
     FTrack: TTrack;
@@ -43,7 +45,6 @@ type
     FStream: tstream;
     FPercentage: longint;
     FOnStart: tthreadmethod;
-    FOnStop: tthreadmethod;
     FOnTick: tthreadmethod;
     FTick, FTickCount: longint;
     FFFTOn: boolean;
@@ -55,7 +56,6 @@ type
     procedure Execute; override;
   public
     property OnStart: tthreadmethod write FOnStart;
-    property OnStop: tthreadmethod write FOnStop;
     property OnTick: tthreadmethod write FOnTick;
     property Percentage: longint read FPercentage;
     property Status: longint read FStatus;
@@ -77,6 +77,7 @@ begin
   FFFTOn := AFFTOn;
   FTrack := ATrack;
   FStream := AStream;
+  FStatus := -5;
   FreeOnTerminate := True;
   inherited Create(True);
 end;
@@ -123,7 +124,7 @@ begin
       on EAbort do
         FStatus := -5;
       // Out of memory, arithmetic errors, ...: report a failed analysis instead
-      // of letting OnStop present partially computed results as valid.
+      // of letting OnTerminate present partially computed results as valid.
       on E: Exception do
       begin
         {$ifopt D+}
@@ -134,8 +135,6 @@ begin
     end;
   finally
     FPercentage := 100;
-    if Assigned(FOnStop) then
-      Synchronize(FOnStop);
   end;
 end;
 

@@ -168,7 +168,7 @@ type
     FFmpegExecutable: string;
     FFprobeExecutable: string;
     WaveDecoder: TWaveDecoder;
-    // Cancelling: the workers are being stopped, their OnStop must not
+    // Cancelling: the workers are being stopped, their OnTerminate must not
     // continue the batch. Closing: the form is closing, nothing restarts.
     Cancelling: boolean;
     Closing: boolean;
@@ -203,13 +203,15 @@ type
     procedure StartAnalyzer(ATrack: TTrack);
     procedure FinishBatch(const AError: string);
     procedure ShowBatchError(Data: PtrInt);
+    procedure AbortBatch(E: Exception);
+    procedure ShowAbortedBatch(Data: PtrInt);
 
     procedure OnStartAnalyzer;
     procedure OnTickAnalyzer;
-    procedure OnStopAnalyzer;
-    procedure OnStopDecoder;
+    procedure OnStopAnalyzer(Sender: TObject);
+    procedure OnStopDecoder(Sender: TObject);
     procedure OnStartDrawer;
-    procedure OnStopDrawer;
+    procedure OnStopDrawer(Sender: TObject);
 
     procedure ClearData;
     procedure ShowTrackInfo(ATrack: TTrack);
@@ -261,8 +263,9 @@ begin
     if Assigned(WaveDecoder) then WaveDecoder.Terminate;
     if Assigned(AudioAnalyzer) then AudioAnalyzer.Terminate;
     if Assigned(ScreenDrawer) then ScreenDrawer.Terminate;
-    // Every OnStop is synchronized and clears its worker reference: run them
-    // here, so the tracks are no longer in use when this returns.
+    // OnTerminate is synchronized even when Terminate precedes Execute, and
+    // it always clears the worker reference. Run these callbacks here before
+    // releasing tracks or their streams.
     while WorkersActive do
       CheckSynchronize(10);
   finally
@@ -438,7 +441,7 @@ begin
     try
       WaveDecoder := TWaveDecoder.Create(FFmpegExecutable, FFprobeExecutable,
         Track.Filename, TempFile);
-      WaveDecoder.OnStop := @OnStopDecoder;
+      WaveDecoder.OnTerminate := @OnStopDecoder;
       WaveDecoder.Start;
     except
       on E: Exception do
@@ -460,7 +463,7 @@ begin
     AudioAnalyzer := TTrackAnalyzer.Create(ATrack, Buffer, True);
     AudioAnalyzer.OnStart := @OnStartAnalyzer;
     AudioAnalyzer.OnTick  := @OnTickAnalyzer;
-    AudioAnalyzer.OnStop  := @OnStopAnalyzer;
+    AudioAnalyzer.OnTerminate := @OnStopAnalyzer;
     AudioAnalyzer.Start;
   except
     on E: Exception do
@@ -491,7 +494,7 @@ begin
   end;
   UpdateTitle;
   UpdateControls;
-  // Shown after the synchronized OnStop has returned to its thread.
+  // Shown after the synchronized OnTerminate has returned to its thread.
   if AError <> '' then
     Application.QueueAsyncCall(@ShowBatchError, 0);
 end;
@@ -500,6 +503,33 @@ procedure TAudioFrm.ShowBatchError(Data: PtrInt);
 begin
   if (BatchError <> '') and not Closing then
     MessageDlg('AudioMeter', BatchError, mtError, [mbOk], '');
+end;
+
+// FPC runs OnTerminate outside the thread's exception handler: an exception
+// leaving it would kill the process. Stop the batch with the bare minimum
+// here and update the form later, outside the synchronized call.
+procedure TAudioFrm.AbortBatch(E: Exception);
+begin
+  // Cancellation/close owns the reset; do not queue a stale UI update.
+  if Cancelling or Closing then Exit;
+  TrackIndex := -1;
+  // This is the last-resort handler of a synchronized OnTerminate. Even
+  // formatting the message or allocating the async call may fail (e.g. OOM).
+  try
+    BatchError := Format('%s: %s', [E.ClassName, E.Message]);
+    Application.QueueAsyncCall(@ShowAbortedBatch, 0);
+  except
+    // Never propagate an exception back into the terminating worker.
+  end;
+end;
+
+procedure TAudioFrm.ShowAbortedBatch(Data: PtrInt);
+begin
+  if Closing then Exit;
+  ProgressRing.Value := 0;
+  UpdateTitle;
+  UpdateControls;
+  ShowBatchError(Data);
 end;
 
 // Track analyzer events
@@ -515,55 +545,70 @@ begin
     ProgressRing.Value := AudioAnalyzer.Percentage;
 end;
 
-procedure TAudioFrm.OnStopAnalyzer;
+procedure TAudioFrm.OnStopAnalyzer(Sender: TObject);
 var
   Status: longint;
   ErrorText: string;
 begin
-  Status := AudioAnalyzer.Status;
+  // Clear the reference even if reading results or releasing streams fails.
   AudioAnalyzer := nil;
-  FreeAndNil(Buffer);
-  FreeAndNil(Stream);
-  if Cancelling then Exit;
-
-  if Status <> 0 then
-  begin
-    case Status of
-      -1: ErrorText := 'Invalid WAV format';
-      -2: ErrorText := 'Empty audio file';
-      -3: ErrorText := 'Audio file too short';
-      else ErrorText := 'Audio analysis failed';
+  try
+    try
+      Status := TTrackAnalyzer(Sender).Status;
+    finally
+      try
+        FreeAndNil(Buffer);
+      finally
+        FreeAndNil(Stream);
+      end;
     end;
-    FinishBatch(Format('%s: "%s"', [ErrorText, TrackList[TrackIndex].Filename]));
-    Exit;
-  end;
+    if Cancelling then Exit;
+    if Status <> 0 then
+    begin
+      case Status of
+        -1: ErrorText := 'Invalid WAV format';
+        -2: ErrorText := 'Empty audio file';
+        -3: ErrorText := 'Audio file too short';
+        else ErrorText := 'Audio analysis failed';
+      end;
+      FinishBatch(Format('%s: "%s"', [ErrorText, TrackList[TrackIndex].Filename]));
+      Exit;
+    end;
 
-  CompletedIndex := TrackIndex;
-  PlayFile := TempFile;
-  Inc(TrackIndex);
-  if TrackIndex < TrackList.Count then
-    StartTrack
-  else
-    FinishBatch('');
+    CompletedIndex := TrackIndex;
+    PlayFile := TempFile;
+    Inc(TrackIndex);
+    if TrackIndex < TrackList.Count then
+      StartTrack
+    else
+      FinishBatch('');
+  except
+    on E: Exception do
+      AbortBatch(E);
+  end;
 end;
 
 // Wave decoder events
 
-procedure TAudioFrm.OnStopDecoder;
+procedure TAudioFrm.OnStopDecoder(Sender: TObject);
 var
   Successful: boolean;
   ErrorMessage, InputFile: string;
 begin
-  Successful   := WaveDecoder.Successful;
-  ErrorMessage := WaveDecoder.ErrorMessage;
-  InputFile    := WaveDecoder.InputFile;
-  WaveDecoder  := nil;
-  if Cancelling then Exit;
-
-  if Successful then
-    StartAnalyzer(TrackList[TrackIndex])
-  else
-    FinishBatch(Format('Unable to decode "%s": %s', [InputFile, ErrorMessage]));
+  WaveDecoder := nil;
+  try
+    if Cancelling then Exit;
+    Successful   := TWaveDecoder(Sender).Successful;
+    ErrorMessage := TWaveDecoder(Sender).ErrorMessage;
+    InputFile    := TWaveDecoder(Sender).InputFile;
+    if Successful then
+      StartAnalyzer(TrackList[TrackIndex])
+    else
+      FinishBatch(Format('Unable to decode "%s": %s', [InputFile, ErrorMessage]));
+  except
+    on E: Exception do
+      AbortBatch(E);
+  end;
 end;
 
 // Chart drawer events
@@ -578,25 +623,39 @@ begin
   Screen.SetSize(BackingWidth, BackingHeight);
 end;
 
-procedure TAudioFrm.OnStopDrawer;
+procedure TAudioFrm.OnStopDrawer(Sender: TObject);
 var
   Successful: boolean;
   ErrorMessage: string;
 begin
-  Successful   := ScreenDrawer.Successful;
-  ErrorMessage := ScreenDrawer.ErrorMessage;
   ScreenDrawer := nil;
-  if not Successful and (ErrorMessage = '') then
-  begin
-    // Cancelled: do not show the partial picture, draw it again.
-    IsNeededUpdateScreens := True;
-    Exit;
+  // Same reason as AbortBatch: nothing may leave the synchronized call.
+  try
+    if Cancelling or Closing then Exit;
+    Successful   := TScreenDrawer(Sender).Successful;
+    ErrorMessage := TScreenDrawer(Sender).ErrorMessage;
+    if not Successful and (ErrorMessage = '') then
+    begin
+      // Cancelled: do not show the partial picture, draw it again.
+      IsNeededUpdateScreens := True;
+      Exit;
+    end;
+    VirtualScreen.Hint := ErrorMessage;
+    VirtualScreen.ShowHint := ErrorMessage <> '';
+    ClampPan;
+    UpdatePanCursor;
+    VirtualScreen.RedrawBitmap;
+  except
+    on E: Exception do
+    begin
+      try
+        VirtualScreen.Hint := Format('%s: %s', [E.ClassName, E.Message]);
+        VirtualScreen.ShowHint := True;
+      except
+        // Reporting a drawing error must not terminate the process either.
+      end;
+    end;
   end;
-  VirtualScreen.Hint := ErrorMessage;
-  VirtualScreen.ShowHint := ErrorMessage <> '';
-  ClampPan;
-  UpdatePanCursor;
-  VirtualScreen.RedrawBitmap;
 end;
 
 // Temporary wave
@@ -917,7 +976,7 @@ begin
       // TrackList owns the track: ClearTrackList stops the drawer first.
       ScreenDrawer := TScreenDrawer.Create(Track, Screen);
       ScreenDrawer.OnStart := @OnStartDrawer;
-      ScreenDrawer.OnStop  := @OnStopDrawer;
+      ScreenDrawer.OnTerminate := @OnStopDrawer;
       ScreenDrawer.Mode    := Mode;
       ScreenDrawer.Start;
     except

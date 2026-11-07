@@ -31,7 +31,7 @@ uses
 type
   TCancelQuery = function: boolean of object;
 
-  // Decodes one file to a WAV in a background thread. OnStop is synchronized
+  // Decodes one file to a WAV in a background thread. OnTerminate is synchronized
   // with the main thread; Terminate stops ffmpeg/ffprobe.
   TWaveDecoder = class(TThread)
   private
@@ -41,7 +41,6 @@ type
     FOutputFile: string;
     FSuccessful: boolean;
     FErrorMessage: string;
-    FOnStop: TThreadMethod;
     function IsCancelled: boolean;
   protected
     procedure Execute; override;
@@ -51,7 +50,6 @@ type
     property OutputFile: string read FOutputFile;
     property Successful: boolean read FSuccessful;
     property ErrorMessage: string read FErrorMessage;
-    property OnStop: TThreadMethod write FOnStop;
   end;
 
 function IsFileSupported(AFileExtension: string): boolean;
@@ -450,19 +448,14 @@ end;
 procedure TWaveDecoder.Execute;
 begin
   try
-    try
-      FSuccessful := DecodeToWave(FFFmpeg, FFFprobe, FInputFile, FOutputFile,
-        FErrorMessage, @IsCancelled);
-    except
-      on E: Exception do
-      begin
-        FSuccessful := False;
-        FErrorMessage := E.Message;
-      end;
+    FSuccessful := DecodeToWave(FFFmpeg, FFFprobe, FInputFile, FOutputFile,
+      FErrorMessage, @IsCancelled);
+  except
+    on E: Exception do
+    begin
+      FSuccessful := False;
+      FErrorMessage := E.Message;
     end;
-  finally
-    if Assigned(FOnStop) then
-      Synchronize(FOnStop);
   end;
 end;
 

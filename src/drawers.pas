@@ -37,7 +37,6 @@ type
   private
     FModes: TScreenDrawerModes;
     FOnStart: TThreadMethod;
-    FOnStop: TThreadMethod;
     FScreen: TBGRABitmap;
     FTrack: TTrack;
     FErrorMessage: string;
@@ -48,7 +47,6 @@ type
     procedure Execute; override;
     property Mode: TScreenDrawerModes read FModes write FModes;
     property OnStart: TThreadMethod read FOnStart write FOnStart;
-    property OnStop: TThreadMethod read FOnStop write FOnStop;
     property Track: TTrack read FTrack;
     property ErrorMessage: string read FErrorMessage;
     property Successful: boolean read FSuccessful;
@@ -369,7 +367,6 @@ constructor TScreenDrawer.Create(ATrack: TTrack; AScreen: TBGRABitmap);
 begin
   FModes   := [smDynamicRange, smWaveForm, smFreqSpectrum, smSpectrogram];
   FOnStart := nil;
-  FOnStop  := nil;
   FScreen  := AScreen;
   FTrack   := ATrack;
 
@@ -555,8 +552,6 @@ begin
     FreeAndNil(SpectrogramDrawer);
     FreeAndNil(WaveDrawer);
     FreeAndNil(Bit);
-    if Assigned(FOnStop) then
-      Synchronize(FOnStop);
   end;
 end;
 
