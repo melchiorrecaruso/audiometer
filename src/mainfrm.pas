@@ -191,8 +191,6 @@ type
     PlayStart: QWord;
     FullTrackTitle: string;
 
-    function BatchActive: boolean;
-    function WorkersActive: boolean;
     procedure StopWorkers;
     procedure StopPlayback;
     procedure UpdateControls;
@@ -228,6 +226,13 @@ type
     procedure ReadSetting; overload;
     procedure WriteSetting;  overload;
   public
+    // Replaces the track list with AFiles and analyzes them in this order;
+    // AReportFile is the default name offered when the report is saved.
+    procedure AnalyzeFiles(const AFiles: array of string; const AReportFile: string);
+    function BatchActive: boolean;
+    function WorkersActive: boolean;
+    property Tracks: TTrackList read TrackList;
+    property LastBatchError: string read BatchError;
   end;
 
 var
@@ -409,6 +414,19 @@ begin
   VirtualScreen.RedrawBitmap;
   IsNeededUpdateScreens := True;
   UpdateControls;
+end;
+
+procedure TAudioFrm.AnalyzeFiles(const AFiles: array of string; const AReportFile: string);
+var
+  FileName: string;
+begin
+  if Closing then Exit;
+  StopPlayback;
+  ClearTrackList;
+  for FileName in AFiles do
+    TrackList.Add(FileName);
+  TrackFile := AReportFile;
+  StartBatch;
 end;
 
 procedure TAudioFrm.StartBatch;
@@ -714,40 +732,49 @@ begin
   FileDialog.Filter := OpenDialogFileFilter;
   if not FileDialog.Execute then Exit;
 
-  StopPlayback;
-  ClearTrackList;
   if IsFileSupported(ExtractFileExt(FileDialog.FileName)) then
+    AnalyzeFiles([FileDialog.FileName], ChangeFileExt(FileDialog.FileName, '.md'))
+  else
   begin
-    TrackList.Add(FileDialog.FileName);
-    TrackFile := ChangeFileExt(FileDialog.FileName, '.md');
-    StartBatch;
-  end else
+    StopPlayback;
+    ClearTrackList;
     FinishBatch(Format('Unsupported file format: "%s"', [FileDialog.FileName]));
+  end;
+end;
+
+// Same order as TTrackList.Sort.
+function CompareFileNames(AList: TStringList; AIndex1, AIndex2: longint): longint;
+begin
+  Result := AnsiCompareFileName(AList[AIndex1], AList[AIndex2]);
 end;
 
 procedure TAudioFrm.OpenFolderBtnClick(Sender: TObject);
 var
-  Err:  longint;
-  Path: string;
-  SR:   TSearchRec;
+  Err:   longint;
+  Path:  string;
+  SR:    TSearchRec;
+  Files: TStringList;
 begin
   if Closing then Exit;
   if not DirDialog.Execute then Exit;
 
-  StopPlayback;
-  ClearTrackList;
   Path := IncludeTrailingPathDelimiter(DirDialog.FileName);
-  Err := SysUtils.FindFirst(Path + '*', faAnyfile, SR);
-  while Err = 0 do
-  begin
-    if (SR.Attr and faDirectory = 0) and IsFileSupported(ExtractFileExt(SR.Name)) then
-      TrackList.Add(Path + SR.Name);
-    Err := FindNext(SR);
+  Files := TStringList.Create;
+  try
+    Err := SysUtils.FindFirst(Path + '*', faAnyfile, SR);
+    while Err = 0 do
+    begin
+      if (SR.Attr and faDirectory = 0) and IsFileSupported(ExtractFileExt(SR.Name)) then
+        Files.Add(Path + SR.Name);
+      Err := FindNext(SR);
+    end;
+    SysUtils.FindClose(SR);
+    Files.CustomSort(@CompareFileNames);
+    AnalyzeFiles(Files.ToStringArray, Path +
+      ExtractFileName(ExcludeTrailingPathDelimiter(DirDialog.FileName)) + '.md');
+  finally
+    Files.Free;
   end;
-  SysUtils.FindClose(SR);
-  TrackList.Sort;
-  TrackFile := Path + ExtractFileName(ExcludeTrailingPathDelimiter(DirDialog.FileName)) + '.md';
-  StartBatch;
 end;
 
 procedure TAudioFrm.ReportBtnClick(Sender: TObject);
