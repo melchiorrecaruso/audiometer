@@ -23,6 +23,9 @@ uses
 const
   ExeExt = {$IFDEF WINDOWS}'.exe'{$ELSE}''{$ENDIF};
   BuildTimeout = 600;
+  // The application ships as a 64-bit program: build the tests the same way.
+  DefaultCPU = {$IFDEF WINDOWS}'x86_64'{$ELSE}''{$ENDIF};
+  DefaultOS = {$IFDEF WINDOWS}'win64'{$ELSE}''{$ENDIF};
 
 type
   // Described in the header of tests/regression/tests.txt.
@@ -33,7 +36,7 @@ const
 
 var
   Root, ManifestFile, BuildDir, LazBuild, PCP, OnlyPrefix: string;
-  EBUFolder, FFmpegDir: string;
+  EBUFolder, FFmpegDir, TargetCPU, TargetOS: string;
   RunTimeout: longint = 120;
   Passed, Failed, Skipped, Selected: longint;
 
@@ -45,6 +48,9 @@ begin
     '../audiometer-references/ebu-loudness-test-setv05)');
   Writeln('  --lazbuild=FILE     lazbuild executable (default: lazbuild)');
   Writeln('  --pcp=FOLDER        Lazarus configuration folder');
+  Writeln('  --cpu=CPU --os=OS   lazbuild target (default: ',
+    {$IFDEF WINDOWS}'x86_64 and win64'{$ELSE}'the compiler''s own'{$ENDIF},
+    '; an empty value keeps the compiler''s own)');
   Writeln('  --ffmpeg-dir=FOLDER folder holding ffmpeg and ffprobe (default: PATH)');
   Writeln('  --timeout=SECONDS   run timeout per test (default: 120)');
   Writeln('  --root=FOLDER --manifest=FILE --build-dir=FOLDER');
@@ -63,6 +69,8 @@ begin
   OnlyPrefix := '';
   EBUFolder := '';
   FFmpegDir := '';
+  TargetCPU := DefaultCPU;
+  TargetOS := DefaultOS;
   for i := 1 to ParamCount do
   begin
     Arg := ParamStr(i);
@@ -86,6 +94,8 @@ begin
     else if Key = 'build-dir' then BuildDir := Value
     else if Key = 'lazbuild' then LazBuild := Value
     else if Key = 'pcp' then PCP := ExpandFileName(Value)
+    else if Key = 'cpu' then TargetCPU := Value
+    else if Key = 'os' then TargetOS := Value
     else if Key = 'only' then OnlyPrefix := Value
     else if Key = 'ebu' then EBUFolder := Value
     else if Key = 'ffmpeg-dir' then FFmpegDir := ExpandFileName(Value)
@@ -242,6 +252,8 @@ begin
   Writeln('BUILD [', ModeNames[AMode], ']: ', ASource);
   Args := ['--no-write-project'];
   if AMode = mdNoGUI then Args := Concat(Args, ['--ws=nogui']);
+  if TargetCPU <> '' then Args := Concat(Args, ['--cpu=' + TargetCPU]);
+  if TargetOS <> '' then Args := Concat(Args, ['--os=' + TargetOS]);
   if PCP <> '' then Args := Concat(Args, ['--pcp=' + PCP]);
   Args := Concat(Args, [Project]);
   Ok := RunLogged(LazBuild, Args, Root, OutDir + PathDelim + 'build.log', BuildTimeout);

@@ -11,6 +11,11 @@ Requirements: Free Pascal, Lazarus with the `lmDSP` (LMath) and
 `BGRABitmapPack` packages registered, `ffmpeg` and `ffprobe`.
 `--help` lists the options.
 
+On Windows the tests are built for x86_64/win64, like the released
+application (the i386 compiler cannot load the BGRABitmap units reliably).
+`--cpu=` and `--os=` choose another target; an empty value keeps the
+compiler's default.
+
 To add a test, create `<theme>/test_<theme>.lpr` and `<theme>/test_<theme>.lpi`
 (the program is built beside the project) and register it in `tests.txt`,
 whose header describes the modes. Logs are written to
