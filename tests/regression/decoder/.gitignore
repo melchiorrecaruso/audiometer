@@ -1,0 +1,6 @@
+/lib/
+/test_decoder
+/test_decoder.exe
+/*.lps
+/ffmpeg.exe
+/ffprobe.exe

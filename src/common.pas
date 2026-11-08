@@ -28,12 +28,16 @@ interface
 uses
   Classes, Fgl, SysUtils;
 
+const
+  APPVERSION = '0.6.2';
+  APPTITLE   = 'AudioMeter ' + APPVERSION + ' - Dynamic Range Meter';
+
 type
   TSingle       = single;
   TSingleVector = array of TSingle;
   TSingleMatrix = array of TSingleVector;
 
-  TDouble = double;
+  TDouble       = double;
   TDoubleVector = array of TDouble;
   TDoubleMatrix = array of TDoubleVector;
 
@@ -48,22 +52,23 @@ function EnergyToLu(const AEnergy: TDouble): TDouble;
 
 function Peak(ASamples: PDouble; ASampleCount: longint): TDouble; inline;
 function Rms2(ASamples: PDouble; ASampleCount: longint): TDouble; inline;
-function Rms (ASamples: PDouble; ASampleCount: longint): TDouble; inline;
+function Rms(ASamples: PDouble; ASampleCount: longint): TDouble; inline;
 function TruePeak(ASamples: PDouble; ASampleCount, ASampleRate: longint): TDouble;
 function CrestFactor(const APeak, ARms2: TDouble): TDouble; inline;
 
 procedure QuickSort(var AValues: TDoubleVector; Low, High: longint);
 
 function ChannelName(AChannelIndex, AChannelCount: longint): string;
-function GetAppFile(const FileName: string): string;
+function ChannelLayoutName(Channels: longint; ChannelMask: longword): string;
 
+function GetAppConfigFile(const FileName: string): string;
 
 implementation
 
 uses
   Math;
 
-function GetAppFile(const FileName: string): string;
+function GetAppConfigFile(const FileName: string): string;
 begin
   Result := ExtractFilePath(ParamStr(0)) + FileName;
   if not FileExists(Result) then
@@ -76,27 +81,75 @@ end;
 function ChannelName(AChannelIndex, AChannelCount: longint): string;
 begin
   case AChannelCount of
-    1: Result := 'Mono';
-    2: case AChannelIndex of
-         0: Result := 'Left Channel';
-         1: Result := 'Right Channel';
-       end;
-    5: case AChannelIndex of
-         0: Result := 'Left Channel';
-         1: Result := 'Right Channel';
-         2: Result := 'Center Channel';
-         3: Result := 'Left Surround Channel';
-         4: Result := 'Right Surround Channel';
-       end;
-    6: case AChannelIndex of
+    1:
+      Result := 'Mono';
+    2:
+      case AChannelIndex of
+        0: Result := 'Left Channel';
+        1: Result := 'Right Channel';
+      end;
+    5:
+      case AChannelIndex of
+        0: Result := 'Left Channel';
+        1: Result := 'Right Channel';
+        2: Result := 'Center Channel';
+        3: Result := 'Left Surround Channel';
+        4: Result := 'Right Surround Channel';
+      end;
+    6:
+      case AChannelIndex of
         0: Result := 'Left Channel';
         1: Result := 'Right Channel';
         2: Result := 'Center Channel';
         3: Result := 'LFE Channel';
         4: Result := 'Left Surround Channel';
         5: Result := 'Right Surround Channel';
-       end;
-  else Result := '';
+      end;
+  else
+    Result := '';
+  end;
+end;
+
+function ChannelLayoutName(Channels: longint; ChannelMask: longword): string;
+var
+  HasLFE: boolean;
+begin
+  HasLFE := (ChannelMask and $8) <> 0;
+  case Channels of
+    1: Result := 'Mono';
+    2: Result := 'Stereo';
+    3:
+      if HasLFE then
+        Result := '2.1'
+      else
+        Result := '3.0';
+    4:
+      if HasLFE then
+        Result := '3.1'
+      else
+        Result := 'Quad';
+    5:
+      if HasLFE then
+        Result := '4.1'
+      else
+        Result := '5.0';
+    6:
+      if HasLFE or (ChannelMask = 0) then
+        Result := '5.1'
+      else
+        Result := '6.0';
+    7:
+      if HasLFE or (ChannelMask = 0) then
+        Result := '6.1'
+      else
+        Result := '7.0';
+    8:
+      if HasLFE or (ChannelMask = 0) then
+        Result := '7.1'
+      else
+        Result := '8.0';
+  else
+    Result := IntToStr(Channels) + ' channels';
   end;
 end;
 
@@ -105,6 +158,9 @@ var
   i, j: Integer;
   pivot, temp: TDouble;
 begin
+  if Low >= High then
+    Exit;
+
   i := Low;
   j := High;
   pivot := AValues[(Low + High) div 2];
@@ -132,7 +188,7 @@ end;
 
 function Decibel(const AAmplitude: TDouble): TDouble;
 begin
-  if AAmplitude > 1e-10 then
+  if AAmplitude > 0 then
     result := 20 * Log10(AAmplitude)
   else
     result := NegInfinity;
@@ -140,7 +196,7 @@ end;
 
 function EnergyToDecibel(const AEnergy: TDouble): TDouble;
 begin
-  if AEnergy > 1e-10 then
+  if AEnergy > 0 then
     result := 10 * Log10(AEnergy)
   else
     result := NegInfinity;
@@ -148,15 +204,15 @@ end;
 
 function EnergyToLufs(const AEnergy: TDouble): TDouble;
 begin
-  if AEnergy > 1e-10 then
-    result := -0.691 + 10*Log10(AEnergy)
+  if AEnergy > 0 then
+    result := -0.691 + 10 * Log10(AEnergy)
   else
     result := NegInfinity;
 end;
 
 function EnergyToLu(const AEnergy: TDouble): TDouble;
 begin
-  if AEnergy > 1e-10 then
+  if AEnergy > 0 then
     result := 23 + EnergyToLufs(AEnergy)
   else
     result := NegInfinity;
@@ -167,7 +223,7 @@ var
   i: longint;
 begin
   result := 0;
-  for i := 0 to ASampleCount -1  do
+  for i := 0 to ASampleCount - 1 do
   begin
     result := Max(result, Abs(ASamples^));
     Inc(ASamples);
@@ -178,10 +234,11 @@ function Rms2(ASamples: PDouble; ASampleCount: longint): TDouble; inline;
 var
   i: longint;
 begin
-  if ASampleCount = 0 then Exit(0);
+  if ASampleCount <= 0 then
+    Exit(0);
 
   result := 0;
-  for i := 0 to ASampleCount -1 do
+  for i := 0 to ASampleCount - 1 do
   begin
     result := result + Sqr(ASamples^);
     Inc(ASamples);
@@ -223,9 +280,13 @@ var
   Sum: TDouble;
 begin
   Result := 0;
+  if ASampleCount <= 0 then
+    Exit;
 
-  // Oversampling factor (FIR phases), per BS.1770: effective rate must reach
-  // ~192 kHz. 4x below 96 kHz (44100/48000/88200), 2x from 96 kHz up.
+  // Fixed polyphase implementation: 4x below 96 kHz, 2x above.
+  // This reaches 192 kHz at 48/96 kHz input, but only 176.4 kHz at 44.1 kHz.
+  // Accuracy at other rates must be validated separately; this is not a
+  // guarantee of a >=192 kHz reconstruction rate for every possible input.
   if ASampleRate < 96000 then
     Phases := 4
   else
@@ -277,112 +338,28 @@ begin
         PadSamples[i+10] * Coeffs[p][22] +
         PadSamples[i+11] * Coeffs[p][23];
 
-      if Sum < 0 then Sum := -Sum;
-      if Sum > result then result := Sum;
+      if Sum < 0 then
+        Sum := -Sum;
+      if Sum > Result then
+        Result := Sum;
     end;
   end;
 
-  // The true peak can never be below the sample peak (no phase is the identity).
-  Result := Max(Result, Peak(ASamples, ASampleCount));
-end;
-
-function TruePeak_LIBEBUR128(ASamples: PDouble; ASampleCount, ASampleRate: longint): TDouble;
-// True-peak via the libebur128 interpolator: 49-tap Hann-windowed sinc,
-// 4x oversampling (2x at >= 96 kHz), polyphase split by (tap mod factor).
-const
-  Taps = 49;
-var
-  Factor, Delay, PadLen, f, t, n, j: longint;
-  m, c, s: double;
-  Proto: array[0..Taps-1] of double;
-  Pad: TDoubleVector;
-begin
-  Result := 0;
-  if ASampleCount <= 0 then Exit;
-
-  if ASampleRate < 96000 then Factor := 4 else Factor := 2;
-
-  for j := 0 to Taps - 1 do
-  begin
-    m := j - (Taps - 1) / 2.0;
-    if Abs(m) > 1e-12 then
-      c := Sin(m * Pi / Factor) / (m * Pi / Factor)
-    else
-      c := 1.0;
-    Proto[j] := c * 0.5 * (1.0 - Cos(2.0 * Pi * j / (Taps - 1)));
-  end;
-
-  Delay  := (Taps + Factor - 1) div Factor;
-  PadLen := Delay;
-  SetLength(Pad, ASampleCount + PadLen);
-  FillChar(Pad[0], PadLen * SizeOf(TDouble), 0);
-  Move(ASamples^, Pad[PadLen], ASampleCount * SizeOf(TDouble));
-
-  for n := 0 to ASampleCount - 1 do
-    for f := 0 to Factor - 1 do
-    begin
-      s := 0;
-      for t := 0 to Delay - 1 do
-      begin
-        j := f + Factor * t;
-        if j < Taps then
-          s := s + Proto[j] * Pad[PadLen + n - t];
-      end;
-      if Abs(s) > Result then Result := Abs(s);
-    end;
-
-  Result := Max(Result, Peak(ASamples, ASampleCount));
-end;
-
-function TruePeak_BS1770(ASamples: PDouble; ASampleCount, ASampleRate: longint): TDouble;
-// True-peak via the ITU-R BS.1770 Annex 2 *example* 48-tap, 4-phase filter
-// (coefficients for 48 kHz, taken verbatim from the Recommendation).
-const
-  Taps = 12;
-  Coeffs: array[0..3, 0..Taps-1] of TDouble = (
-  ( 0.0017089843750,  0.0109863281250, -0.0196533203125,  0.0332031250000,
-   -0.0594482421875,  0.1373291015625,  0.9721679687500, -0.1022949218750,
-    0.0476074218750, -0.0266113281250,  0.0148925781250, -0.0083007812500),
-  (-0.0291748046875,  0.0292968750000, -0.0517578125000,  0.0891113281250,
-   -0.1665039062500,  0.4650878906250,  0.7797851562500, -0.2003173828125,
-    0.1015625000000, -0.0582275390625,  0.0330810546875, -0.0189208984375),
-  (-0.0189208984375,  0.0330810546875, -0.0582275390625,  0.1015625000000,
-   -0.2003173828125,  0.7797851562500,  0.4650878906250, -0.1665039062500,
-    0.0891113281250, -0.0517578125000,  0.0292968750000, -0.0291748046875),
-  (-0.0083007812500,  0.0148925781250, -0.0266113281250,  0.0476074218750,
-   -0.1022949218750,  0.9721679687500,  0.1373291015625, -0.0594482421875,
-    0.0332031250000, -0.0196533203125,  0.0109863281250,  0.0017089843750));
-var
-  p, k, n, PadLen: longint;
-  s: double;
-  Pad: TDoubleVector;
-begin
-  Result := 0;
-  if ASampleCount <= 0 then Exit;
-
-  PadLen := Taps;
-  SetLength(Pad, ASampleCount + 2 * PadLen);
-  FillChar(Pad[0], Length(Pad) * SizeOf(TDouble), 0);
-  Move(ASamples^, Pad[PadLen], ASampleCount * SizeOf(TDouble));
-
-  for n := 0 to ASampleCount + PadLen - 1 do
-    for p := 0 to 3 do
-    begin
-      s := 0;
-      for k := 0 to Taps - 1 do
-        s := s + Coeffs[p][k] * Pad[PadLen + n - k];
-      if Abs(s) > Result then Result := Abs(s);
-    end;
-
+  // The true peak can never be below the sample peak.
   Result := Max(Result, Peak(ASamples, ASampleCount));
 end;
 
 function CrestFactor(const APeak, ARms2: TDouble): TDouble;
 begin
-  if ARms2 > 1e-10 then
-    result := APeak / Sqrt(ARms2)
+  if IsNan(APeak) or IsNan(ARms2) or (APeak < 0) or (ARms2 < 0) then
+    Result := NaN
+  else if ARms2 > 0 then
+    Result := APeak / Sqrt(ARms2)
+  else if APeak > 0 then
+    Result := Infinity
   else
-    result := NegInfinity;
+    // Silence: the linear ratio 0 / 0 is undefined.
+    Result := NaN;
 end;
 
 end.

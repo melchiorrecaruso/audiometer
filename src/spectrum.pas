@@ -30,13 +30,18 @@ uses
   Common, SysUtils, ufft, utypes;
 
 const
-  DEFAULTWINDOWSIZE = 1024;
+  DEFAULTWINDOWSIZE = 2048;
   DEFAULTHOPSIZE    = DEFAULTWINDOWSIZE div 2;
+  // Time rows kept for the spectrogram: each row holds the per-bin maximum
+  // of the windows that fall in it, so short events stay visible while the
+  // memory no longer grows with the track length.
+  DEFAULTMAXROWS    = 2048;
 
 type
   TSpectrums = record
   private
-    FChannels: TDoubleMatrix;
+    FChannels: TSingleMatrix;     // spectrogram, [channel][row * OutBins + bin]
+    FRowCount: longint;
     FWindowCount: longint;
     FWindowSize: longint;
     FHopSize: longint;
@@ -45,9 +50,12 @@ type
     FWindow: TDoubleVector;   // precomputed Hann coefficients
     FBuff: TCompVector;       // reusable FFT input buffer
     FFreq: TCompVector;       // reusable FFT output buffer
-    FScale: TDouble;          // magnitude scale for interior bins (2/N)
-    FScaleEdge: TDouble;      // magnitude scale for DC and Nyquist (1/N)
+    FScale: TDouble;          // magnitude scale for interior bins (2/sum(w))
+    FScaleEdge: TDouble;      // magnitude scale for DC and Nyquist (1/sum(w))
+    FSpectrumRms: TDoubleVector;  // aggregate across all windows/channels
+    FSpectrumPeak: TDoubleVector;
     procedure BuildWindow;
+    procedure AddSpectrum(AChannel, AWindow: longint; ASpectrum: PDouble);
     function  ComputeWindowCount(ASampleCount: longint): longint;
     procedure GetSpectrum(ASamples: PDouble; ASpectrum: PDouble);
     procedure GetSpectrumPair(ASamplesA, ASamplesB: PDouble;
@@ -60,13 +68,16 @@ type
 
     function EstimatedTicks(AChannelCount, ASampleCount: longint): longint;
     procedure Process(const AChannels: TDoubleMatrix; ASampleCount: longint);
+    function SpectrumRms(ABin: longint): double;
+    function SpectrumPeak(ABin: longint): double;
 
     property WindowSize: longint read FWindowSize;
     property WindowCount: longint read FWindowCount;
     property HopSize: longint read FHopSize;
     property OutBins: longint read FOutBins;
+    property RowCount: longint read FRowCount;
 
-    property Channels: TDoubleMatrix read FChannels;
+    property Channels: TSingleMatrix read FChannels;
   end;
 
 
@@ -83,22 +94,28 @@ end;
 procedure TSpectrums.BuildWindow;
 var
   i: longint;
+  Sum: TDouble;
 begin
   SetLength(FWindow, FWindowSize);
   SetLength(FBuff,   FWindowSize);
   SetLength(FFreq,   FWindowSize);
+  Sum := 0;
   for i := 0 to FWindowSize - 1 do
   begin
     FWindow[i] := 0.5 - 0.5 * cos(2 * pi * i / (FWindowSize - 1));
     FBuff[i].y := 0;   // cleared once; only the single-window path overwrites it
+    Sum := Sum + FWindow[i];
   end;
-  FScaleEdge := 1 / FWindowSize;
-  FScale     := 2 / FWindowSize;
+  // The window attenuates a sine by sum(w)/N (about 1/2 for Hann): dividing
+  // by sum(w) instead of N gives back its amplitude, so a full-scale sine
+  // reads 0 dBFS.
+  FScaleEdge := 1 / Sum;
+  FScale     := 2 / Sum;
 end;
 
 function TSpectrums.ComputeWindowCount(ASampleCount: longint): longint;
 begin
-  if ASampleCount >= FWindowSize then
+  if (FWindowSize > 0) and (FHopSize > 0) and (ASampleCount >= FWindowSize) then
     result := (ASampleCount - FWindowSize) div FHopSize + 1
   else
     result := 0;
@@ -185,14 +202,17 @@ end;
 procedure TSpectrums.Init(AWindowSize: longint = DEFAULTWINDOWSIZE;
   AHopSize: LongInt = DEFAULTHOPSIZE; const ATick: TTickMethod = nil);
 begin
-  Finalize;
-  FTick := ATick;
-
   if AWindowSize <= 0 then
     AWindowSize := DEFAULTWINDOWSIZE;
   if AHopSize <= 0 then
     AHopSize := DEFAULTHOPSIZE;
 
+  // The FFT backend only accepts powers of two; Hann needs at least 3 taps.
+  if (AWindowSize < 4) or ((AWindowSize and (AWindowSize - 1)) <> 0) then
+    raise EArgumentException.Create('FFT window size must be a power of two >= 4');
+
+  Finalize;
+  FTick := ATick;
   FWindowSize := AWindowSize;
   FHopSize    := AHopSize;
   BuildWindow;
@@ -200,6 +220,7 @@ end;
 
 procedure TSpectrums.Finalize;
 begin
+  FRowCount    := 0;
   FWindowCount := 0;
   FWindowSize  := 0;
   FHopSize     := 0;
@@ -210,24 +231,91 @@ begin
   SetLength(FBuff, 0);
   SetLength(FFreq, 0);
   SetLength(FChannels, 0, 0);
+  SetLength(FSpectrumRms, 0);
+  SetLength(FSpectrumPeak, 0);
+end;
+
+procedure TSpectrums.AddSpectrum(AChannel, AWindow: longint; ASpectrum: PDouble);
+var
+  k, Base: longint;
+  Row: TSingleVector;
+begin
+  // spectrogram: maximum of the windows falling in the same row
+  Base := (int64(AWindow) * FRowCount div FWindowCount) * FOutBins;
+  Row := FChannels[AChannel];
+  for k := 0 to FOutBins - 1 do
+  begin
+    if ASpectrum[k] > Row[Base + k] then
+      Row[Base + k] := ASpectrum[k];
+    // frequency spectrum, from the unsmoothed windows: energy sum (RMS once
+    // divided) and peak hold
+    FSpectrumRms[k] := FSpectrumRms[k] + Sqr(ASpectrum[k]);
+    if ASpectrum[k] > FSpectrumPeak[k] then
+      FSpectrumPeak[k] := ASpectrum[k];
+  end;
+end;
+
+function TSpectrums.SpectrumRms(ABin: longint): double;
+begin
+  if (ABin >= 0) and (ABin < Length(FSpectrumRms)) then
+    Result := FSpectrumRms[ABin]
+  else
+    Result := 0;
+end;
+
+function TSpectrums.SpectrumPeak(ABin: longint): double;
+begin
+  if (ABin >= 0) and (ABin < Length(FSpectrumPeak)) then
+    Result := FSpectrumPeak[ABin]
+  else
+    Result := 0;
 end;
 
 function TSpectrums.EstimatedTicks(AChannelCount, ASampleCount: longint): longint;
+var
+  Count: int64;
 begin
-  result := ComputeWindowCount(ASampleCount) * AChannelCount;
+  if AChannelCount < 0 then
+    raise EArgumentException.Create('Channel count must not be negative');
+  Count := int64(ComputeWindowCount(ASampleCount)) * AChannelCount;
+  // Keep the LongInt API used by the progress counter, without wrapping.
+  if Count > High(longint) then
+    raise ERangeError.Create('Estimated spectrum ticks exceed LongInt capacity');
+  result := longint(Count);
 end;
 
 procedure TSpectrums.Process(const AChannels: TDoubleMatrix; ASampleCount: longint);
 var
-  ch, i: longint;
+  ch, i, k: longint;
+  SpectrumA, SpectrumB: TDoubleVector;
 begin
+  if (FWindowSize = 0) or (FHopSize = 0) then
+    raise EInvalidOpException.Create('Spectrum must be initialized before processing');
+
+  // Clear results only: empty/short input must not destroy the FFT setup.
+  FWindowCount := 0;
+  FRowCount := 0;
+  FOutBins := 0;
+  FChannels := nil;
+  FSpectrumRms := nil;
+  FSpectrumPeak := nil;
+  if (Length(AChannels) = 0) or (ASampleCount <= 0) then Exit;
+  for ch := Low(AChannels) to High(AChannels) do
+    if Length(AChannels[ch]) < ASampleCount then
+      raise EArgumentException.Create('Sample count exceeds channel length');
   FWindowCount := ComputeWindowCount(ASampleCount);
 
   if FWindowCount > 0 then
   begin
-    FOutBins := FWindowSize div 2 + 1;
+    FOutBins  := FWindowSize div 2 + 1;
+    FRowCount := Min(FWindowCount, DEFAULTMAXROWS);
 
-    SetLength(FChannels, Length(AChannels), FWindowCount * OutBins);
+    // Arrays were released above, so all newly allocated elements start at zero.
+    SetLength(FChannels, Length(AChannels), int64(FRowCount) * OutBins);
+    SetLength(FSpectrumRms, FOutBins);
+    SetLength(FSpectrumPeak, FOutBins);
+    SetLength(SpectrumA, FOutBins);
+    SetLength(SpectrumB, FOutBins);
     for ch := Low(AChannels) to High(AChannels) do
     begin
       i := 0;
@@ -237,8 +325,10 @@ begin
         GetSpectrumPair(
           @AChannels[ch][(i    ) * FHopSize],
           @AChannels[ch][(i + 1) * FHopSize],
-          @FChannels[ch][(i    ) * OutBins],
-          @FChannels[ch][(i + 1) * OutBins]);
+          @SpectrumA[0],
+          @SpectrumB[0]);
+        AddSpectrum(ch, i,     @SpectrumA[0]);
+        AddSpectrum(ch, i + 1, @SpectrumB[0]);
 
         if Assigned(FTick) then begin FTick; FTick; end;
         Inc(i, 2);
@@ -246,29 +336,32 @@ begin
       // leftover odd window, if any
       if i < FWindowCount then
       begin
-        GetSpectrum(@AChannels[ch][i * FHopSize], @FChannels[ch][i * OutBins]);
+        GetSpectrum(@AChannels[ch][i * FHopSize], @SpectrumA[0]);
+        AddSpectrum(ch, i, @SpectrumA[0]);
         if Assigned(FTick) then FTick;
       end;
     end;
+
+    for k := 0 to FOutBins - 1 do
+      FSpectrumRms[k] := Sqrt(FSpectrumRms[k] / (int64(FWindowCount) * Length(AChannels)));
     SmoothSpectrogram;
-  end else
-    Finalize;
+  end;
 end;
 
 procedure TSpectrums.SmoothSpectrogram;
 var
   ch, i, j, base, index: longint;
-  Tmp, row: TDoubleVector;
+  Tmp, row: TSingleVector;
 begin
-  SetLength(Tmp, FWindowCount * FOutBins);
+  SetLength(Tmp, int64(FRowCount) * FOutBins);
 
   // frequency axis
   for ch := Low(FChannels) to High(FChannels) do
   begin
     row := FChannels[ch];
-    Move(row[0], Tmp[0], Length(row) * SizeOf(TDouble));
+    Move(row[0], Tmp[0], Length(row) * SizeOf(TSingle));
 
-    for i := 0 to FWindowCount - 1 do
+    for i := 0 to FRowCount - 1 do
     begin
       base := i * FOutBins;
       for j := 1 to FOutBins - 2 do
@@ -283,9 +376,9 @@ begin
   for ch := Low(FChannels) to High(FChannels) do
   begin
     row := FChannels[ch];
-    Move(row[0], Tmp[0], Length(row) * SizeOf(TDouble));
+    Move(row[0], Tmp[0], Length(row) * SizeOf(TSingle));
 
-    for i := 1 to FWindowCount - 2 do
+    for i := 1 to FRowCount - 2 do
     begin
       base := i * FOutBins;
       for j := 0 to FOutBins - 1 do

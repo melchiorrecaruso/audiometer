@@ -10,23 +10,26 @@
   name contains "3341-N" and/or "3342-N" is matched to the corresponding
   case(s). The combined files (e.g. seq-3341-7_seq-3342-5) are checked twice.
 
-  Usage:   ebuvalidate [folder]        (default folder: current directory)
+  RunEBUSuite returns the number of failures; an empty fixture set fails.
 
   Copyright (C) 2026 Melchiorre Caruso <melchiorrecaruso@gmail.com>
   GPL v2 or later.
 }
 
-program AudioTest;
+unit EBUCheck;
 
 {$mode objfpc}{$h+}
 
-uses
-  {$ifdef unix} cthreads, {$endif}
-  Classes, SysUtils, Math,
-  Common, Loudness, DynamicRange, Spectrum, SoundWav;
+interface
+
+function RunEBUSuite(const AFolder: string): longint;
+
+implementation
+
+uses Classes, SysUtils, Math, Common, Loudness, AudioTrack, TrackAnalyzer;
 
 type
-  TMetric = (mI, mMaxM, mMaxS, mLRA, mTP);
+  TMetric = (mI, mMaxM, mMaxS, mLRA, mTP, mSteadyM, mSteadyS, mRepeatedLRA);
 
   TCaseSpec = record
     Std: integer;       // 3341 or 3342
@@ -40,13 +43,15 @@ type
   TResults = record
     Ok: boolean;
     Status: longint;
-    I, MaxM, MaxS, LastM, LastS, LRA, TP: double;
+    I, MaxM, MaxS, MinM, MinS, SteadyMaxM, SteadyMaxS, LRA, TP: double;
+    SteadyMCount, SteadySCount: integer;
+    RepeatedLRA: double;
   end;
 
 const
   // EBU Tech 3341, Table 1 (synthesized at 48 kHz). Loudness in LUFS, TP in dBTP.
   // EBU Tech 3342, Table 1. LRA in LU.
-  Cases: array[0..28] of TCaseSpec = (
+  Cases: array[0..42] of TCaseSpec = (
     // --- Tech 3341: integrated loudness ---
     (Std:3341; Num: 1; Metric:mI;    Expected:-23.0; TolLo:0.1; TolHi:0.1; Note:'M,S,I = -23.0 LUFS'),
     (Std:3341; Num: 2; Metric:mI;    Expected:-33.0; TolLo:0.1; TolHi:0.1; Note:'M,S,I = -33.0 LUFS'),
@@ -57,11 +62,11 @@ const
     (Std:3341; Num: 7; Metric:mI;    Expected:-23.0; TolLo:0.1; TolHi:0.1; Note:'authentic NLR'),
     (Std:3341; Num: 8; Metric:mI;    Expected:-23.0; TolLo:0.1; TolHi:0.1; Note:'authentic WLR'),
     // --- Tech 3341: short-term (max) ---
-    (Std:3341; Num: 9; Metric:mMaxS; Expected:-23.0; TolLo:0.1; TolHi:0.1; Note:'S constant after 3 s'),
+    (Std:3341; Num: 9; Metric:mSteadyS; Expected:-23.0; TolLo:0.1; TolHi:0.1; Note:'S constant after 3 s'),
     (Std:3341; Num:10; Metric:mMaxS; Expected:-23.0; TolLo:0.1; TolHi:0.1; Note:'file-based, max S'),
     (Std:3341; Num:11; Metric:mMaxS; Expected:-19.0; TolLo:0.1; TolHi:0.1; Note:'LIVE test; checking peak segment'),
     // --- Tech 3341: momentary (max) ---
-    (Std:3341; Num:12; Metric:mMaxM; Expected:-23.0; TolLo:0.1; TolHi:0.1; Note:'M constant after 1 s'),
+    (Std:3341; Num:12; Metric:mSteadyM; Expected:-23.0; TolLo:0.1; TolHi:0.1; Note:'M constant after 1 s'),
     (Std:3341; Num:13; Metric:mMaxM; Expected:-23.0; TolLo:0.1; TolHi:0.1; Note:'file-based, max M'),
     (Std:3341; Num:14; Metric:mMaxM; Expected:-19.0; TolLo:0.1; TolHi:0.1; Note:'LIVE test; checking peak segment'),
     // --- Tech 3341: true peak (asymmetric tolerance +0.2 / -0.4 dBTP) ---
@@ -80,16 +85,32 @@ const
     (Std:3342; Num: 3; Metric:mLRA;  Expected:20.0;  TolLo:1.0; TolHi:1.0; Note:'2 tones, 20 LU apart'),
     (Std:3342; Num: 4; Metric:mLRA;  Expected:15.0;  TolLo:1.0; TolHi:1.0; Note:'5 tone-segments'),
     (Std:3342; Num: 5; Metric:mLRA;  Expected: 5.0;  TolLo:1.0; TolHi:1.0; Note:'authentic NLR'),
-    (Std:3342; Num: 6; Metric:mLRA;  Expected:15.0;  TolLo:1.0; TolHi:1.0; Note:'authentic WLR')
+    (Std:3342; Num: 6; Metric:mLRA;  Expected:15.0;  TolLo:1.0; TolHi:1.0; Note:'authentic WLR'),
+    // Table 1 requires M, S and I, not only I, for cases 1 and 2.
+    (Std:3341; Num:1; Metric:mSteadyM; Expected:-23.0; TolLo:0.1; TolHi:0.1; Note:'all settled M readings'),
+    (Std:3341; Num:1; Metric:mSteadyS; Expected:-23.0; TolLo:0.1; TolHi:0.1; Note:'all settled S readings'),
+    (Std:3341; Num:2; Metric:mSteadyM; Expected:-33.0; TolLo:0.1; TolHi:0.1; Note:'all settled M readings'),
+    (Std:3341; Num:2; Metric:mSteadyS; Expected:-33.0; TolLo:0.1; TolHi:0.1; Note:'all settled S readings'),
+    // Supplementary package files, not numbered compliance cases.
+    (Std:0; Num:1; Metric:mI; Expected:-20.0; TolLo:0.1; TolHi:0.1; Note:'package alignment tone'),
+    (Std:0; Num:2; Metric:mI; Expected:-26.0; TolLo:0.1; TolHi:0.1; Note:'package alignment tone'),
+    (Std:0; Num:3; Metric:mI; Expected:-40.0; TolLo:0.1; TolHi:0.1; Note:'package alignment tone'),
+    (Std:0; Num:4; Metric:mI; Expected:-23.0; TolLo:0.1; TolHi:0.1; Note:'Tech 3343 section 8.2 pink noise; 0.1 LU test budget'),
+    (Std:3342; Num:1; Metric:mRepeatedLRA; Expected:10; TolLo:1; TolHi:1; Note:'whole WAV repeated twice'),
+    (Std:3342; Num:2; Metric:mRepeatedLRA; Expected:5; TolLo:1; TolHi:1; Note:'whole WAV repeated twice'),
+    (Std:3342; Num:3; Metric:mRepeatedLRA; Expected:20; TolLo:1; TolHi:1; Note:'whole WAV repeated twice'),
+    (Std:3342; Num:4; Metric:mRepeatedLRA; Expected:15; TolLo:1; TolHi:1; Note:'whole WAV repeated twice'),
+    (Std:3342; Num:5; Metric:mRepeatedLRA; Expected:5; TolLo:1; TolHi:1; Note:'whole WAV repeated twice'),
+    (Std:3342; Num:6; Metric:mRepeatedLRA; Expected:15; TolLo:1; TolHi:1; Note:'whole WAV repeated twice')
   );
 
 function MetricName(M: TMetric): string;
 begin
   case M of
     mI:    result := 'I  ';
-    mMaxM: result := 'M  ';
-    mMaxS: result := 'S  ';
-    mLRA:  result := 'LRA';
+    mMaxM, mSteadyM: result := 'M  ';
+    mMaxS, mSteadyS: result := 'S  ';
+    mLRA, mRepeatedLRA: result := 'LRA';
     mTP:   result := 'TP ';
   else     result := '?  ';
   end;
@@ -98,7 +119,7 @@ end;
 function UnitName(M: TMetric): string;
 begin
   case M of
-    mLRA: result := 'LU';
+    mLRA, mRepeatedLRA: result := 'LU';
     mTP:  result := 'dBTP';
   else    result := 'LUFS';
   end;
@@ -122,17 +143,15 @@ begin
     Result := StrToIntDef(Copy(s, p, q - p), -1);
 end;
 
-function FindCase(AStd, ANum: integer; out ACase: TCaseSpec): boolean;
-var
-  i: integer;
+function MatchesCase(const AName: string; const C: TCaseSpec): boolean;
+const
+  ExtraNames: array[1..4] of string = (
+    '1kHz Sine -20 LUFS-16bit.wav', '1kHz Sine -26 LUFS-16bit.wav',
+    '1kHz Sine -40 LUFS-16bit.wav',
+    'EBU-reference_listening_signal_pinknoise_500Hz_2kHz_R128.wav');
 begin
-  for i := Low(Cases) to High(Cases) do
-    if (Cases[i].Std = AStd) and (Cases[i].Num = ANum) then
-    begin
-      ACase := Cases[i];
-      Exit(True);
-    end;
-  Result := False;
+  if C.Std = 0 then Result := AName = ExtraNames[C.Num]
+  else Result := ExtractTestNum(AName, C.Std) = C.Num;
 end;
 
 // Run the full analysis pipeline on one file and collect the loudness measures.
@@ -141,26 +160,34 @@ var
   Track: TTrack;
   Stream: TFileStream;
   Analyzer: TTrackAnalyzer;
-  L: TLoudnessMeter;
-  DurMs, t: longint;
+  L, RepeatedMeter: TLoudnessMeter;
+  Repeated: TDoubleMatrix;
+  DurMs, t, ch, Count: longint;
   m, s: double;
 begin
   Result.Ok := False;
   Result.Status := 0;
   Result.I := NegInfinity; Result.MaxM := NegInfinity;
   Result.MaxS := NegInfinity; Result.LRA := NegInfinity; Result.TP := NegInfinity;
-  Result.LastM := NegInfinity; Result.LastS := NegInfinity;
+  Result.MinM := Infinity; Result.MinS := Infinity;
+  Result.SteadyMaxM := NegInfinity; Result.SteadyMaxS := NegInfinity;
+  Result.SteadyMCount := 0; Result.SteadySCount := 0;
+  Result.RepeatedLRA := NegInfinity;
 
   Track := TTrack.Create(AFileName);
-  Stream := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
+  Stream := nil;
   try
+    Stream := TFileStream.Create(AFileName, fmOpenRead or fmShareDenyWrite);
     // FFT off: we only need loudness; run synchronously via the worker thread.
     Analyzer := TTrackAnalyzer.Create(Track, Stream, False);
     Analyzer.FreeOnTerminate := False;
-    Analyzer.Start;
-    Analyzer.WaitFor;
-    Result.Status := Analyzer.Status;
-    Analyzer.Free;
+    try
+      Analyzer.Start;
+      Analyzer.WaitFor;
+      Result.Status := Analyzer.Status;
+    finally
+      Analyzer.Free;
+    end;
 
     if Result.Status = 0 then
     begin
@@ -171,8 +198,8 @@ begin
       Result.MaxM := L.MaxMomentaryLoudness;   // sample-accurate maxima
       Result.MaxS := L.MaxShortTermLoudness;
 
-      // Steady-state (settled) reading for the "constant after Xs" cases:
-      // scan the 100 ms grid and keep the last finite M/S value.
+      // Inspect the full settled 100 ms grid, not just its final value.
+      // Non-finite readings must fail too, not be silently discarded.
       if Track.SampleRate > 0 then
         DurMs := (Int64(Track.SampleCount) * 1000) div Track.SampleRate
       else
@@ -182,11 +209,43 @@ begin
       begin
         m := L.MomentaryLoudness(t);
         s := L.ShortTermLoudness(t);
-        if not IsInfinite(m) then Result.LastM := m;
-        if not IsInfinite(s) then Result.LastS := s;
+        if (t >= 1000) and (t <= DurMs) then
+        begin
+          Inc(Result.SteadyMCount);
+          if IsNan(m) or IsInfinite(m) then m := NegInfinity;
+          Result.MinM := Min(Result.MinM, m);
+          Result.SteadyMaxM := Max(Result.SteadyMaxM, m);
+        end;
+        if (t >= 3000) and (t <= DurMs) then
+        begin
+          Inc(Result.SteadySCount);
+          if IsNan(s) or IsInfinite(s) then s := NegInfinity;
+          Result.MinS := Min(Result.MinS, s);
+          Result.SteadyMaxS := Max(Result.SteadyMaxS, s);
+        end;
         Inc(t, 100);
       end;
 
+      // Tech 3342 section 4: the expected LRA is unchanged if the entire
+      // programme is repeated. No filter reset between the two copies.
+      if ExtractTestNum(ExtractFileName(AFileName), 3342) in [1..6] then
+      begin
+        Count := Track.SampleCount;
+        SetLength(Repeated,Track.ChannelCount,Count*2);
+        for ch:=0 to Track.ChannelCount-1 do
+        begin
+          Move(Track.Channels[ch][0],Repeated[ch][0],SizeInt(Count)*SizeOf(double));
+          Move(Track.Channels[ch][0],Repeated[ch][Count],SizeInt(Count)*SizeOf(double));
+        end;
+        RepeatedMeter := Default(TLoudnessMeter);
+        RepeatedMeter.Init;
+        try
+          RepeatedMeter.Process(Repeated,Count*2,Track.SampleRate);
+          Result.RepeatedLRA := RepeatedMeter.LoudnessRange;
+        finally
+          RepeatedMeter.Finalize;
+        end;
+      end;
       Result.Ok := True;
     end;
   finally
@@ -195,41 +254,51 @@ begin
   end;
 end;
 
-function Measured(const R: TResults; M: TMetric; ASettle: boolean): double;
+// Report the worst settled reading. Passing this value implies that every
+// reading on the settled grid is within the symmetric loudness tolerance.
+function WorstReading(ALow, AHigh, AExpected: double; ACount: integer): double;
 begin
-  case M of
-    mI:    result := R.I;
-    mMaxM: if ASettle then result := R.LastM else result := R.MaxM;
-    mMaxS: if ASettle then result := R.LastS else result := R.MaxS;
-    mLRA:  result := R.LRA;
-    mTP:   result := R.TP;
-  else     result := NegInfinity;
+  if (ACount = 0) or IsInfinite(ALow) or IsInfinite(AHigh) then Exit(NegInfinity);
+  if Abs(ALow - AExpected) > Abs(AHigh - AExpected) then Result := ALow
+  else Result := AHigh;
+end;
+
+function Measured(const R: TResults; const C: TCaseSpec): double;
+begin
+  case C.Metric of
+    mI: result := R.I;
+    mMaxM: result := R.MaxM;
+    mMaxS: result := R.MaxS;
+    mSteadyM: result := WorstReading(R.MinM, R.SteadyMaxM, C.Expected, R.SteadyMCount);
+    mSteadyS: result := WorstReading(R.MinS, R.SteadyMaxS, C.Expected, R.SteadySCount);
+    mLRA: result := R.LRA;
+    mRepeatedLRA: result := R.RepeatedLRA;
+    mTP: result := R.TP;
+  else result := NegInfinity;
   end;
 end;
 
-// Tests "constant after Xs" (3341-9 S, 3341-12 M) check the steady-state
-// value, not the start-up transient: read the settled value, not the maximum.
-function CaseSettles(const C: TCaseSpec): boolean;
-begin
-  Result := (C.Std = 3341) and ((C.Num = 9) or (C.Num = 12));
-end;
-
+function RunEBUSuite(const AFolder: string): longint;
 var
   Folder: string;
   Info: TSearchRec;
   Files: TStringList;
-  i, k, nStd: integer;
+  i, k, j: integer;
+  Covered: array[Low(Cases)..High(Cases)] of boolean;
+  ShortVariants, MomentaryVariants: array[1..20] of boolean;
   R: TResults;
   C: TCaseSpec;
   meas, dev: double;
-  pass, anyCase: boolean;
+  pass, anyCase, HasFiveChannels, HasSixChannels: boolean;
   nTotal, nPass: integer;
   line, sdev: string;
 begin
-  if ParamCount >= 1 then
-    Folder := ParamStr(1)
-  else
-    Folder := GetCurrentDir;
+  HasFiveChannels := False;
+  HasSixChannels := False;
+  FillChar(Covered, SizeOf(Covered), 0);
+  FillChar(ShortVariants, SizeOf(ShortVariants), 0);
+  FillChar(MomentaryVariants, SizeOf(MomentaryVariants), 0);
+  Folder := AFolder;
   Folder := IncludeTrailingPathDelimiter(Folder);
 
   Files := TStringList.Create;
@@ -258,15 +327,21 @@ begin
     begin
       anyCase := False;
       R.Ok := False;
+      if Files[i] = 'seq-3341-6-5channels-16bit.wav' then HasFiveChannels := True;
+      if Files[i] = 'seq-3341-6-6channels-WAVEEX-16bit.wav' then HasSixChannels := True;
 
-      for nStd := 0 to 1 do   // check both 3341 and 3342 tokens in the name
+      for k := Low(Cases) to High(Cases) do
       begin
-        if nStd = 0 then k := ExtractTestNum(Files[i], 3341)
-                     else k := ExtractTestNum(Files[i], 3342);
-        if k < 0 then Continue;
-        if not FindCase(3341 + nStd, k, C) then Continue;   // nStd 0->3341, 1->3342
+        C := Cases[k];
+        if not MatchesCase(Files[i], C) then Continue;
 
         anyCase := True;
+        Covered[k] := True;
+        if (C.Std = 3341) and (C.Num in [10, 13]) then
+          for j := 1 to 20 do
+            if Pos(Format('3341-%d-%d-', [C.Num, j]), Files[i]) > 0 then
+              if C.Num = 10 then ShortVariants[j] := True
+              else MomentaryVariants[j] := True;
 
         // analyze once, lazily, the first time a case matches
         if not R.Ok then
@@ -274,11 +349,12 @@ begin
 
         if not R.Ok then
         begin
+          Inc(nTotal);
           Writeln(Format('%-40s  read error (status %d)', [Files[i], R.Status]));
           Break;
         end;
 
-        meas := Measured(R, C.Metric, CaseSettles(C));
+        meas := Measured(R, C);
         dev  := meas - C.Expected;
         pass := (dev >= -C.TolLo - 1e-9) and (dev <= C.TolHi + 1e-9);
 
@@ -294,13 +370,41 @@ begin
            C.TolHi, C.TolLo, UnitName(C.Metric),
            BoolToStr(pass, 'PASS', 'FAIL')]);
         if C.Note <> '' then line := line + '   [' + C.Note + ']';
+        if C.Metric = mSteadyM then line := line + Format(' (%d readings)', [R.SteadyMCount]);
+        if C.Metric = mSteadyS then line := line + Format(' (%d readings)', [R.SteadySCount]);
         Writeln(line);
       end;
 
-      if (not anyCase) then
-        ; // file is not part of the EBU test set -> silently skipped
+      if not anyCase then Writeln('UNMATCHED WAV: ', Files[i]);
     end;
 
+    if not HasFiveChannels then
+    begin
+      Inc(nTotal); Writeln('MISSING 3341-6 5.0 PCM variant');
+    end;
+    if not HasSixChannels then
+    begin
+      Inc(nTotal); Writeln('MISSING 3341-6 5.1 WAVEEX variant');
+    end;
+    // Missing fixtures must not turn a partial reference run into "all pass".
+    for k := Low(Cases) to High(Cases) do
+      if not Covered[k] then
+      begin
+        Inc(nTotal);
+        Writeln(Format('MISSING case %d-%d %s',
+          [Cases[k].Std, Cases[k].Num, MetricName(Cases[k].Metric)]));
+      end;
+    for j := 1 to 20 do
+    begin
+      if not ShortVariants[j] then
+      begin
+        Inc(nTotal); Writeln('MISSING variant 3341-10-', j);
+      end;
+      if not MomentaryVariants[j] then
+      begin
+        Inc(nTotal); Writeln('MISSING variant 3341-13-', j);
+      end;
+    end;
     Writeln(StringOfChar('-', 96));
     Writeln(Format('Checks: %d   Passed: %d   Failed: %d', [nTotal, nPass, nTotal - nPass]));
     if (nTotal > 0) and (nPass = nTotal) then
@@ -313,9 +417,8 @@ begin
     Files.Free;
   end;
 
-  // exit code: 0 = all pass (or nothing to do), 1 = at least one failure
-  if nTotal - nPass > 0 then
-    Halt(1)
-  else
-    Halt(0);
+  // A missing/empty fixture directory is a failure, never a false green.
+  if nTotal = 0 then Result := 1 else Result := nTotal - nPass;
+end;
+
 end.
