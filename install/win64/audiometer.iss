@@ -42,7 +42,6 @@ Source: "audiometerdbg.exe"; DestDir: "{app}";       Flags: ignoreversion
 Source: "audiometer.exe";    DestDir: "{app}";       Flags: ignoreversion
 Source: "ffprobe.exe";       DestDir: "{app}";       Flags: ignoreversion
 Source: "ffmpeg.exe";        DestDir: "{app}";       Flags: ignoreversion
-Source: "ffplay.exe";        DestDir: "{app}";       Flags: ignoreversion
 Source: "LICENSE";           DestDir: "{app}";       Flags: ignoreversion
 Source: "README";            DestDir: "{app}";       Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files

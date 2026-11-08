@@ -18,16 +18,16 @@ defaults are GTK2, GTK3, Qt5 and Qt6, run on a private Xvfb display
 uses the session's `$DISPLAY` instead of Xvfb. Windows uses win32, macOS cocoa.
 The `application` test creates the application's forms, analyzes two
 synthetic WAVs through the main form's batch, resizes and closes the form.
-It checks for `ffmpeg` and `ffprobe` before creating the forms and fails without
-opening a dialog if either is missing. On Windows the runner copies both tools
+It checks for `ffmpeg` and `ffprobe` before creating the forms and stops with
+an error if either is missing. On Windows the runner copies both tools
 beside the decoder and application test executables (`--ffmpeg-dir` overrides
 the source folder; otherwise they are found in `PATH`).
 
-The EBU reference WAVs are not distributed: `--ebu[=FOLDER]` runs the `ebu`
-test with them, otherwise it is skipped.
+The `ebu` test reads the EBU reference WAVs (see `references/LICENSES.md`):
+`--ebu[=FOLDER]` runs it, otherwise it is skipped.
 
 On Windows the tests are built for x86_64/win64, like the released
-application (the i386 compiler cannot load the BGRABitmap units reliably).
+application.
 `--cpu=` and `--os=` choose another target; an empty value keeps the
 compiler's default.
 
@@ -42,5 +42,3 @@ manual ownership and `FreeOnTerminate`. It also runs valid in-memory WAV
 analyses (including cancellation inside `Execute`), followed by a screen worker,
 and releases the input resources at completion before automatic destruction.
 Rendering itself is covered by `drawers`; `workers` uses an empty drawing mode.
-These tests do not automate the application's file dialogs or inject allocation
-failures into GUI error handlers.
