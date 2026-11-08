@@ -1,3 +1,6 @@
-AudioMeter 
+AudioMeter
 
-A simple dynamic range meter
+Dynamic range and loudness analysis of audio files.
+
+ffmpeg.exe and ffprobe.exe are FFmpeg programs, distributed under their own
+license: see https://ffmpeg.org/legal.html.

@@ -1,6 +1,6 @@
 # Source relative to tests/regression | build/execution mode
-# console: lazbuild the adjacent .lpi, no widgetset, no arguments
-# nogui:   lazbuild --ws=nogui, LCL without a display; argument: results folder
+# console: lazbuild the adjacent .lpi, run without arguments
+# nogui:   lazbuild --ws=nogui; argument: results folder
 # widgetset: as nogui, built and run once per widgetset of --ws (Linux: gtk2,
 #          gtk3, qt5, qt6 on a private Xvfb; Windows: win32; macOS: cocoa)
 # ffmpeg:  as console, requires ffmpeg and ffprobe
